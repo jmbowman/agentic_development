@@ -1,0 +1,63 @@
+# Shared CI: install the caller's pinned tools with mise and run its template-defined `check` task.
+# Design: docs/intent/check-workflow/check-workflow-design.md
+name: check
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory to check, relative to the repo root. Only this repo's tests set it.
+        type: string
+        required: false
+        default: "."
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      - id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: ceiling
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          # Keep mise from reading config above the working directory.
+          echo "MISE_CEILING_PATHS=$(dirname "$(pwd -P)")" >> "$GITHUB_ENV"
+
+      - id: mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.10.8
+          working_directory: ${{ inputs.working-directory }}
+
+      - id: script
+        # The verification script, from this workflow's own repo and commit.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .check-workflow
+          persist-credentials: false
+          sparse-checkout: scripts/verify_check.py
+          sparse-checkout-cone-mode: false
+
+      - id: verify
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          # `check` and its non-`-extra` dependencies must be defined under conf.d.
+          mv -T "$GITHUB_WORKSPACE/.check-workflow" "$RUNNER_TEMP/check-workflow"
+          /usr/bin/python3 -I "$RUNNER_TEMP/check-workflow/scripts/verify_check.py"
+
+      - id: check
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+        run: mise run --continue-on-error check 2>&1 | tee "$RUNNER_TEMP/check-output.log"

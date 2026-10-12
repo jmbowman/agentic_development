@@ -1,0 +1,5 @@
+[tasks.test]
+run = "exit 1"
+
+[tasks.check]
+depends = ["test"]

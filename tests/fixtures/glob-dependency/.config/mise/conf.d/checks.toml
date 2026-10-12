@@ -1,0 +1,8 @@
+[tasks."lint:one"]
+run = "true"
+
+[tasks."lint:two"]
+run = "true"
+
+[tasks.check]
+depends = ["lint:*"]

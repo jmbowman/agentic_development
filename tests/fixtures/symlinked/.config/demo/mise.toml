@@ -1,0 +1,5 @@
+[tasks.ok]
+run = "echo symlinked-ok"
+
+[tasks.check]
+depends = ["ok"]

@@ -1,0 +1,5 @@
+[tasks.lint]
+run = "exit 1"
+
+[tasks.check]
+run = [{ task = "lint" }]

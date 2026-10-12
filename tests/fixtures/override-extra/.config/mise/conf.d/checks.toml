@@ -1,0 +1,5 @@
+[tasks.check-extra]
+run = "true"
+
+[tasks.check]
+depends = ["check-extra"]

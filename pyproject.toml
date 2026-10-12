@@ -1,0 +1,23 @@
+[project]
+name = "agentic-development"
+version = "0.0.0"
+description = "Shared CI workflow and Renovate preset for the agentic development system, with their tests"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest==9.1.1", "pyyaml==6.0.3"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers"
+markers = [
+    "network: needs network access beyond tools already installed",
+    "renovate: runs the Renovate CLI pinned in mise.toml",
+]

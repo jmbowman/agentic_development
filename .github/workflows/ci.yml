@@ -1,0 +1,179 @@
+# This repo's CI: its own checks, plus release tests of check.yml against fixture repos.
+# The negative-case jobs repeat check.yml's steps; tests/test_check_workflow_static.py keeps
+# them identical.
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  own-checks:
+    runs-on: ubuntu-24.04
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.10.8
+      - shell: bash
+        run: mise run check
+
+  fixture-passing:
+    uses: ./.github/workflows/check.yml
+    with:
+      working-directory: tests/fixtures/passing
+
+  fixture-fragment:
+    uses: ./.github/workflows/check.yml
+    with:
+      working-directory: tests/fixtures/fragment
+
+  fixture-symlinked:
+    uses: ./.github/workflows/check.yml
+    with:
+      working-directory: tests/fixtures/symlinked
+
+  fixture-failing:
+    runs-on: ubuntu-24.04
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: ceiling
+        shell: bash
+        working-directory: tests/fixtures/failing
+        run: |
+          # Keep mise from reading config above the working directory.
+          echo "MISE_CEILING_PATHS=$(dirname "$(pwd -P)")" >> "$GITHUB_ENV"
+      - id: mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.10.8
+          working_directory: tests/fixtures/failing
+      - id: script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .check-workflow
+          persist-credentials: false
+          sparse-checkout: scripts/verify_check.py
+          sparse-checkout-cone-mode: false
+      - id: verify
+        continue-on-error: true
+        shell: bash
+        working-directory: tests/fixtures/failing
+        run: |
+          # `check` and its non-`-extra` dependencies must be defined under conf.d.
+          mv -T "$GITHUB_WORKSPACE/.check-workflow" "$RUNNER_TEMP/check-workflow"
+          /usr/bin/python3 -I "$RUNNER_TEMP/check-workflow/scripts/verify_check.py"
+      - id: check
+        continue-on-error: true
+        shell: bash
+        working-directory: tests/fixtures/failing
+        run: mise run --continue-on-error check 2>&1 | tee "$RUNNER_TEMP/check-output.log"
+      - id: assert
+        if: always()
+        shell: bash
+        env:
+          VERIFY_PASSED: ${{ steps.verify.outcome == 'success' }}
+          CHECK_FAILED: ${{ steps.check.outcome == 'failure' }}
+        run: |
+          test "$VERIFY_PASSED" = true
+          test "$CHECK_FAILED" = true
+          grep -q MARKER-slow-ok "$RUNNER_TEMP/check-output.log"
+
+  fixture-override-check:
+    runs-on: ubuntu-24.04
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: ceiling
+        shell: bash
+        working-directory: tests/fixtures/override-check
+        run: |
+          # Keep mise from reading config above the working directory.
+          echo "MISE_CEILING_PATHS=$(dirname "$(pwd -P)")" >> "$GITHUB_ENV"
+      - id: mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.10.8
+          working_directory: tests/fixtures/override-check
+      - id: script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .check-workflow
+          persist-credentials: false
+          sparse-checkout: scripts/verify_check.py
+          sparse-checkout-cone-mode: false
+      - id: verify
+        continue-on-error: true
+        shell: bash
+        working-directory: tests/fixtures/override-check
+        run: |
+          # `check` and its non-`-extra` dependencies must be defined under conf.d.
+          mv -T "$GITHUB_WORKSPACE/.check-workflow" "$RUNNER_TEMP/check-workflow"
+          /usr/bin/python3 -I "$RUNNER_TEMP/check-workflow/scripts/verify_check.py"
+      - id: assert
+        if: always()
+        shell: bash
+        env:
+          VERIFY_FAILED: ${{ steps.verify.outcome == 'failure' }}
+        run: test "$VERIFY_FAILED" = true
+
+  fixture-override-test:
+    runs-on: ubuntu-24.04
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: ceiling
+        shell: bash
+        working-directory: tests/fixtures/override-test
+        run: |
+          # Keep mise from reading config above the working directory.
+          echo "MISE_CEILING_PATHS=$(dirname "$(pwd -P)")" >> "$GITHUB_ENV"
+      - id: mise
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.10.8
+          working_directory: tests/fixtures/override-test
+      - id: script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .check-workflow
+          persist-credentials: false
+          sparse-checkout: scripts/verify_check.py
+          sparse-checkout-cone-mode: false
+      - id: verify
+        continue-on-error: true
+        shell: bash
+        working-directory: tests/fixtures/override-test
+        run: |
+          # `check` and its non-`-extra` dependencies must be defined under conf.d.
+          mv -T "$GITHUB_WORKSPACE/.check-workflow" "$RUNNER_TEMP/check-workflow"
+          /usr/bin/python3 -I "$RUNNER_TEMP/check-workflow/scripts/verify_check.py"
+      - id: assert
+        if: always()
+        shell: bash
+        env:
+          VERIFY_FAILED: ${{ steps.verify.outcome == 'failure' }}
+        run: test "$VERIFY_FAILED" = true

@@ -1,0 +1,8 @@
+[tasks.test]
+run = "exit 1"
+
+[tasks.unit]
+depends = ["test"]
+
+[tasks.check]
+depends = ["unit"]

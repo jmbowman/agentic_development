@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Shared update policy for repos built with agentic_development's templates (docs/intent/renovate-preset/renovate-preset-design.md).",
+  "extends": ["config:best-practices"],
+  "automerge": true,
+  "automergeType": "pr",
+  "platformAutomerge": true,
+  "minimumReleaseAge": "3 days",
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/test/**",
+    "**/tests/**",
+    "**/__fixtures__/**",
+    ".config/copier-*/**",
+    "**/.config/mise/conf.d/**"
+  ],
+  "packageRules": [
+    {
+      "description": "LID plugin pins need a manual /update-lid walk after merging.",
+      "matchManagers": ["apm"],
+      "matchPackageNames": ["jszmajda/lid"],
+      "automerge": false
+    },
+    {
+      "description": "Copier template versions have no release timestamps, so the delay can't apply.",
+      "matchManagers": ["copier"],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "Runner images come from a list inside Renovate, with no release timestamps.",
+      "matchDatasources": ["github-runners"],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "This system's own releases (agentic_development and copier-<lowercase language> templates) skip the delay.",
+      "matchPackageNames": ["jmbowman/agentic_development", "/^jmbowman\\/copier-[a-z]/"],
+      "minimumReleaseAge": null
+    }
+  ]
+}

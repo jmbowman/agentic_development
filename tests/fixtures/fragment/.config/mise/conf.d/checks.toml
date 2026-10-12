@@ -1,0 +1,6 @@
+# hyperfine is pinned only here: not on GitHub's runner images or in this repo's root config.
+[tools]
+"github:sharkdp/hyperfine" = { version = "2.0.0", asset_pattern = "hyperfine-v2.0.0-x86_64-unknown-linux-gnu.tar.gz" }
+
+[tasks.check]
+run = "hyperfine --version"

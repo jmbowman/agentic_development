@@ -1,0 +1,8 @@
+[tasks.lint]
+run = "echo monorepo-lint-ok"
+
+[tasks.check]
+depends = ["lint", "//:fmt"]
+
+[tasks.fmt]
+run = "echo monorepo-fmt-ok"

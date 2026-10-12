@@ -1,0 +1,6 @@
+[tasks.long-name]
+alias = "short"
+run = "echo alias-ok"
+
+[tasks.check]
+depends = ["short"]

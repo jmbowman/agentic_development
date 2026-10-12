@@ -1,0 +1,6 @@
+# This repo's strict ty settings, matching copier-python's.
+[rules]
+all = "error"
+
+[analysis]
+respect-type-ignore-comments = false

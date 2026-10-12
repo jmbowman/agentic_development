@@ -1,0 +1,8 @@
+[tasks.fail-now]
+run = "exit 1"
+
+[tasks.slow-ok]
+run = "sleep 1; echo MARKER-slow-ok"
+
+[tasks.check]
+depends = ["fail-now", "slow-ok"]

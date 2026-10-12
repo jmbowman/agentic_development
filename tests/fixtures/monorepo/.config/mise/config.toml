@@ -1,0 +1,8 @@
+# A monorepo root: mise reports this repo's tasks as `//:<name>`.
+experimental_monorepo_root = true
+
+[monorepo]
+config_roots = []
+
+[settings]
+experimental = true
