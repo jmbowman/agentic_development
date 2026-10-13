@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   own-checks:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
     steps:
@@ -42,7 +42,7 @@ jobs:
       working-directory: tests/fixtures/symlinked
 
   fixture-failing:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
     steps:
@@ -94,7 +94,7 @@ jobs:
           grep -q MARKER-slow-ok "$RUNNER_TEMP/check-output.log"
 
   fixture-override-check:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
     steps:
@@ -137,7 +137,7 @@ jobs:
         run: test "$VERIFY_FAILED" = true
 
   fixture-override-test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
     steps:
