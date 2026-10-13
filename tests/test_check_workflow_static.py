@@ -171,7 +171,8 @@ def test_run_steps_use_bash_without_expressions(check_job: dict[str, Any]) -> No
 
 def _self_ci_jobs() -> dict[str, dict[str, Any]]:
     workflow = load_workflow(SELF_CI)
-    assert "push" in workflow["on"]
+    # Pushes to main, and every pull request, including Renovate's and those from forks.
+    assert workflow["on"] == {"push": {"branches": ["main"]}, "pull_request": None}
     return workflow["jobs"]
 
 
