@@ -25,3 +25,4 @@ Design: [renovate-preset-design.md](renovate-preset-design.md). The preset is `r
 
 - [x] **PRESET-PATH-001**: The Renovate preset's `ignorePaths` shall include each of Renovate's default ignore patterns: `**/node_modules/**`, `**/bower_components/**`, `**/vendor/**`, `**/examples/**`, `**/__tests__/**`, `**/test/**`, `**/tests/**` and `**/__fixtures__/**`.
 - [x] **PRESET-PATH-002**: The Renovate preset's `ignorePaths` shall cause Renovate to ignore a consumer's `.config/copier-<name>/**` files at the repository root and every `.config/mise/conf.d/**` file at any depth, and shall not ignore a template repo's `template/.config/copier-<name>/**` sources.
+- [x] **PRESET-PATH-003**: The Renovate preset's `ignorePaths` shall cause Renovate to ignore every file under a `.mise/locks/` or `.config/mise/locks/` directory at any depth, the dependency sidecars that `mise lock` writes.

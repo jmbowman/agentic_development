@@ -320,3 +320,24 @@ def test_lid_rule_matches_what_the_apm_manager_extracts(
     ]
     lid_rule = next(rule for rule in resolved_config["packageRules"] if _is_lid_rule(rule))
     assert any(dep.get("packageName") in lid_rule["matchPackageNames"] for dep in deps), deps
+
+
+@pytest.mark.renovate
+# @spec PRESET-PATH-003
+def test_mise_lock_sidecars_are_ignored(tmp_path: Path) -> None:
+    """The package.json in a mise lock sidecar isn't extracted as an npm project."""
+    sidecar = (
+        '{"name": "mise-npm-install", "private": true, "dependencies": {"renovate": "44.0.0"}}\n'
+    )
+    repo = _git_repo(
+        tmp_path / "repo",
+        {
+            "package.json": '{"name": "app", "dependencies": {"left-pad": "1.0.0"}}\n',
+            ".mise/locks/npm-renovate/44.0.0~abc/package.json": sidecar,
+            ".config/mise/locks/npm-renovate/44.0.0~abc/package.json": sidecar,
+            "sub/.mise/locks/npm-renovate/44.0.0~abc/package.json": sidecar,
+        },
+    )
+    extracted = _extracted_package_files(repo)
+    assert "package.json" in extracted
+    assert not {path for path in extracted if "/locks/" in path}, extracted
