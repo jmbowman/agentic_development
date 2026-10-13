@@ -44,6 +44,7 @@ The preset file is `renovate/default.json`. Consumers extend it as `github>jmbow
 **Ignored paths.** `ignorePaths` replaces Renovate's defaults rather than adding to them, so the preset lists:
 - Renovate's defaults: `**/node_modules/**`, `**/bower_components/**`, `**/vendor/**`, `**/examples/**`, `**/__tests__/**`, `**/test/**`, `**/tests/**`, `**/__fixtures__/**`;
 - `.config/copier-*/**`, anchored at the repo root, and `**/.config/mise/conf.d/**` at any depth. In a consumer, a template's directory and the `conf.d` links into it are template-owned and change only through template releases. In a template repo, the fragment under `template/.config/copier-<name>/` doesn't match and gets updated normally, while the template's own `conf.d` link is ignored, so Renovate never sees the same pins twice. A template release then carries the new pins to consumers.
+- `**/.mise/locks/**` and `**/.config/mise/locks/**`, where `mise lock` writes the dependency sidecars for npm and Python tools (for an npm tool, a `package.json` and an `aube-lock.yaml`). Renovate's npm manager would otherwise extract a sidecar's `package.json` as a project and bump the tool separately from its mise pin, breaking the digest `mise.lock` records (verified with Renovate 44.149.1 and mise 2026.10.8). Renovate's mise manager rewrites sidecars itself when it updates `mise.lock`.
 
 ## Testing a release
 

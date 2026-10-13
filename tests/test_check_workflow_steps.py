@@ -5,7 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from tests.support import StepRunner
+import pytest
+
+from tests.support import REPO_ROOT, StepRunner
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -152,3 +154,16 @@ def test_monorepo_root_is_accepted(fixture_runner: RunnerFactory) -> None:
     assert results["verify"].returncode == 0, results["verify"].output
     assert "monorepo-lint-ok" in results["check"].output
     assert "monorepo-fmt-ok" in results["check"].output
+
+
+# @spec CHECK-007
+@pytest.mark.parametrize(
+    "fixture", ["passing", "fragment", "symlinked", "failing", "override-check", "override-test"]
+)
+def test_ci_fixtures_install_under_a_lock_file(fixture: str, fixture_runner: RunnerFactory) -> None:
+    """Each fixture CI runs installs with `--locked`, as mise-action runs it in this repo."""
+    assert (REPO_ROOT / "mise.lock").is_file(), "mise-action uses --locked only when a lock exists"
+    runner = fixture_runner(fixture)
+    run_steps(runner, "ceiling")
+    result = runner.install_like_mise_action()
+    assert result.returncode == 0, result.output

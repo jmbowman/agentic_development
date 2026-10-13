@@ -165,6 +165,26 @@ class StepRunner:
             expanded[key] = text
         return expanded
 
+    def install_like_mise_action(self) -> StepResult:
+        """Install the tools as mise-action does when it finds a `mise.lock` above the directory.
+
+        mise-action searches every ancestor of its working directory for a lock file, ignoring
+        mise's config ceiling, and then runs `mise install --locked`. In this repo's CI it always
+        finds the root `mise.lock`.
+
+        Returns:
+            The install's exit code and combined output.
+        """
+        completed = subprocess.run(
+            ["mise", "install", "--locked"],  # noqa: S607
+            cwd=self.working_directory,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return StepResult(completed.returncode, completed.stdout + completed.stderr)
+
     def run(self, step_id: str) -> StepResult:
         """Run one step's script and absorb what it exported.
 

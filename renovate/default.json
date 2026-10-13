@@ -16,7 +16,9 @@
     "**/tests/**",
     "**/__fixtures__/**",
     ".config/copier-*/**",
-    "**/.config/mise/conf.d/**"
+    "**/.config/mise/conf.d/**",
+    "**/.mise/locks/**",
+    "**/.config/mise/locks/**"
   ],
   "packageRules": [
     {
