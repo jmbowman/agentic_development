@@ -53,6 +53,7 @@ The planned components, not yet designed:
 
 - **APM:** an agent package manager. It installs skills, prompts and plugins from git repositories at pinned versions, resolves their dependencies, and records them in a lock file.
 - **copier:** a Python tool that renders a template repository into a project and later updates it, replaying the project's own edits.
+- **Dependency sidecar:** a file `mise lock` writes beside `mise.lock` (under `.mise/locks/`) to pin the indirect dependencies of an npm- or Python-based tool. `mise.lock` records its digest.
 - **Layer:** one template covering one concern (python, rust, documentation). A repo can apply several, each with its own answers file.
 - **LID:** Linked-Intent Development, the spec process used here: HLD → LLDs → EARS specs → tests → code.
 - **`lidc`:** a third-party CLI that checks LID's spec-to-test-to-code links.
@@ -72,7 +73,7 @@ The planned components, not yet designed:
 
 ## Goals
 
-- A repo whose code passes the strict baseline, or whose existing violations are recorded as named exceptions, reaches the full baseline with one `copier copy` plus a push, and passes CI on the first run.
+- A repo whose code passes the strict baseline, or whose existing violations are recorded as named exceptions, reaches the full baseline with one `copier copy`, a `mise lock` and a push, and passes CI on the first run. One-time onboarding also installs the lock-refresh GitHub App and adds its private key as a secret.
 - A template or shared-config release reaches every consumer repo as an automatically merged update with no hand edits. A conflicting update means a file has the wrong owner or an answer is missing from the template.
 - Every check runs in CI, and the fast ones also run at commit time.
 - Each repo's named exceptions can be counted and paid down.
@@ -99,7 +100,7 @@ Ordered: when two conflict, the higher one wins.
 ```mermaid
 flowchart TB
   subgraph AD["agentic_development (tagged)"]
-    WF["check workflow"]
+    WF["check and lock-refresh<br/>workflows"]
     PS["Renovate preset"]
     SK["skills package<br/>(planned)"]
   end
@@ -108,7 +109,7 @@ flowchart TB
   end
   subgraph R["consumer repo"]
     CFG["template-owned<br/>files"]
-    STUB["ci.yml"]
+    STUB["CI stubs"]
     RJ[".github/renovate.json"]
     APM["apm.yml"]
   end
@@ -122,17 +123,17 @@ flowchart TB
 
 Renovate opens a separate pull request for each kind of update in a consumer repo:
 - a template release (copier manager, which re-renders the template-owned files);
-- a new tag of this repo's workflow (github-actions manager, in `ci.yml`), preset (renovate-config manager, in `.github/renovate.json`) or skills package (apm manager, in `apm.yml`);
+- a new tag of this repo's workflows (github-actions manager, in `ci.yml` and `lock-refresh.yml`), preset (renovate-config manager, in `.github/renovate.json`) or skills package (apm manager, in `apm.yml`);
 - the tools pinned in the repo's own files.
 
-`ci.yml` and `.github/renovate.json`, and `apm.yml` once the skills package exists, are rendered once by the template and then belong to the repo. Each template keeps its own files together in `.config/<template>/` (for example `.config/copier-python/`), and links to them from wherever a tool requires a file, so a repo's root stays nearly empty and a file's origin is visible from its path.
+The CI stubs (`ci.yml` and `lock-refresh.yml`) and `.github/renovate.json`, and `apm.yml` once the skills package exists, are rendered once by the template and then belong to the repo. Each template keeps its own files together in `.config/<template>/` (for example `.config/copier-python/`), and links to them from wherever a tool requires a file, so a repo's root stays nearly empty and a file's origin is visible from its path.
 
 Components:
 
 | Component | Lives in | Owns |
 |---|---|---|
-| CI workflows | this repo, `.github/workflows/` | The reusable workflow each language layer's stub calls, what it requires a consumer repo to contain, the checks it runs, and its release tests against a fixture consumer |
-| Renovate presets | this repo | Shared Renovate behavior: automerge policy, the supply-chain delay, paths Renovate must not touch, and the exception that holds LID pin bumps for a manual upgrade |
+| CI workflows | this repo, `.github/workflows/` | The reusable check workflow each language layer's stub calls, what it requires a consumer repo to contain, the checks it runs, and its release tests against a fixture consumer. The reusable lock-refresh workflow that keeps a consumer's committed `mise.lock` current on Renovate's branches |
+| Renovate presets | this repo | Shared Renovate behavior: automerge policy, the supply-chain delay, paths Renovate must not touch, the exception that holds LID pin bumps for a manual upgrade, and treating the lock-refresh App's commits as Renovate's own |
 | copier-python | [copier-python](https://github.com/jmbowman/copier-python) (`../copier-python` locally), with its own design docs | The Python baseline files, their owners, and the template's own tests |
 | Process skills and hooks | this repo (planned) | The template-owned skills package and hooks. Not yet designed |
 
@@ -148,9 +149,11 @@ Copier never edits the repo-owned reference files after the first render, and Re
   - projen: needs Node, and its generated `.gitignore` can't be regenerated by hosted Renovate.
 - **Copied and referenced pieces live in separate repositories.** A repo has one tag stream. If the template lived here, every skill release would open a no-op template PR in every consumer, and separate template layers would be impossible. *Precedent:* GitLab's infra team keeps its copier template and its shared Renovate presets and CI tasks in separate projects.
 - **Templates are declarative.** No copier tasks, migrations or Jinja extensions. Each of those requires `--trust`, which Renovate passes only when its admin allows scripts, so a declarative template is what lets the hosted Renovate app run updates unattended. Template-specific build-vs-adopt reasoning lives in each template's own HLD.
-- **CI stubs pass no inputs.** A consumer's `ci.yml` stub only calls the reusable workflow. The workflow takes everything it needs from files the template maintains in the repo (pinned tool versions and the `check` task), so a change in what CI runs travels through a template update, and stubs never need a hand edit. *Alternatives:* stubs that pass inputs (a breaking input change means hand-editing every stub); a template-owned stub whose tag copier renders (this ties the workflow's version to the template's, and Renovate's github-actions manager must be told to skip the file).
+- **Lock files are committed, and refreshed on update PRs.** Consumers commit `mise.lock` and its dependency sidecars, so indirect dependencies change only through a PR that CI tests, and CI installs with `--locked` (mise-action does this whenever a lock file exists). Renovate's mise manager normally refreshes the lock for the pins it bumps. Template releases arrive through the copier manager, which doesn't, and the hosted app can't run `mise lock` as a post-upgrade task (its allowlist is `git add --all`, `git reset` and `pwd`). So a reusable lock-refresh workflow runs on Renovate's template-update PRs (those that change a copier answers file), runs `mise lock`, and pushes the result with a GitHub App installation token, because a push made with the workflow's own `GITHUB_TOKEN` doesn't start a new CI run. The workflow runs `mise lock` in mise's safe mode and mints the token only for the push, so new template config never runs next to a write token. The shared preset lists the App's commit author in Renovate's `gitIgnoredAuthors`: otherwise Renovate treats the PR as edited by someone else and stops updating or rebasing it. When Renovate rebases, it drops the lock commit and the workflow runs again; with nothing to change, it pushes nothing. The App's client ID isn't sensitive, so the template renders it into the stub from a copier answer. Each consumer holds only the App's private key, as a repository secret added at onboarding. The secret's name is a stable interface, and renaming it is a major version. Per-repo secrets are copies, a deliberate exception to *Reference over copy*. *Alternatives:* no committed lock files, or unlocked installs in CI (both let indirect dependencies change silently); self-hosted Renovate allowed to run `mise lock` (replaces the hosted app); a fine-grained personal access token (expires, and its commits look like the developer's); one repo that holds the App key and makes commits for the others (fewer secrets, but a server repo and more moving parts; a later option if per-repo secrets become a burden).
+- **CI stubs pass no inputs.** A consumer's `ci.yml` stub only calls the reusable workflow, and the lock-refresh stub passes only the lock-refresh App's client ID and private key. The workflow takes everything it needs from files the template maintains in the repo (pinned tool versions and the `check` task), so a change in what CI runs travels through a template update, and stubs never need a hand edit. *Alternatives:* stubs that pass inputs (a breaking input change means hand-editing every stub); a template-owned stub whose tag copier renders (this ties the workflow's version to the template's, and Renovate's github-actions manager must be told to skip the file).
 - **Forge-specific pieces are isolated.** Only these things depend on GitHub:
-  - the CI definition (this repo's reusable workflow, and the stub that calls it);
+  - the CI definitions (this repo's reusable workflows, and the stubs that call them);
+  - the GitHub App that pushes refreshed lock files;
   - the forge prefix in the preset reference (`github>`);
   - repository URLs;
   - the repo settings that platform automerge needs (applied at onboarding).

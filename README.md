@@ -37,6 +37,7 @@ from repo to repo fails in predictable ways:
 | Path | What it is |
 |---|---|
 | `.github/workflows/check.yml` | The reusable CI workflow. A repo's CI is a stub that calls it with no inputs; it installs the repo's pinned tools with [mise](https://mise.jdx.dev) and runs the repo's `check` task. |
+| `.github/workflows/lock-refresh.yml` | A reusable workflow for repos that commit `mise.lock`. On Renovate's template-update PRs it reruns `mise lock` and pushes the result with a GitHub App token, so those PRs pass CI's locked install and still merge automatically. |
 | `renovate/default.json` | The Renovate preset: update pull requests merge automatically once CI passes, most new releases wait 3 days first, and template-owned files are left to the template. |
 | `scripts/` | The workflow's helper script, fetched at the workflow's own commit. |
 | `docs/` | The system's high-level design and each component's design and specs. |
