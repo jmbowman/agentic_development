@@ -1,0 +1,142 @@
+# Shared workflow: refresh a consumer's committed mise lock files on Renovate's template-update PRs.
+# Design: docs/intent/lock-refresh/lock-refresh-design.md
+name: lock-refresh
+
+on:
+  workflow_call:
+    inputs:
+      client-id:
+        description: The client ID of the GitHub App that pushes the refreshed lock files.
+        type: string
+        required: true
+    secrets:
+      app-private-key:
+        description: That GitHub App's private key.
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  lock-refresh:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.user.login == 'renovate[bot]'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    concurrency:
+      group: lock-refresh-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    env:
+      # Project config is read but never runs code: no hooks, `_.source`, `[env]` or tasks.
+      MISE_SAFE: 1
+    steps:
+      - id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - id: tracked
+        shell: bash
+        run: |
+          # An empty directory, so mise-action's own `mise ls` calls see no project config.
+          mkdir -p "$RUNNER_TEMP/lock-refresh-empty"
+          unsupported="$(/usr/bin/git ls-files -- .mise.lock .config/mise.lock ':(glob)mise.*.lock' ':(glob).config/mise/mise.*.lock')"
+          if [[ -n "$unsupported" ]]; then
+            echo "error: unsupported mise lock file layout: $unsupported" >&2
+            exit 1
+          fi
+          locks="$(/usr/bin/git ls-files -- mise.lock .config/mise/mise.lock | tr '\n' ' ')"
+          if [[ -n "${locks// /}" ]]; then found=true; else found=false; fi
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+          echo "locks=$locks" >> "$GITHUB_OUTPUT"
+
+      - id: mise
+        if: steps.tracked.outputs.found == 'true'
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: 2026.10.8
+          install: false
+          env: false
+          cache: false
+          working_directory: ${{ runner.temp }}/lock-refresh-empty
+
+      - id: lock
+        if: steps.tracked.outputs.found == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise lock
+
+      - id: changes
+        if: steps.tracked.outputs.found == 'true'
+        shell: bash
+        env:
+          LOCKS: ${{ steps.tracked.outputs.locks }}
+        run: |
+          # Stage each tracked lock file and its own sidecar directory, deletions included.
+          paths=()
+          for lock in $LOCKS; do
+            paths+=("$lock")
+            case "$lock" in
+              mise.lock) sidecars=.mise/locks ;;
+              .config/mise/mise.lock) sidecars=.config/mise/locks ;;
+            esac
+            if [[ -e "$sidecars" || -n "$(/usr/bin/git ls-files -- "$sidecars")" ]]; then
+              if /usr/bin/git check-ignore --quiet --no-index "$sidecars"; then
+                echo "error: $sidecars is ignored by git, but $lock needs its sidecars committed." >&2
+                exit 1
+              fi
+              paths+=("$sidecars")
+            fi
+          done
+          /usr/bin/git add --all -- "${paths[@]}"
+          if /usr/bin/git diff --cached --quiet; then staged=false; else staged=true; fi
+          echo "staged=$staged" >> "$GITHUB_OUTPUT"
+
+      - id: token
+        if: steps.changes.outputs.staged == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ inputs.client-id }}
+          private-key: ${{ secrets.app-private-key }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - id: push
+        if: steps.changes.outputs.staged == 'true'
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          # The App token reaches git only through environment config, never a command line.
+          credentials="$(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          echo "::add-mask::$credentials"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $credentials"
+          identity=(-c "user.name=Lock Refresh" -c "user.email=lock-refresh@agentic-development.invalid")
+          /usr/bin/git "${identity[@]}" commit --quiet --message "Refresh mise lock files"
+          # Succeeds only if the branch still points at the checked-out commit.
+          if /usr/bin/git push --force-with-lease="refs/heads/$HEAD_REF:$HEAD_SHA" origin "HEAD:refs/heads/$HEAD_REF"; then
+            exit 0
+          fi
+          if ! listing="$(/usr/bin/git ls-remote origin "refs/heads/$HEAD_REF")"; then
+            echo "error: couldn't read $HEAD_REF from origin after the push failed." >&2
+            exit 1
+          fi
+          remote="$(awk -v ref="refs/heads/$HEAD_REF" '$2 == ref { print $1 }' <<< "$listing")"
+          if [[ -z "$remote" ]]; then
+            echo "::notice::$HEAD_REF no longer exists; nothing to refresh."
+            exit 0
+          fi
+          if [[ "$remote" != "$HEAD_SHA" ]]; then
+            echo "::notice::$HEAD_REF moved since checkout; its new head gets a fresh run."
+            exit 0
+          fi
+          echo "error: pushing the refreshed lock files to $HEAD_REF failed." >&2
+          exit 1

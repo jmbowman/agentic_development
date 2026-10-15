@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 CHECK_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "check.yml"
 SELF_CI = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+LOCK_REFRESH = REPO_ROOT / ".github" / "workflows" / "lock-refresh.yml"
 PRESET = REPO_ROOT / "renovate" / "default.json"
 VERIFY_SCRIPT = REPO_ROOT / "scripts" / "verify_check.py"
 
@@ -112,21 +113,30 @@ class StepResult:
 
 
 class StepRunner:
-    """Runs `run` steps from the check workflow the way a GitHub runner would.
+    """Runs a workflow job's `run` steps the way a GitHub runner would.
 
     Each step's script runs in the working directory with the shell GitHub would use,
     the job's and step's `env`, and the variables earlier steps appended to
-    `$GITHUB_ENV`. mise sees only the workspace's config: global and system configs
-    point at empty files, and inherited `MISE_*` variables are removed.
+    `$GITHUB_ENV`. What a step writes to `$GITHUB_OUTPUT` becomes available to later
+    steps' `env` as `${{ steps.<id>.outputs.<name> }}`. mise sees only the workspace's
+    config: global and system configs point at empty files, and inherited `MISE_*`
+    variables are removed.
     """
 
-    def __init__(self, workspace: Path, working_directory: Path, job: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        workspace: Path,
+        working_directory: Path,
+        job: dict[str, Any],
+        expressions: dict[str, str] | None = None,
+    ) -> None:
         """Prepare a runner.
 
         Args:
             workspace: Stands in for `${{ github.workspace }}`.
             working_directory: The directory the steps run in.
             job: The parsed job whose steps will run.
+            expressions: Further `${{ }}` expressions and the values to substitute for them.
         """
         self.working_directory = working_directory
         self.job = job
@@ -140,7 +150,10 @@ class StepRunner:
         self.expressions = {
             "${{ github.workspace }}": str(workspace),
             "${{ inputs.working-directory }}": str(working_directory.relative_to(workspace)),
+            "${{ runner.temp }}": str(runner_temp),
+            **(expressions if expressions is not None else {}),
         }
+        self.github_output = workspace / "github_output"
         job_env = self._expand(job.get("env", {}))
         self.env = {
             **inherited,
@@ -200,15 +213,18 @@ class StepRunner:
         shell = step.get("shell", self.job.get("defaults", {}).get("run", {}).get("shell"))
         assert shell in SHELLS, f"unsupported shell {shell!r}"
         step_env = self._expand(step.get("env", {}))
+        self.github_output.write_text("")
         completed = subprocess.run(  # noqa: S603
             [*SHELLS[shell], script],
             cwd=self.working_directory,
-            env={**self.env, **step_env},
+            env={**self.env, **step_env, "GITHUB_OUTPUT": str(self.github_output)},
             capture_output=True,
             text=True,
             check=False,
         )
         self.env.update(parse_github_env(self.github_env.read_text()))
+        for name, value in parse_github_env(self.github_output.read_text()).items():
+            self.expressions[f"${{{{ steps.{step_id}.outputs.{name} }}}}"] = value
         return StepResult(completed.returncode, completed.stdout + completed.stderr)
 
 

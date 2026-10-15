@@ -6,6 +6,7 @@
   "automergeType": "pr",
   "platformAutomerge": true,
   "minimumReleaseAge": "3 days",
+  "gitIgnoredAuthors": ["lock-refresh@agentic-development.invalid"],
   "ignorePaths": [
     "**/node_modules/**",
     "**/bower_components/**",
