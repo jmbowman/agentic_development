@@ -1,0 +1,5 @@
+# @spec PRIOR-TRIG-002, PRIOR-CLS-001
+schema_version: "1.1"
+name: trigger-exists-question
+description: >-
+  Asking whether a tool exists triggers the skill, and each candidate is classified.

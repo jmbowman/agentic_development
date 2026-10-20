@@ -1,0 +1,13 @@
+{
+  "name": "agentic-development",
+  "owner": {
+    "name": "Jeremy Bowman"
+  },
+  "plugins": [
+    {
+      "name": "agentic-development",
+      "source": "./",
+      "description": "Skills for an agentic development process, starting with prior-art search."
+    }
+  ]
+}
