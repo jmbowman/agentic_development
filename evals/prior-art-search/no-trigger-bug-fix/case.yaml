@@ -1,0 +1,7 @@
+# @spec PRIOR-TRIG-003
+schema_version: "1.1"
+name: no-trigger-bug-fix
+description: >-
+  A bug fix doesn't trigger the skill.
+context:
+  scaffold_script: scaffold.sh

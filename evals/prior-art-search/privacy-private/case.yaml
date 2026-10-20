@@ -1,0 +1,7 @@
+# @spec PRIOR-PRIV-001, PRIOR-PRIV-004
+schema_version: "1.1"
+name: privacy-private
+description: >-
+  In a repo whose instructions say it's private, the note cites a private sibling repository.
+context:
+  scaffold_script: scaffold.sh

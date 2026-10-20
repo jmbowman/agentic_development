@@ -1,0 +1,5 @@
+# @spec PRIOR-EFF-005, PRIOR-RPT-003, PRIOR-SRCH-012
+schema_version: "1.1"
+name: quick-pass-escalates
+description: >-
+  A quick pass that can't conclude adopt or build on switches to the full method.

@@ -1,0 +1,9 @@
+{
+  "name": "agentic-development",
+  "description": "Skills for an agentic development process. First: a prior-art search that checks for existing software before an agent recommends building something.",
+  "author": {
+    "name": "Jeremy Bowman"
+  },
+  "license": "Apache-2.0",
+  "repository": "https://github.com/jmbowman/agentic_development"
+}

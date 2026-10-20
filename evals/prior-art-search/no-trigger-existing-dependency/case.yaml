@@ -1,0 +1,7 @@
+# @spec PRIOR-TRIG-003
+schema_version: "1.1"
+name: no-trigger-existing-dependency
+description: >-
+  Using a dependency the repo already has doesn't trigger the skill.
+context:
+  scaffold_script: scaffold.sh

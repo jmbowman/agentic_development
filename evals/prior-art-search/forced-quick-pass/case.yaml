@@ -1,0 +1,5 @@
+# @spec PRIOR-EFF-003, PRIOR-EFF-006
+schema_version: "1.1"
+name: forced-quick-pass
+description: >-
+  A quick pass the developer forces stays a quick pass, and a verdict it couldn't reach is labelled unaudited.

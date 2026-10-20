@@ -1,0 +1,7 @@
+# @spec PRIOR-EFF-001, PRIOR-EFF-002, PRIOR-EFF-004, PRIOR-RPT-001, PRIOR-RPT-005
+# @spec PRIOR-CLS-001, PRIOR-CLS-002, PRIOR-LIC-001, PRIOR-LIC-002, PRIOR-SRCH-002
+# @spec PRIOR-SRCH-003, PRIOR-SRCH-008, PRIOR-RPT-007
+schema_version: "1.1"
+name: quick-pass-small-library
+description: >-
+  A cheap-to-reverse choice gets a quick pass with the quick-pass report.

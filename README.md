@@ -1,8 +1,8 @@
 # agentic_development
 
-Shared tooling for repos where coding agents write most of the code: one CI workflow and one
-Renovate preset that every repo references by version, plus the design of the system they belong
-to.
+Shared tooling for repos where coding agents write most of the code: CI workflows and a Renovate
+preset that every repo references by version, agent skills that reach repos through the template,
+plus the design of the system they belong to.
 
 ## Why
 
@@ -39,6 +39,9 @@ from repo to repo fails in predictable ways:
 | `.github/workflows/check.yml` | The reusable CI workflow. A repo's CI is a stub that calls it with no inputs; it installs the repo's pinned tools with [mise](https://mise.jdx.dev) and runs the repo's `check` task. |
 | `.github/workflows/lock-refresh.yml` | A reusable workflow for repos that commit `mise.lock`. On Renovate's template-update PRs it reruns `mise lock` and pushes the result with a GitHub App token, so those PRs pass CI's locked install and still merge automatically. |
 | `renovate/default.json` | The Renovate preset: update pull requests merge automatically once CI passes, most new releases wait 3 days first, and template-owned files are left to the template. |
+| `skills/prior-art-search/` | An agent skill that searches for existing software before an agent recommends building something: sources chosen by the need, candidates classified with licenses read from their license files, limitations verified in source, and a dated note saved for costly choices. It follows the [Agent Skills](https://agentskills.io) format, so it works in Claude Code and other agents. |
+| `.claude-plugin/` | Packages this repo as a Claude Code plugin (the repo root is the plugin), with a one-plugin marketplace, so Claude Code can install it straight from this repo. |
+| `evals/` | Behavior evals for each skill, in `evals/<skill>/`, run by hand with `claude plugin eval`; see its README. |
 | `scripts/` | The workflow's helper script, fetched at the workflow's own commit. |
 | `docs/` | The system's high-level design and each component's design and specs. |
 
@@ -48,10 +51,24 @@ Most repos get everything through a template rather than from this repo directly
 [copier-python](https://github.com/jmbowman/copier-python), a strict Python baseline. Its README
 covers onboarding a new or existing repo.
 
+To use the skills before the template delivers them, install this repo as a Claude Code plugin:
+
+```
+/plugin marketplace add jmbowman/agentic_development
+/plugin install agentic-development@agentic-development
+```
+
+This tracks the default branch, not a release tag. In other agents, copy or link
+`skills/prior-art-search/` into the agent's skills directory (commonly `.agents/skills/`).
+
+In this repo itself, the skills load from `.claude/skills/` (links into `skills/`), and
+`.agents/skills` links there for other agents.
+
 ## Status
 
-Early: one template (Python), GitHub only, Linux runners. Shared agent skills and process
-guardrails (commit gates, review loops) are designed in outline but not built yet.
+Early: one template (Python), GitHub only, Linux runners. The first shared agent skill, prior-art
+search, is built; delivering skills through the template is designed but not built yet. Process
+guardrails (commit gates, review loops) are designed in outline only.
 
 ## Developing this repo
 

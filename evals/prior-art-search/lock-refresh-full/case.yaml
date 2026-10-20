@@ -1,0 +1,11 @@
+# @spec PRIOR-EFF-002, PRIOR-EFF-007, PRIOR-SRCH-001, PRIOR-SRCH-004, PRIOR-SRCH-006
+# @spec PRIOR-SRCH-007, PRIOR-SRCH-010, PRIOR-SRCH-011, PRIOR-CLS-003, PRIOR-CLS-004
+# @spec PRIOR-CLS-005, PRIOR-CLS-006, PRIOR-CLS-010, PRIOR-CLS-011, PRIOR-CLS-012
+# @spec PRIOR-SRC-002, PRIOR-SRC-004, PRIOR-SRC-005, PRIOR-SRC-008, PRIOR-RPT-001
+# @spec PRIOR-RPT-004, PRIOR-SAVE-001, PRIOR-SAVE-002, PRIOR-SAVE-003, PRIOR-SAVE-007
+schema_version: "1.1"
+name: lock-refresh-full
+description: >-
+  Reference case: keeping committed mise lock files current on template-update PRs.
+context:
+  scaffold_script: scaffold.sh

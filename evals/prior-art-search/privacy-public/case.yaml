@@ -1,0 +1,7 @@
+# @spec PRIOR-PRIV-001, PRIOR-PRIV-002, PRIOR-PRIV-003, PRIOR-SRCH-009, PRIOR-SRC-007
+schema_version: "1.1"
+name: privacy-public
+description: >-
+  In a public repo, a confidential name stays out of queries and out of the saved note.
+context:
+  scaffold_script: scaffold.sh

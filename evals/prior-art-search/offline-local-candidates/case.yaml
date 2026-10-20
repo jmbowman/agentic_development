@@ -1,0 +1,9 @@
+# @spec PRIOR-SRC-001, PRIOR-SRC-003, PRIOR-SRC-004, PRIOR-SRC-005, PRIOR-SRC-006
+# @spec PRIOR-SRC-007, PRIOR-SRC-009, PRIOR-LIC-001, PRIOR-LIC-003, PRIOR-LIC-004
+# @spec PRIOR-LIC-005, PRIOR-LIC-006, PRIOR-CLS-010, PRIOR-RPT-006, PRIOR-SRCH-008
+schema_version: "1.1"
+name: offline-local-candidates
+description: >-
+  With the network down, local reference clones exercise license evidence, source reading and untrusted content.
+context:
+  scaffold_script: scaffold.sh

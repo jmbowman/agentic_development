@@ -1,0 +1,6 @@
+# @spec PRIOR-EFF-002, PRIOR-EFF-007, PRIOR-RPT-002, PRIOR-SAVE-006, PRIOR-SRCH-002
+# @spec PRIOR-SRCH-008
+schema_version: "1.1"
+name: offline-outside-repo
+description: >-
+  With no network and no repo, a long-lived choice ends inconclusive and the note is printed.

@@ -1,0 +1,8 @@
+# @spec PRIOR-SKL-001, PRIOR-SKL-002, PRIOR-SKL-003, PRIOR-SKL-004, PRIOR-SKL-005
+# @spec PRIOR-SAVE-005
+schema_version: "1.1"
+name: agent-skill-need
+description: >-
+  An agent-skill need uses the skill-catalog routes and checks, and updates the same day's note.
+context:
+  scaffold_script: scaffold.sh

@@ -31,17 +31,21 @@ Every file a template renders has one owner:
 Where a tool can pull shared config by reference, the repo holds only a small reference pinned to a release tag of this repo, and the shared content lives here:
 - CI is a GitHub reusable workflow (`workflow_call`), and each repo's own workflow is a short stub that calls it.
 - Renovate config is a shared preset, which each repo's Renovate config file extends.
-- Agent skills shared by every repo ship as an APM package (planned), which each repo's `apm.yml` depends on.
+- Agent skills shared by every repo ship as an APM package, which each template pins in its own `apm.yml`.
 
-Renovate's own managers bump those references (github-actions for the workflow, renovate-config for the preset, apm for skills), so each update arrives like any other dependency update.
+Renovate's own managers bump those references (github-actions for the workflow, renovate-config for the preset, apm for the skills package in each template repo), so each update arrives like any other dependency update.
 
-### Process guardrails: skills and hooks, as later components
+### Process guardrails: skills and hooks
 
 The development process (spec-driven with LID, tests first, review waves until convergence, a commit per slice) gets skills, hooks and a small state machine that enforce the parts agents tend to skip.
 
-Skills come from two sources, both managed by APM through each repo's own `apm.yml`:
-- **template-owned skills,** bundled as one APM package in this repo. A repo depends on it at a pinned tag, and APM resolves the bundle's own dependencies transitively;
-- **repo-specific skills,** listed beside it.
+Skills come from two sources:
+- **template-owned skills,** bundled as one APM package in this repo. Each template pins the package at a tag and renders the deployed skill files into consumer repos as template-owned files, so a consumer receives skill updates through template updates;
+- **repo-specific skills,** which a repo declares in its own `apm.yml` and deploys with APM.
+
+Skills that agents use are committed to the repo rather than installed at session start, because a cloud session (Claude Code on the web) starts from a fresh clone. It loads skills committed under `.claude/skills/`, but it doesn't install the plugins a repo's settings declare.
+
+The first designed component is the **prior-art search skill** ([design](intent/prior-art-search/prior-art-search-design.md)). It runs before an agent recommends building, or substantially extending, a tool, library, script, subsystem or skill. It searches for existing software against the underlying need, and verifies the top candidates' limitations in their source. For choices that are costly to reverse, it saves a dated note with the full query log, so that "nothing fits" can be audited.
 
 The planned components, not yet designed:
 - a commit-message skill and commit linting;
@@ -51,7 +55,8 @@ The planned components, not yet designed:
 
 ## Glossary
 
-- **APM:** an agent package manager. It installs skills, prompts and plugins from git repositories at pinned versions, resolves their dependencies, and records them in a lock file.
+- **APM:** an agent package manager. It installs skills, prompts and plugins from git repositories at pinned versions, resolves their dependencies, records them in a lock file, and deploys their files into each agent's directory (for Claude Code, `.claude/`).
+- **Cloud session:** a Claude Code session that runs on Anthropic's infrastructure from a fresh clone of the repo, for example one started at claude.ai/code.
 - **copier:** a Python tool that renders a template repository into a project and later updates it, replaying the project's own edits.
 - **Dependency sidecar:** a file `mise lock` writes beside `mise.lock` (under `.mise/locks/`) to pin the indirect dependencies of an npm- or Python-based tool. `mise.lock` records its digest.
 - **Layer:** one template covering one concern (python, rust, documentation). A repo can apply several, each with its own answers file.
@@ -59,6 +64,7 @@ The planned components, not yet designed:
 - **`lidc`:** a third-party CLI that checks LID's spec-to-test-to-code links.
 - **mise:** a tool-version manager and task runner.
 - **Named exception:** one relaxation of the strict baseline, written in a repo-owned file or as an inline suppression, scoped to the narrowest path, line or rule the tool allows.
+- **Prior-art search:** a search for existing software that could do a job, cut its implementation work, or supply ideas, run before recommending that something be built.
 - **prek:** a fast git-hook runner, compatible with pre-commit.
 - **Renovate:** a dependency-update bot. Here it runs as the hosted GitHub app and opens a pull request per update, which merges automatically once CI passes.
 - **ruff:** a Python linter and formatter.
@@ -94,6 +100,8 @@ Ordered: when two conflict, the higher one wins.
 3. **Strict by default, divergence named.** A repo starts at the strict baseline, and each relaxation is a named exception.
 4. **Fast hooks, complete CI.** Commit-time hooks hold only checks fast enough not to interrupt work. CI runs everything.
 5. **Automerge and fix forward.** Updates to tooling and templates merge automatically once CI passes. A bad release is undone by a new release, not prevented by holding updates for human review. The prerequisites are solid test coverage and rollback maturity. For this primarily local system, automerging and fixing forward is worth it.
+6. **Self-contained skills over composed ones.** A skill carries the procedures it needs (for example, how to make a read-only scratch clone) rather than depending on other skills. A helper becomes a shared dependency only once several skills need it and it has proved stable.
+7. **Portable skills by default, Claude Code features where they pay.** Skill frontmatter uses only the Agent Skills fields, and instructions work in any agent that reads them. Claude Code features (subagents, hooks, its extra frontmatter) are used where they materially improve how the skill works under Claude Code, as optional speed-ups in the instructions where possible, or with the portability cost noted where not.
 
 ## System Design
 
@@ -102,31 +110,35 @@ flowchart TB
   subgraph AD["agentic_development (tagged)"]
     WF["check and lock-refresh<br/>workflows"]
     PS["Renovate preset"]
-    SK["skills package<br/>(planned)"]
+    SK["skills package"]
   end
   subgraph CP["copier-python (tagged)"]
-    T["template files"]
+    TAPM["apm.yml"]
+    T["template files,<br/>incl. deployed skills"]
   end
   subgraph R["consumer repo"]
-    CFG["template-owned<br/>files"]
+    CFG["template-owned<br/>files and skills"]
     STUB["CI stubs"]
     RJ[".github/renovate.json"]
-    APM["apm.yml"]
   end
   RN(("Renovate"))
+  TAPM -->|"pins #tag"| SK
+  TAPM -->|"apm install deploys"| T
   T -->|"copy, then update"| CFG
   STUB -->|"calls @tag"| WF
   RJ -->|"extends #tag"| PS
-  APM -->|"depends on #tag"| SK
   RN -->|"one PR per update"| R
+  RN -->|"apm bump PR"| CP
 ```
 
 Renovate opens a separate pull request for each kind of update in a consumer repo:
-- a template release (copier manager, which re-renders the template-owned files);
-- a new tag of this repo's workflows (github-actions manager, in `ci.yml` and `lock-refresh.yml`), preset (renovate-config manager, in `.github/renovate.json`) or skills package (apm manager, in `apm.yml`);
-- the tools pinned in the repo's own files.
+- a template release (copier manager, which re-renders the template-owned files, including the template's skills);
+- a new tag of this repo's workflows (github-actions manager, in `ci.yml` and `lock-refresh.yml`) or preset (renovate-config manager, in `.github/renovate.json`);
+- the tools pinned in the repo's own files, and the packages in the repo's own `apm.yml` if it has one.
 
-The CI stubs (`ci.yml` and `lock-refresh.yml`) and `.github/renovate.json`, and `apm.yml` once the skills package exists, are rendered once by the template and then belong to the repo. Each template keeps its own files together in `.config/<template>/` (for example `.config/copier-python/`), and links to them from wherever a tool requires a file, so a repo's root stays nearly empty and a file's origin is visible from its path.
+A new tag of the skills package reaches consumers in two steps. Renovate's apm manager opens a PR in each template repo, and its `apm install` re-deploys the skill files that the PR commits. The template release that follows then reaches consumers as a template update.
+
+The CI stubs (`ci.yml` and `lock-refresh.yml`) and `.github/renovate.json` are rendered once by the template and then belong to the repo. Each template keeps its own files together in `.config/<template>/` (for example `.config/copier-python/`), and links to them from wherever a tool requires a file, so a repo's root stays nearly empty and a file's origin is visible from its path.
 
 Components:
 
@@ -134,12 +146,13 @@ Components:
 |---|---|---|
 | CI workflows | this repo, `.github/workflows/` | The reusable check workflow each language layer's stub calls, what it requires a consumer repo to contain, the checks it runs, and its release tests against a fixture consumer. The reusable lock-refresh workflow that keeps a consumer's committed `mise.lock` current on Renovate's branches |
 | Renovate presets | this repo | Shared Renovate behavior: automerge policy, the supply-chain delay, paths Renovate must not touch, the exception that holds LID pin bumps for a manual upgrade, and treating the lock-refresh App's commits as Renovate's own |
-| copier-python | [copier-python](https://github.com/jmbowman/copier-python) (`../copier-python` locally), with its own design docs | The Python baseline files, their owners, and the template's own tests |
-| Process skills and hooks | this repo (planned) | The template-owned skills package and hooks. Not yet designed |
+| copier-python | [copier-python](https://github.com/jmbowman/copier-python) (`../copier-python` locally), with its own design docs | The Python baseline files, their owners, and the template's own tests. Its pin of the skills package, and how the deployed skill files are rendered into consumers |
+| Skills package | this repo, `skills/` (the repo root is the plugin) | The template-owned skills, released with this repo's tags, and their structure tests and evals. The first skill is the [prior-art search skill](intent/prior-art-search/prior-art-search-design.md) |
+| Process hooks | this repo (planned) | Commit gates and other hooks. Not yet designed |
 
 Copier never edits the repo-owned reference files after the first render, and Renovate never edits template-owned files (the shared preset excludes them), so two update mechanisms never touch the same line.
 
-**Versioning.** This repo and each template repo are released by git tag, `vMAJOR.MINOR.PATCH`. That form parses as PEP 440, the default versioning for Renovate's copier manager. Consumers pin references to a tag. A change that consumers must react to (a new requirement the workflow places on a repo, or a preset behavior change) is a major version.
+**Versioning.** This repo and each template repo are released by git tag, `vMAJOR.MINOR.PATCH`. That form parses as PEP 440, the default versioning for Renovate's copier manager. Consumers pin references to a tag. A change that consumers must react to (a new requirement the workflow places on a repo, a preset behavior change, or a skill renamed or removed) is a major version.
 
 ## Key Design Decisions
 
@@ -159,6 +172,19 @@ Copier never edits the repo-owned reference files after the first render, and Re
   - the repo settings that platform automerge needs (applied at onboarding).
 
   Everything else is forge-neutral. The checks are mise tasks, the preset's policy is plain Renovate config, and the template files don't mention a forge. Each template asks a `forge` question (only `github` for now) that selects which CI stub and preset reference to render. Adding GitLab means a GitLab CI component in this repo that runs the same `mise run check`, a `gitlab` answer, and `gitlab>` references. No existing file changes owner.
+- **Template-owned skills arrive as committed files, through the template.** Each template pins the skills package in its own `apm.yml`. Renovate's apm manager bumps that pin and commits every file `apm install` changes, not just the lock file, and copier renders the deployed skill files into consumers as template-owned files. The skill files are committed because a cloud session works only from what's in the clone. Delivering them through the template gives each consumer a single update channel for its baseline, and the hosted Renovate app has to run `apm install` only in template repos. This is a copy, a deliberate exception to *Reference over copy*: the session that reads a skill can't follow a reference. A skill update reaches consumers one template release after the skills package is tagged. *Alternatives:*
+  - each consumer pins the package in its own `apm.yml`, with deployed files committed (a second update channel per repo, and `apm install` on the hosted app in every consumer);
+  - deployed files gitignored and installed by a SessionStart hook (the cloud VM has no `apm`, so every session pays for an install);
+  - a plugin marketplace declared in the repo's settings (cloud sessions don't install those plugins).
+
+  The package uses the Claude Code plugin layout with this repo's root as the plugin: `.claude-plugin/plugin.json` at the root and the skills in a top-level `skills/` directory. APM installs that layout by repository and tag, and the layout lets `claude plugin validate` and `claude plugin eval` run on the package and a developer load it as a local plugin.
+
+  Every repo lays out its committed skills the same way:
+  - **`.claude/skills/`** is a real directory, because it's the only project location Claude Code reads. It holds the template's skills and any APM-deployed skills as real files.
+  - **`.agents/skills`** is one committed link to `.claude/skills`. It serves the cross-tool `.agents/skills/` convention that other agents read and Claude Code doesn't (the Agent Skills spec defines the skill format but no location). Every agent then sees the same set of skills, with no second copy.
+  - **A skill developed in the repo** lives in the repo's own `skills/<name>/`, with a link to it from `.claude/skills/<name>`. Its source stays outside `.claude/`, which some sandboxes block agents from editing.
+
+  APM deploys only to its `claude` target. It deploys by copying, so a second target would commit a second copy of every skill, and it refuses to deploy over a link. Frontmatter limited to the Agent Skills fields (tenet 7) is also what claude.ai skill uploads accept, so a person can enable a skill on their claude.ai account for repos that have no template.
 - **Conflicts never automerge.** Renovate reports a conflicted copier update as an artifact error, which blocks automerge. A conflict-marker check in each repo's `check` task is a second guard, which also covers updates run by hand.
 - **LID pin bumps are the one exception to automerge.** Moving a project to a new LID version needs a `/update-lid` walk of its design docs after merging, which the bump PR can't do. The shared preset therefore holds those updates for a person to merge.
 - **Public repositories.** A public repo can call only public reusable workflows, and a private repo can call a private repo's workflows only after an access policy is set ([GitHub reference](https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations)). Public tooling repos remove that constraint for every consumer, and their content is configuration with no personal data.
@@ -179,3 +205,4 @@ Copier never edits the repo-owned reference files after the first render, and Re
 - [LID](https://github.com/jszmajda/lid) 1.3.0; [lid-tooling](https://github.com/EtaCassiopeia/lid-tooling) (`lidc`).
 - Precedent: [GitLab common-template-copier](https://gitlab.com/gitlab-com/gl-infra/common-template-copier).
 - Component: [copier-python](https://github.com/jmbowman/copier-python).
+- Skills: [Agent Skills specification](https://agentskills.io/specification); Claude Code [skills](https://code.claude.com/docs/en/skills), [plugin manifest](https://code.claude.com/docs/en/plugins-reference) and [cloud sessions: what carries over](https://code.claude.com/docs/en/cloud-environments#what-carries-over-from-your-setup) (committed `.claude/skills/` loads; plugins declared in settings don't install); [APM](https://github.com/microsoft/apm) v0.33.0, verified in source: it installs a package whose root has `.claude-plugin/plugin.json` and `skills/` (`src/apm_cli/models/format_detection.py`), deploys skills by copying, and refuses a skill destination that is a link (`src/apm_cli/integration/skill_integrator.py:338`).

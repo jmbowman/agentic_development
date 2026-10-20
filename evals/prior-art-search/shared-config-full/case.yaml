@@ -1,0 +1,8 @@
+# @spec PRIOR-SRCH-001, PRIOR-SRCH-005, PRIOR-CLS-007, PRIOR-CLS-008, PRIOR-CLS-009
+# @spec PRIOR-SAVE-002, PRIOR-SAVE-004, PRIOR-SAVE-008
+schema_version: "1.1"
+name: shared-config-full
+description: >-
+  Reference case: shared config with committed per-repo overrides and local overlays.
+context:
+  scaffold_script: scaffold.sh
