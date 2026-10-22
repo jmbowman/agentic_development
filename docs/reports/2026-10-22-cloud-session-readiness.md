@@ -8,7 +8,7 @@ What a Claude Code cloud session can and can't do in this repo today, and sugges
 |---|---|---|---|
 | Committed skills | Yes, through the `.claude/skills/prior-art-search` symlink | None | None |
 | LID skills | No | Not committed; plugins don't reach cloud sessions | Pin LID in an `apm.yml` and commit the deployed skills, at 1.4.0 |
-| `mise run check` | No | mise isn't installed; 39 tests fail or error without it | A setup script or SessionStart hook that installs mise and the pinned tools |
+| `mise run check` | Not out of the box; passes once mise is installed | mise isn't in a new container; 39 tests fail or error without it | A SessionStart hook ([drafted and validated](2026-10-22-cloud-setup-hook-proposal.md)) or a setup script that installs mise and the pinned tools |
 | prior-art-search routes | Partly | GitHub search is blocked; some catalogs need the network allowlist | Cloud notes in the routes table, with a Sourcegraph fallback |
 | Commits | Conflicting | "Agents don't commit" vs. a container that is reclaimed when idle and a stop hook that asks for a push | A cloud-session commit rule |
 | GitHub access | Clone, raw reads, this repo's API, and push once the Claude GitHub App has write access | No search, no topics, no other repos' API, even with the app installed | Run GitHub-wide search from local sessions |
@@ -63,15 +63,16 @@ Not specific to the cloud. LID 1.4.0 was released on 2026-10-10 (`CHANGELOG.md` 
 ## 4. Running the repo's checks in a cloud session
 
 **Observed.**
-- **mise isn't installed**, so `mise run check` (lint, typecheck, test, `lidc`, conflicts) can't run.
+- **mise isn't installed** in a new cloud container, so `mise run check` (lint, typecheck, test, `lidc`, conflicts) can't run out of the box.
 - **The system's uv is 0.11.32**, while `mise.toml` pins 0.13.1.
-- **`uv run --frozen pytest`:** 294 passed, 26 failed and 13 errored. The failures are in `tests/test_check_workflow_steps.py`, which can't run mise. The errors are in `tests/test_renovate_preset.py`, apparently because the pinned `npm:renovate` isn't installed (not confirmed).
+- **Without mise, `uv run --frozen pytest`** gives 294 passed, 26 failed and 13 errored. The failures are in `tests/test_check_workflow_steps.py`, which runs mise; the errors are in `tests/test_renovate_preset.py`, which needs the pinned `npm:renovate`.
+- **mise installs cleanly.** With the environment's widened network policy, downloading mise 2026.10.14 (CI's version) from its GitHub release, checking it against the release's checksum file, and running `mise install` installed all eight pinned tools in about 14 seconds. `mise run check` then passed in full: lint, typecheck, all 333 tests, `lidc` with no findings, and conflicts.
 
 **Suggested change.** Install mise and the pinned tools at session start:
 - **An environment setup script** is cached when it finishes in about five minutes, but it lives in the cloud environment's settings, outside the repo.
-- **A SessionStart hook in `.claude/settings.json`** is committed and versioned with the repo, but runs on every session start.
+- **A SessionStart hook in `.claude/settings.json`** is committed and versioned with the repo, but runs on every session start. A fresh install takes about 30 seconds and a warm one about 1 second.
 
-The session's `session-start-hook` skill covers the hook route. Either way, the network policy must allow the hosts that mise downloads from (GitHub releases, npm, PyPI). Open question 4.
+A validated draft of the hook route is in [the setup hook proposal](2026-10-22-cloud-setup-hook-proposal.md). Either way, the network policy must allow the hosts that mise and its tools download from: GitHub releases, `nodejs.org`, npm and PyPI. Open question 4.
 
 ## 5. Commit practices in cloud sessions
 
