@@ -16,7 +16,7 @@ What a Claude Code cloud session can and can't do in this repo today, and sugges
 ## 1. prior-art-search in cloud sessions
 
 **Observed.**
-- **GitHub search:** `gh search` and the API's `search/*` endpoints fail. The session's GitHub proxy answers "This GitHub API path is not available: sessions are bound to their configured repositories". `github.com/search` and `github.com/topics/...` are refused the same way. `GH_TOKEN` is set but rejected (`gh auth status`: "The token in GH_TOKEN is invalid").
+- **GitHub search:** `gh search` and the API's `search/*` endpoints fail. The session's GitHub proxy answers "This GitHub API path is not available: sessions are bound to their configured repositories". `github.com/search` and `github.com/topics/...` are refused the same way. `GH_TOKEN` reads `proxy-injected`, a placeholder the GitHub proxy swaps for the real credential, so `gh auth status` reports it invalid even though `gh api` works for this repo.
 - **Reading public GitHub:** works. `git clone` (shallow, blobless, sparse) and `raw.githubusercontent.com` are both fine.
 - **Catalogs and forges:** skills.sh and Codeberg are refused by the egress proxy under the default network policy. Both worked once their domains were added to the environment's allowed domains. mcpservers.org serves a Cloudflare bot challenge even when allowed.
 - **Sourcegraph's public search** (`https://sourcegraph.com/.api/search/stream`) is reachable and searches public GitHub, with three caveats:
@@ -94,7 +94,7 @@ A validated draft of the hook route is in [the setup hook proposal](2026-10-22-c
 | Push to this repo | Works once the Claude GitHub App is installed on the repository with write access | Before that, `git push` returned 403 "Claude doesn't have GitHub access to jmbowman/agentic_development for your organization", and creating a branch through the GitHub tools returned 403 "Resource not accessible by integration" |
 | Other repos' API | Blocked | Sessions are bound to their configured repositories; `add_repo` can attach more |
 | Repository, code and topic search | Blocked | Same scoping rule. Not a network setting, and installing the Claude GitHub App doesn't lift it; no documented switch |
-| `gh` CLI | Broken | `GH_TOKEN` is set but invalid; the proxy authenticates git operations instead |
+| `gh` CLI | Works for this repo through the proxy | `GH_TOKEN` reads `proxy-injected` by design: the GitHub proxy substitutes the real credential, which never enters the VM. `gh api repos/jmbowman/agentic_development` works; other repos get "GitHub access to this repository is not enabled for this session"; search gets the scoping 403; GraphQL subcommands (`gh pr`, `gh issue`) are refused whatever the credential |
 | Search through the session's GitHub tools | Barred by session instructions | They may reach outside the configured repositories |
 
 GitHub-wide search therefore belongs in local sessions for now. If read-only public search in cloud sessions would help, that is feedback for Claude Code's maintainers (draft in the [wrap-up](2026-10-22-session-wrap-up.md#tool-maintainer-feedback)).
