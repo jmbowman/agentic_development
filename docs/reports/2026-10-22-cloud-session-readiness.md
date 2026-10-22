@@ -93,11 +93,11 @@ A validated draft of the hook route is in [the setup hook proposal](2026-10-22-c
 | Read this repo through the API (branches, contents) | Works | GitHub tools and repo-scoped endpoints |
 | Push to this repo | Works once the Claude GitHub App is installed on the repository with write access | Before that, `git push` returned 403 "Claude doesn't have GitHub access to jmbowman/agentic_development for your organization", and creating a branch through the GitHub tools returned 403 "Resource not accessible by integration" |
 | Other repos' API | Blocked | Sessions are bound to their configured repositories; `add_repo` can attach more |
-| Repository, code and topic search | Blocked | Same scoping rule. Not a network setting, and installing the Claude GitHub App doesn't lift it; no documented switch |
+| Repository, code and topic search | Blocked | Same scoping rule, enforced by the session's GitHub proxy. It answers with the same 403 whatever the credential: the Claude GitHub App, the placeholder token, or none at all. A separate test session on 2026-10-22 confirmed this and found no environment setting that lifts it. Not a network setting; no documented switch |
 | `gh` CLI | Works for this repo through the proxy | `GH_TOKEN` reads `proxy-injected` by design: the GitHub proxy substitutes the real credential, which never enters the VM. `gh api repos/jmbowman/agentic_development` works; other repos get "GitHub access to this repository is not enabled for this session"; search gets the scoping 403; GraphQL subcommands (`gh pr`, `gh issue`) are refused whatever the credential |
 | Search through the session's GitHub tools | Barred by session instructions | They may reach outside the configured repositories |
 
-GitHub-wide search therefore belongs in local sessions for now. If read-only public search in cloud sessions would help, that is feedback for Claude Code's maintainers (draft in the [wrap-up](2026-10-22-session-wrap-up.md#tool-maintainer-feedback)).
+GitHub-wide search therefore belongs in local sessions. A local session uses the developer's own `gh` login, and the repositories it finds can then be attached to a cloud session by `owner/repo` (`add_repo`) for reading. Web search and Sourcegraph are partial substitutes inside the cloud. If read-only public search in cloud sessions would help, that is feedback for Claude Code's maintainers (draft in the [wrap-up](2026-10-22-session-wrap-up.md#tool-maintainer-feedback)).
 
 ## 7. Other observations
 
