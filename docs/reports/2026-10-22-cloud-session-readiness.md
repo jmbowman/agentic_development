@@ -11,7 +11,7 @@ What a Claude Code cloud session can and can't do in this repo today, and sugges
 | `mise run check` | No | mise isn't installed; 39 tests fail or error without it | A setup script or SessionStart hook that installs mise and the pinned tools |
 | prior-art-search routes | Partly | GitHub search is blocked; some catalogs need the network allowlist | Cloud notes in the routes table, with a Sourcegraph fallback |
 | Commits | Conflicting | "Agents don't commit" vs. a container that is reclaimed when idle and a stop hook that asks for a push | A cloud-session commit rule |
-| GitHub access | Clone, raw reads and reading this repo through the API | No push, no search, no topics, no other repos' API | Grant the Claude GitHub App write access; run GitHub-wide search from local sessions |
+| GitHub access | Clone, raw reads, this repo's API, and push once the Claude GitHub App has write access | No search, no topics, no other repos' API, even with the app installed | Run GitHub-wide search from local sessions |
 
 ## 1. prior-art-search in cloud sessions
 
@@ -90,9 +90,9 @@ The session's `session-start-hook` skill covers the hook route. Either way, the 
 | Clone public repos | Works | Through the session's git proxy |
 | Read raw files | Works | `raw.githubusercontent.com` |
 | Read this repo through the API (branches, contents) | Works | GitHub tools and repo-scoped endpoints |
-| Push to this repo, or create a branch | Blocked | `git push` returned 403 "Claude doesn't have GitHub access to jmbowman/agentic_development for your organization"; creating a branch through the GitHub tools returned 403 "Resource not accessible by integration". Fix: install the Claude GitHub App on the repository with write access, or reconnect GitHub in claude.ai settings |
+| Push to this repo | Works once the Claude GitHub App is installed on the repository with write access | Before that, `git push` returned 403 "Claude doesn't have GitHub access to jmbowman/agentic_development for your organization", and creating a branch through the GitHub tools returned 403 "Resource not accessible by integration" |
 | Other repos' API | Blocked | Sessions are bound to their configured repositories; `add_repo` can attach more |
-| Repository, code and topic search | Blocked | Same scoping rule. Not a network setting; no documented switch |
+| Repository, code and topic search | Blocked | Same scoping rule. Not a network setting, and installing the Claude GitHub App doesn't lift it; no documented switch |
 | `gh` CLI | Broken | `GH_TOKEN` is set but invalid; the proxy authenticates git operations instead |
 | Search through the session's GitHub tools | Barred by session instructions | They may reach outside the configured repositories |
 

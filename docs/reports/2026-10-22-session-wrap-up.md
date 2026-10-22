@@ -56,7 +56,7 @@ Drafts to send through Claude Code's `/feedback` from a local session, if wanted
 
 Ordered so the list can be worked top to bottom from a fresh local session.
 
-- `Push:` the session branch `claude/vibrant-clarke-omew8x`. The cloud session couldn't push: GitHub refused both `git push` and branch creation (403), because the Claude GitHub App lacks write access to the repository. Either grant access and push, or apply the patch exported from the session with `git am`.
+- Fetch `claude/vibrant-clarke-omew8x` locally. It is pushed; the first push failed until the Claude GitHub App was given write access to the repository.
 - `Review:` approve, edit or reject proposals 1-10 above.
 - `Review:` answer the report's [open questions](2026-10-22-cloud-session-readiness.md#open-questions), especially #3 on cloud commits and #2 on LID delivery.
 - `Review:` save memory #7 from a local session, after confirming its wording.
