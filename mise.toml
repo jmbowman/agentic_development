@@ -11,6 +11,7 @@ ty = "0.0.91"
 prek = "0.5.7"
 "github:kjanat/actionlint" = "1.17.0"
 "github:EtaCassiopeia/lid-tooling" = { version = "0.3.0", asset_pattern = "lidc-x86_64-unknown-linux-gnu" }
+apm = "0.33.0"
 # Renovate runs as a CLI in the preset tests; this Renovate release needs Node 24.
 node = "24.22.1"
 # mise's npm installer (aube) refuses a dependency whose provenance is weaker than an earlier
@@ -19,7 +20,11 @@ node = "24.22.1"
 "npm:renovate" = { version = "44.179.2", trust_policy_excludes = ["@yarnpkg/libzip@3.2.2"] }
 
 [tasks.setup]
-run = ["mise install", "prek install -c .config/prek.toml"]
+run = ["mise install", "mise run skills", "prek install -c .config/prek.toml"]
+
+# Installs the skills apm.lock.yaml records (LID's) into .claude/skills/, where they're gitignored.
+[tasks.skills]
+run = "apm install --frozen"
 
 [tasks.sync]
 run = "uv sync --locked --all-extras --all-groups"
@@ -38,7 +43,7 @@ depends = ["sync"]
 run = "ty check"
 
 [tasks.test]
-depends = ["sync"]
+depends = ["sync", "skills"]
 run = "uv run --locked pytest"
 
 [tasks.lid]

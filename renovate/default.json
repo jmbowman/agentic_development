@@ -23,7 +23,7 @@
   ],
   "packageRules": [
     {
-      "description": "LID plugin pins need a manual /update-lid walk after merging.",
+      "description": "LID plugin pins need a manual /update-lid walk on the update's branch before merging.",
       "matchManagers": ["apm"],
       "matchPackageNames": ["jszmajda/lid"],
       "automerge": false

@@ -20,7 +20,9 @@ from repo to repo fails in predictable ways:
 - **One baseline, kept current automatically.** A [copier](https://copier.readthedocs.io)
   template renders the baseline into each repo. When the template, workflow or preset changes,
   [Renovate](https://docs.renovatebot.com) opens an update pull request, which merges by itself
-  once CI passes. Raising the bar means changing one repo, not every repo.
+  once CI passes. Raising the bar means changing one repo, not every repo. The exception is a
+  new LID version: its update fails `check` until someone runs LID's `/update-lid` on the
+  update's branch, because the design docs need walking to the new version.
 - **Strict by default, with exceptions you can count.** Checks start as strict as each tool
   allows (for Python, every ruff rule and every ty rule as an error). Each relaxation is a named
   exception that a task lists, so a repo's divergence is visible and can be paid down.
@@ -41,6 +43,7 @@ from repo to repo fails in predictable ways:
 | `renovate/default.json` | The Renovate preset: update pull requests merge automatically once CI passes, most new releases wait 3 days first, and template-owned files are left to the template. |
 | `skills/prior-art-search/` | An agent skill that searches for existing software before an agent recommends building something: sources chosen by the need, candidates classified with licenses read from their license files, limitations verified in source, and a dated note saved for costly choices. It follows the [Agent Skills](https://agentskills.io) format, so it works in Claude Code and other agents. |
 | `.claude-plugin/` | Packages this repo as a Claude Code plugin (the repo root is the plugin), with a one-plugin marketplace, so Claude Code can install it straight from this repo. |
+| `apm.yml`, `apm.lock.yaml`, `.claude/hooks/` | This repo's own agent setup: [LID](https://github.com/jszmajda/lid)'s skills pinned with [APM](https://github.com/microsoft/apm), and a hook that installs the tools and skills in Claude Code cloud sessions. |
 | `evals/` | Behavior evals for each skill, in `evals/<skill>/`, run by hand with `claude plugin eval`; see its README. |
 | `scripts/` | The workflow's helper script, fetched at the workflow's own commit. |
 | `docs/` | The system's high-level design and each component's design and specs. |
@@ -61,20 +64,29 @@ To use the skills before the template delivers them, install this repo as a Clau
 This tracks the default branch, not a release tag. In other agents, copy or link
 `skills/prior-art-search/` into the agent's skills directory (commonly `.agents/skills/`).
 
-In this repo itself, the skills load from `.claude/skills/` (links into `skills/`), and
-`.agents/skills` links there for other agents.
+In this repo itself, each skill in `skills/` is linked from `.claude/skills/` (for Claude Code)
+and from `.agents/skills/` (for other agents).
 
 ## Status
 
 Early: one template (Python), GitHub only, Linux runners. The first shared agent skill, prior-art
-search, is built; delivering skills through the template is designed but not built yet. Process
-guardrails (commit gates, review loops) are designed in outline only.
+search, is built; delivering skills through the template, installed from a lock file, is
+designed and not yet released. Process guardrails (commit gates, review loops) are designed in
+outline only.
 
 ## Developing this repo
 
-Install [mise](https://mise.jdx.dev), then run `mise trust` and `mise run setup`.
-`mise run check` runs everything CI runs. Start with
+Install [mise](https://mise.jdx.dev), then run `mise trust` and `mise run setup`. Setup also
+installs the LID skills that `apm.lock.yaml` pins (they're gitignored, so a fresh clone has none
+until then); run `mise run skills` again after a LID update. `mise run check` runs everything CI
+runs, and needs network access to GitHub the first time it installs the skills. Start with
 [`docs/high-level-design.md`](docs/high-level-design.md) for the design.
+
+In a Claude Code cloud session, a SessionStart hook installs mise, the pinned tools and the
+skills when the session starts (whether the skills load in that same session is still to be
+confirmed). The environment's network policy must allow GitHub (releases
+and git), `nodejs.org`, npm and PyPI. Threads in a claude.ai Project don't run the hook or load
+the repo's skills.
 
 ## License
 

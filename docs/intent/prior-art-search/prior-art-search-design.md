@@ -37,12 +37,11 @@ The skill is the first in the skills package, whose plugin root is this repo's r
 | `.../prior-art-search/LICENSE.txt` | The Apache License 2.0 text, so every copy of the skill carries its license |
 | `evals/prior-art-search/` | Cases for `claude plugin eval`, one directory per case, each tagged `prior-art-search`, under the plugin's default eval directory |
 | `.claude-plugin/marketplace.json` | A one-plugin marketplace whose entry's `source` is `./`, so Claude Code can install the package straight from this repo without APM |
-| `.claude/skills/prior-art-search` | A committed relative link to `../../skills/prior-art-search`, so this repo's own sessions load the skill |
-| `.agents/skills` | A committed relative link to `../.claude/skills`, so other agents see the same skills |
+| `.claude/skills/prior-art-search`, `.agents/skills/prior-art-search` | Committed relative links to `../../skills/prior-art-search`, so this repo's own sessions load the skill, laid out as [this repo's setup](../repo-setup/repo-setup-design.md) describes |
 
 `SKILL.md` frontmatter has exactly three keys: `name: prior-art-search`, a `description` of at most 1024 characters that names its trigger, and `license: Apache-2.0`.
 
-This repo follows the system's skill layout (see the HLD's decision on template-owned skills). The skill's single copy of the source is in `skills/`, which is both the plugin's skill directory and the directory that agents here edit. `.claude/skills/` stays a real directory, so skills installed here from elsewhere can sit beside the link as real files. Claude Code documents that a project skill entry can be a link to a directory elsewhere.
+The skill's single copy of the source is in `skills/`, which is both the plugin's skill directory and the directory that agents here edit.
 
 ## When it runs, and how hard
 
@@ -196,8 +195,6 @@ The note follows `references/note-template.md`. Its sections are:
 - `name` matches the directory, and `description` is non-empty and at most 1024 characters;
 - `SKILL.md` is under 500 lines, and every file it references exists;
 - `plugin.json` and `marketplace.json` agree on the plugin's name, and the marketplace entry's `source` is `./`;
-- every directory in `skills/` has a `.claude/skills/<name>` link that resolves to it, and every link in `.claude/skills/` resolves to a directory in `skills/`;
-- `.agents/skills` is a link that resolves to `.claude/skills`;
 - the reference files contain the pieces the specs require: the route table's columns, the record shapes, and the note template's sections.
 
 **Behavior evals** run by hand with `claude plugin eval`. They aren't in PR CI, because each run costs model calls. Each run is isolated, with no user-level or project instructions, so none can already require a prior-art search, and every case also runs in the no-plugin baseline arm, so a pass shows the skill made the difference. Cases are tagged `online` or `offline`: the offline cases work from local fixtures, which makes license edge cases, untrusted content and unavailable routes repeatable. Graders check the contract, not exact candidates, because web results drift. The cases:
@@ -238,11 +235,9 @@ Each eval case carries `@spec` comments in its `case.yaml` for the EARS IDs it e
 | Reading source | Host convention, then the API, then a scratch shallow clone, then the registry archive | Self-contained (tenet 6) and works in cloud sessions; uses a host's existing clones when present | Require a reference-clone skill as a dependency |
 | Subagents | Optional, with fixed record shapes | Speeds up wide searches under Claude Code without making the skill depend on it (tenet 7); the shapes keep every claim sourced | Required fan-out; no subagents |
 | Where notes go | Host-named directory, then an existing `docs/prior-art/`, `research/` or `docs/research/`, then a new `docs/prior-art/` | Respects each repo's layout, with a predictable default | Always `docs/prior-art/`; ask every time |
-| Skill license | Apache-2.0, with the license text in the skill's own `LICENSE.txt` | Matches this repo and Anthropic's published skills; its explicit patent grant suits shared tooling; it can take in MIT-licensed code. Skills are copied into consumer repos, and Apache-2.0 requires each copy to carry the license text, so the skill's directory holds it | MIT (the most common license for published skills, and shorter, but no patent grant); the license only in the repo root (copies would lose it) |
+| Skill license | Apache-2.0, with the license text in the skill's own `LICENSE.txt` | Matches this repo and Anthropic's published skills; its explicit patent grant suits shared tooling; it can take in MIT-licensed code. APM installs only the skill's directory into each repo that uses it, and Apache-2.0 requires each copy to carry the license text, so the skill's directory holds it | MIT (the most common license for published skills, and shorter, but no patent grant); the license only in the repo root (copies would lose it) |
 | Plugin `version` | Omitted from `plugin.json` | APM pins by tag, and a hand-kept version would drift from the tags | A version bumped each release |
 | Plugin root | This repo's root, with the skills in a top-level `skills/` | The skill source sits outside `.claude/` and outside a wrapper directory, and APM installs the package by repository and tag. | `plugins/agentic-development/`, as LID lays out its plugin (an extra level for one plugin); a marketplace entry with `strict: false` and a hand-kept `skills` list (a list to keep in sync) |
-| This repo's own use | A committed link per skill from `.claude/skills/<name>` into `skills/` | One copy of the source, editable outside `.claude/`; cloud sessions load committed `.claude/skills/`; skills installed here from elsewhere can still be real directories beside the links | Link the whole `.claude/skills` to `skills/` (skills installed from elsewhere would then land in the package); a copy kept in sync by a test; `--plugin-dir` (doesn't reach cloud sessions) |
-| Skills for other agents | `.agents/skills` as one link to `.claude/skills` | Every agent sees the same set with nothing to maintain per skill | APM's `agent-skills` target (a second committed copy of every skill); a link per skill |
 | `@spec` placement | In tests and eval cases; `SKILL.md` and its references carry none | Annotations in skill text would be loaded into the agent's context on every run | HTML-comment annotations in `SKILL.md` |
 
 ## Open Questions & Future Decisions

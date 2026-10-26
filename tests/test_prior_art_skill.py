@@ -20,8 +20,6 @@ SKILL_MD = SKILL / "SKILL.md"
 REFERENCES = SKILL / "references"
 PLUGIN_JSON = REPO_ROOT / ".claude-plugin" / "plugin.json"
 MARKETPLACE_JSON = REPO_ROOT / ".claude-plugin" / "marketplace.json"
-CLAUDE_SKILLS = REPO_ROOT / ".claude" / "skills"
-AGENTS_SKILLS = REPO_ROOT / ".agents" / "skills"
 EVALS = REPO_ROOT / "evals"
 SPECS = REPO_ROOT / "docs" / "intent" / "prior-art-search" / "prior-art-search-specs.md"
 
@@ -187,43 +185,6 @@ def test_note_template_has_every_section() -> None:
         r"^##\s+(.+?)\s*$", (REFERENCES / "note-template.md").read_text(), flags=re.MULTILINE
     )
     assert [h.lower() for h in headings] == [s.lower() for s in NOTE_SECTIONS]
-
-
-# @spec PRIOR-PKG-011
-def test_claude_skills_is_a_real_directory() -> None:
-    """Skills installed from elsewhere sit beside the links as real files."""
-    assert CLAUDE_SKILLS.is_dir()
-    assert not CLAUDE_SKILLS.is_symlink()
-
-
-# @spec PRIOR-PKG-012
-@pytest.mark.parametrize(
-    "skill",
-    sorted(p.name for p in SKILLS.iterdir() if p.is_dir()) if SKILLS.is_dir() else [SKILL.name],
-)
-def test_each_skill_has_a_relative_link(skill: str) -> None:
-    """This repo's own sessions load every skill it develops."""
-    link = CLAUDE_SKILLS / skill
-    assert link.is_symlink()
-    assert not link.readlink().is_absolute()
-    assert link.resolve() == (SKILLS / skill).resolve()
-
-
-# @spec PRIOR-PKG-013
-def test_every_skill_link_points_into_skills() -> None:
-    """A link in `.claude/skills/` never points outside this repo's `skills/`."""
-    links = [p for p in CLAUDE_SKILLS.iterdir() if p.is_symlink()]
-    assert links
-    stray = [p.name for p in links if p.resolve().parent != SKILLS.resolve() or not p.is_dir()]
-    assert not stray, stray
-
-
-# @spec PRIOR-PKG-014
-def test_agents_skills_links_to_claude_skills() -> None:
-    """Other agents see the same skills as Claude Code, with no second copy."""
-    assert AGENTS_SKILLS.is_symlink()
-    assert not AGENTS_SKILLS.readlink().is_absolute()
-    assert AGENTS_SKILLS.resolve() == CLAUDE_SKILLS.resolve()
 
 
 # @spec PRIOR-PKG-015

@@ -4,3 +4,11 @@ __pycache__/
 .pytest_cache/
 evals/**/results/
 tmp/
+
+
+# APM dependencies
+apm_modules/
+
+# Skills APM installs from apm.lock.yaml; links to this repo's own skills stay tracked.
+/.claude/skills/*
+!/.claude/skills/prior-art-search

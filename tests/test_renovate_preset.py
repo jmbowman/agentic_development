@@ -3,18 +3,15 @@
 from __future__ import annotations
 
 import json
-import os
 import re
-import shutil
 import subprocess
 from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from tests.support import PRESET, require_tool
+from tests.support import PRESET, git_repo, renovate_log, require_tool
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
 RENOVATE_DEFAULT_IGNORES = [
@@ -35,68 +32,11 @@ def _preset() -> dict[str, Any]:
     return json.loads(PRESET.read_text())
 
 
-def _git_repo(root: Path, files: dict[str, str], links: dict[str, str] | None = None) -> Path:
-    """Create a committed git repo with the given files and symlinks."""
-    root.mkdir(parents=True)
-    for name, content in files.items():
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
-    for name, target in (links or {}).items():
-        path = root / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.symlink_to(target)
-    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com"]
-    subprocess.run([*git, "init", "-q"], cwd=root, check=True)  # noqa: S603
-    subprocess.run([*git, "add", "-A"], cwd=root, check=True)  # noqa: S603
-    subprocess.run([*git, "commit", "-qm", "fixture"], cwd=root, check=True)  # noqa: S603
-    return root
-
-
-def _renovate_log(repo: Path, dry_run: str) -> Iterator[dict[str, Any]]:
-    """Run Renovate's local platform in `repo`, with the preset as its repo config.
-
-    The preset goes in the repo's own `renovate.json`, as consumers use it, so its keys
-    override those of the presets it extends. (As a global config file, its `ignorePaths`
-    would instead be replaced by `config:best-practices`'s.)
-    """
-    renovate = require_tool("renovate")
-    shutil.copy2(PRESET, repo / "renovate.json")
-    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com"]
-    subprocess.run([*git, "add", "renovate.json"], cwd=repo, check=True)  # noqa: S603
-    subprocess.run([*git, "commit", "-qm", "preset"], cwd=repo, check=True)  # noqa: S603
-    env = {**os.environ, "LOG_LEVEL": "debug", "LOG_FORMAT": "json"}
-    completed = subprocess.run(  # noqa: S603
-        [
-            renovate,
-            "--platform=local",
-            f"--dry-run={dry_run}",
-            "--print-config",
-            "--onboarding=false",
-            "--require-config=required",
-        ],
-        cwd=repo,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    records = []
-    for line in completed.stdout.splitlines():
-        try:
-            records.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    fatal = [record.get("msg", "") for record in records if record.get("level", 0) >= 50]
-    assert completed.returncode == 0, fatal or completed.stderr[-2000:]
-    yield from records
-
-
 @pytest.fixture(scope="module")
 def resolved_config(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     """The preset after Renovate resolves its `extends` chain."""
-    repo = _git_repo(tmp_path_factory.mktemp("resolved") / "repo", {"README.md": "x\n"})
-    for record in _renovate_log(repo, "extract"):
+    repo = git_repo(tmp_path_factory.mktemp("resolved") / "repo", {"README.md": "x\n"})
+    for record in renovate_log(repo, "extract"):
         if record.get("msg", "").startswith("Full resolved config"):
             return record["config"]
     pytest.fail("Renovate logged no resolved config")
@@ -264,7 +204,7 @@ def test_no_exemption_by_owner_alone(resolved_config: dict[str, Any], name: str)
 
 def _extracted_package_files(repo: Path) -> set[str]:
     files: set[str] = set()
-    for record in _renovate_log(repo, "extract"):
+    for record in renovate_log(repo, "extract"):
         if record.get("msg") == "Extracted dependencies":
             for package_files in record["packageFiles"].values():
                 files.update(str(package_file["packageFile"]) for package_file in package_files)
@@ -276,7 +216,7 @@ def _extracted_package_files(repo: Path) -> set[str]:
 def test_template_owned_paths_are_ignored_only_in_consumers(tmp_path: Path) -> None:
     """A consumer's template-owned mise files are ignored; a template repo's sources aren't."""
     pin = '[tools]\nruff = "0.6.0"\n'
-    repo = _git_repo(
+    repo = git_repo(
         tmp_path / "repo",
         {
             "mise.toml": pin,
@@ -310,10 +250,10 @@ def test_lid_rule_matches_what_the_apm_manager_extracts(
         "name: fixture\nversion: 1.0.0\ndependencies:\n  apm:\n"
         "    - jszmajda/lid/plugins/linked-intent-dev#v1.2.0\n"
     )
-    repo = _git_repo(tmp_path / "repo", {"apm.yml": apm})
+    repo = git_repo(tmp_path / "repo", {"apm.yml": apm})
     deps = [
         dep
-        for record in _renovate_log(repo, "extract")
+        for record in renovate_log(repo, "extract")
         if record.get("msg") == "Extracted dependencies"
         for package_file in record["packageFiles"].get("apm", [])
         for dep in package_file["deps"]
@@ -329,7 +269,7 @@ def test_mise_lock_sidecars_are_ignored(tmp_path: Path) -> None:
     sidecar = (
         '{"name": "mise-npm-install", "private": true, "dependencies": {"renovate": "44.0.0"}}\n'
     )
-    repo = _git_repo(
+    repo = git_repo(
         tmp_path / "repo",
         {
             "package.json": '{"name": "app", "dependencies": {"left-pad": "1.0.0"}}\n',
