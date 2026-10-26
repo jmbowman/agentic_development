@@ -83,8 +83,7 @@ runs, and needs network access to GitHub the first time it installs the skills. 
 [`docs/high-level-design.md`](docs/high-level-design.md) for the design.
 
 In a Claude Code cloud session, a SessionStart hook installs mise, the pinned tools and the
-skills when the session starts (whether the skills load in that same session is still to be
-confirmed). The environment's network policy must allow GitHub (releases
+skills before the first prompt. The environment's network policy must allow GitHub (releases
 and git), `nodejs.org`, npm and PyPI. Threads in a claude.ai Project don't run the hook or load
 the repo's skills.
 

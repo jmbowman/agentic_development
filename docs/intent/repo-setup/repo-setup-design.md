@@ -59,7 +59,7 @@ A LID release that adds or removes a skill also needs its `.agents/skills/` link
 4. appends a `PATH` line for mise and every pinned tool to `CLAUDE_ENV_FILE`, unless the file already holds that exact line, so later commands can call `ruff` or `lidc` directly. In a cloud session, an unset `CLAUDE_ENV_FILE` is a failure;
 5. prints one JSON object to stdout, `{"hookSpecificOutput": {"hookEventName": "SessionStart", "reloadSkills": true}}`, and exits 0.
 
-Claude Code discovers skills before SessionStart hooks finish, so without `reloadSkills` the skills the hook installs could be missing at the first prompt. With it, Claude Code re-scans the skill directories once the hooks complete. Claude's first response waits for SessionStart hooks, so the tools and skills exist before the agent's first turn. Since stdout carries that object, every command the script runs sends its own output to stderr.
+Claude Code discovers skills before SessionStart hooks finish, so without `reloadSkills` the skills the hook installs could be missing at the first prompt. With it, Claude Code re-scans the skill directories once the hooks complete (verified in a cloud session on 2026-10-26: LID's skills, installed by the hook, were listed at the first prompt). Claude's first response waits for SessionStart hooks, so the tools and skills exist before the agent's first turn. Since stdout carries that object, every command the script runs sends its own output to stderr.
 
 On any failure, the script runs no later step. It prints the same object with an `additionalContext` field naming the step that failed and what is missing, and exits 0. Claude Code adds a SessionStart hook's output to Claude's context only when the hook exits 0; on a non-zero exit, only the user sees a notice, and the session goes ahead either way. The notice therefore reaches the agent that would otherwise hit the missing tools, and the agent tells the user. The object still asks for a re-scan, because a failure after the skills step leaves them installed. An exit trap prints the object, with a notice, even when the script stops outside its defined steps.
 
@@ -103,10 +103,9 @@ The hook's run in a real cloud session is checked by hand: a cloud session on a 
 ## Open Questions & Future Decisions
 
 ### Deferred
-1. Whether `reloadSkills` makes the hook's skills available at the first prompt of a cloud session, as the hooks docs describe. The hand-run cloud check settles it. If it doesn't, this repo commits its installed LID skills instead, and the HLD's decision on template skills is revisited for consumers.
-2. Whether `CLAUDE_ENV_FILE` survives a resume in the same container. The hook's check for an existing line makes either answer safe.
-3. Moving the regex manager into the shared preset, when the template ships a hook of its own.
-4. Other platforms for the hook, if cloud sessions ever run on anything but Linux x86-64.
+1. Whether `CLAUDE_ENV_FILE` survives a resume in the same container. The hook's check for an existing line makes either answer safe.
+2. Moving the regex manager into the shared preset, when the template ships a hook of its own.
+3. Other platforms for the hook, if cloud sessions ever run on anything but Linux x86-64.
 
 ## References
 
