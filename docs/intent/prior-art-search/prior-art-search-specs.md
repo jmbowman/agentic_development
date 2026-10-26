@@ -14,10 +14,6 @@ Design: [prior-art-search-design.md](prior-art-search-design.md). "This repo" is
 - [x] **PRIOR-PKG-008**: The skill's `references/sources.md` shall contain a route table with the columns route, trigger, good for and tactics, including at least one route whose trigger is an agent skill, plugin or MCP server.
 - [x] **PRIOR-PKG-009**: The skill's `references/verification.md` shall define the evidence record with exactly the fields `candidate`, `url`, `criterion`, `claim`, `support`, `evidence`, `evidence_kind`, `read_depth`, `commit` and `as_of`, and the ledger record with exactly the fields `route`, `state`, `queries`, `reason` and `as_of`.
 - [x] **PRIOR-PKG-010**: The skill's `references/note-template.md` shall have a section for each of: the need and criteria, the verdict, the candidate table and matrix, the limitations checked in source, the coverage ledger, the snowball rounds, and the refresh trigger.
-- [x] **PRIOR-PKG-011**: This repo's `.claude/skills` shall be a real directory, not a link.
-- [x] **PRIOR-PKG-012**: For every directory in this repo's `skills/`, this repo shall have a `.claude/skills/<name>` relative link that resolves to that directory.
-- [x] **PRIOR-PKG-013**: Every link in this repo's `.claude/skills/` shall resolve to a directory in this repo's `skills/`.
-- [x] **PRIOR-PKG-014**: This repo's `.agents/skills` shall be a relative link that resolves to this repo's `.claude/skills`.
 - [x] **PRIOR-PKG-015**: The skill shall contain `LICENSE.txt` with the same text as this repo's `LICENSE`.
 
 ## Triggering

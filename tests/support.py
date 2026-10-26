@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 import yaml
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
@@ -241,3 +245,89 @@ def require_tool(name: str) -> str:
     if path is None:
         pytest.fail(f"{name} is not on PATH; run the tests through `mise run test`")
     return path
+
+
+def git_repo(root: Path, files: dict[str, str], links: dict[str, str] | None = None) -> Path:
+    """Create a committed git repo with the given files and symlinks.
+
+    Args:
+        root: The directory to create the repo in; it must not exist yet.
+        files: File contents, keyed by path relative to `root`.
+        links: Symlink targets, keyed by link path relative to `root`.
+
+    Returns:
+        `root`.
+    """
+    root.mkdir(parents=True)
+    for name, content in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    for name, target in (links or {}).items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.symlink_to(target)
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com"]
+    subprocess.run([*git, "init", "-q"], cwd=root, check=True)  # noqa: S603
+    subprocess.run([*git, "add", "-A"], cwd=root, check=True)  # noqa: S603
+    subprocess.run([*git, "commit", "-qm", "fixture"], cwd=root, check=True)  # noqa: S603
+    return root
+
+
+def renovate_log(
+    repo: Path, dry_run: str, config: dict[str, Any] | None = None
+) -> Iterator[dict[str, Any]]:
+    """Run Renovate's local platform in `repo`, and yield its JSON log records.
+
+    The config goes in the repo's own `renovate.json`, as consumers use the preset, so its
+    keys override those of the presets it extends. (As a global config file, the preset's
+    `ignorePaths` would instead be replaced by `config:best-practices`'s.)
+
+    Args:
+        repo: A git repo, as `git_repo` makes.
+        dry_run: Renovate's `--dry-run` mode, such as `extract`.
+        config: The repo config to commit as `renovate.json`; the preset if omitted.
+
+    Yields:
+        Each JSON record Renovate logs.
+    """
+    renovate = require_tool("renovate")
+    if config is None:
+        shutil.copy2(PRESET, repo / "renovate.json")
+    else:
+        (repo / "renovate.json").write_text(json.dumps(config))
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.com"]
+    subprocess.run([*git, "add", "renovate.json"], cwd=repo, check=True)  # noqa: S603
+    subprocess.run([*git, "commit", "-qm", "renovate config"], cwd=repo, check=True)  # noqa: S603
+    env = {**os.environ, "LOG_LEVEL": "debug", "LOG_FORMAT": "json"}
+    completed = subprocess.run(  # noqa: S603
+        [
+            renovate,
+            "--platform=local",
+            f"--dry-run={dry_run}",
+            "--print-config",
+            "--onboarding=false",
+            "--require-config=required",
+        ],
+        cwd=repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    records = []
+    for line in completed.stdout.splitlines():
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    fatal = [record.get("msg", "") for record in records if record.get("level", 0) >= 50]
+    assert completed.returncode == 0, fatal or completed.stderr[-2000:]
+    # Renovate exits 0 on an invalid repo config, after logging it and skipping the run.
+    invalid = [
+        record.get("err", {}).get("validationMessage")
+        for record in records
+        if record.get("msg") == "Repository has invalid config"
+    ]
+    assert not invalid, invalid
+    yield from records

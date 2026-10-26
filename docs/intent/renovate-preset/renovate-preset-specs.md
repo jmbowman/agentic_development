@@ -11,7 +11,7 @@ Design: [renovate-preset-design.md](renovate-preset-design.md). The preset is `r
 
 - [x] **PRESET-AUTO-001**: In the Renovate preset's resolved config, automerge shall be enabled for every update type (tested at least for `major`, `minor`, `patch`, `pin`, `pinDigest`, `digest`, `lockFileMaintenance` and `replacement`), except where PRESET-AUTO-003 disables it.
 - [x] **PRESET-AUTO-002**: The Renovate preset shall use `automergeType` `pr` with `platformAutomerge` enabled.
-- [x] **PRESET-AUTO-003**: The Renovate preset shall disable automerge for dependencies from Renovate's built-in `apm` manager whose `packageName` is `jszmajda/lid` (LID plugin pins in `apm.yml`, which need a manual `/update-lid` walk after merging), and Renovate's extraction of an `apm.yml` fixture shall produce a dependency that this rule matches.
+- [x] **PRESET-AUTO-003**: The Renovate preset shall disable automerge for dependencies from Renovate's built-in `apm` manager whose `packageName` is `jszmajda/lid` (LID plugin pins in `apm.yml`, which need a manual `/update-lid` walk on the update's branch before merging), and Renovate's extraction of an `apm.yml` fixture shall produce a dependency that this rule matches.
 
 ## Supply-chain delay
 

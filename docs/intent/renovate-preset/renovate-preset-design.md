@@ -7,7 +7,7 @@ prefix: PRESET
 
 ## Context and Design Philosophy
 
-Each consumer's Renovate config file (`.github/renovate.json` on GitHub) holds one line that extends this repo's preset at a pinned tag. The preset carries the shared update policy: automerge everything once CI passes, except changes that need a human step after merging. It also delays third-party releases long enough for bad ones to be pulled, and keeps Renovate out of files that a template owns.
+Each consumer's Renovate config file (`.github/renovate.json` on GitHub) holds one line that extends this repo's preset at a pinned tag. The preset carries the shared update policy: automerge everything once CI passes, except changes that need a human step before they can merge. It also delays third-party releases long enough for bad ones to be pulled, and keeps Renovate out of files that a template owns.
 
 The preset file is `renovate/default.json`. Consumers extend it as `github>jmbowman/agentic_development//renovate/default#vX.Y.Z`, and Renovate's renovate-config manager bumps that tag.
 
@@ -30,7 +30,8 @@ The preset file is `renovate/default.json`. Consumers extend it as `github>jmbow
 - A copier update that conflicts is reported by Renovate as an artifact error, which blocks automerge. The conflict-marker check in each repo's `check` task is a second guard, which also covers updates run by hand.
 
 **Exceptions to automerge.**
-- **LID pins.** APM dependencies from the `jszmajda/lid` repository never automerge (`matchManagers: ["apm"]`, `matchPackageNames: ["jszmajda/lid"]`; Renovate's apm manager sets `packageName` to the repository and `depName` to the plugin path). After such an update merges, the project's design docs need a `/update-lid` walk, which a bot can't do.
+- **LID pins.** APM dependencies from the `jszmajda/lid` repository never automerge (`matchManagers: ["apm"]`, `matchPackageNames: ["jszmajda/lid"]`; Renovate's apm manager sets `packageName` to the repository and `depName` to the plugin path). Such an update needs a `/update-lid` walk of the project's design docs, which a bot can't do. A person runs it on the update's branch and pushes the result, and the repo's LID version check fails until they do (HLD: *LID pin bumps are the one exception to automerge*).
+- **APM lock files.** `config:best-practices` turns on Renovate's weekly lock-file maintenance, and the apm manager supports it: it deletes `apm.lock.yaml`, reruns `apm install` beside the manifest, and opens a PR only if the lock file changed (verified in Renovate 44.167.7's `modules/manager/apm/`). Tag pins re-resolve to the same commits, so such a PR is rare, and it automerges like any other. Consumers' template-owned lock files sit under the ignored `.config/copier-*/**`, so maintenance runs only where a repo owns its manifest: this repo and the template repos. It needs `apm` in Renovate's environment, as an apm pin bump does.
 
 **Supply-chain delay.**
 - `minimumReleaseAge` is 3 days, so third-party releases wait before Renovate proposes them.
@@ -83,7 +84,6 @@ This repo's CI, before a tag:
 ### Deferred
 1. Grouping related updates (for example all Astral tools) into one branch. Add it if update volume becomes noisy.
 2. Automated tagging of releases after a merge. Slice 2's commit tooling (cocogitto) can derive versions from commit messages. Until then, the maintainer tags releases by hand.
-3. Lock-file maintenance for `apm.lock.yaml`, which needs the `apm` CLI in Renovate's environment. Verify when a consumer first has one.
 
 ## References
 
