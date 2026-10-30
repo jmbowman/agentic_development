@@ -40,7 +40,7 @@ Renovate's own managers bump those references (github-actions for the workflow, 
 The development process (spec-driven with LID, tests first, review waves until convergence, a commit per slice) gets skills, hooks and a small state machine that enforce the parts agents tend to skip.
 
 Skills come from three sources:
-- **template skills:** the skills package in this repo, and LID's skills. Each template pins both in its own `apm.yml` and renders that manifest and its lock file into consumer repos as template-owned files, so a consumer receives skill updates through template updates;
+- **template skills:** the skills package in this repo, which brings LID's skills as a dependency. Each template pins the package in its own `apm.yml` and renders that manifest and its lock file into consumer repos as template-owned files, so a consumer receives skill updates through template updates;
 - **repo-specific skills from other packages,** which a repo declares in its own `apm.yml`;
 - **skills developed in the repo,** committed as source in its own `skills/`.
 
@@ -126,7 +126,7 @@ flowchart TB
   end
   RN(("Renovate"))
   T -->|"pins #tag"| SK
-  T -->|"pins #tag"| LID
+  SK -->|"depends on #tag"| LID
   T -->|"copy, then update"| CFG
   CFG -->|"apm install --frozen"| DS
   STUB -->|"calls @tag"| WF
@@ -150,13 +150,13 @@ Components:
 |---|---|---|
 | CI workflows | this repo, `.github/workflows/` | The reusable check workflow each language layer's stub calls, what it requires a consumer repo to contain, the checks it runs, and its release tests against a fixture consumer. The reusable lock-refresh workflow that keeps a consumer's committed `mise.lock` current on Renovate's branches |
 | Renovate presets | this repo | Shared Renovate behavior: automerge policy, the supply-chain delay, paths Renovate must not touch, the exception that holds LID pin bumps for a manual upgrade, and treating the lock-refresh App's commits as Renovate's own |
-| copier-python | [copier-python](https://github.com/jmbowman/copier-python) (`../copier-python` locally), with its own design docs | The Python baseline files, their owners, and the template's own tests. Its pins of the skills package and of LID's skills, the manifest, lock file and skill links it renders into consumers, and the tasks and SessionStart hook that install the skills there |
+| copier-python | [copier-python](https://github.com/jmbowman/copier-python) (`../copier-python` locally), with its own design docs | The Python baseline files, their owners, and the template's own tests. Its pin of the skills package (which brings LID's skills), the manifest, lock file and skill links it renders into consumers, and the tasks and SessionStart hook that install the skills there |
 | Skills package | this repo, `skills/` (the repo root is the plugin) | The template-owned skills, released with this repo's tags, and their structure tests and evals. Every skill's frontmatter uses only the Agent Skills fields, and its instructions work in any agent that reads them. Claude Code features (subagents, hooks, its extra frontmatter) are optional speed-ups in the instructions where possible, with the portability cost noted where not. Skill names are specific, because a consumer can't give its own skill the name of a template skill. A script a skill ships passes the strict profile here, the only repo that lints it. The first skill is the [prior-art search skill](intent/prior-art-search/prior-art-search-design.md) |
 | Process hooks | this repo (planned) | Commit gates and other hooks. Not yet designed |
 
 Copier never edits the repo-owned reference files after the first render, and Renovate never edits template-owned files (the shared preset excludes them), so two update mechanisms never touch the same line.
 
-**Versioning.** This repo and each template repo are released by git tag, `vMAJOR.MINOR.PATCH`. That form parses as PEP 440, the default versioning for Renovate's copier manager. Consumers pin references to a tag. A change that consumers must react to (a new requirement the workflow places on a repo, a preset behavior change, or a skill renamed or removed) is a major version.
+**Versioning.** This repo and each template repo are released by git tag, `vMAJOR.MINOR.PATCH`. That form parses as PEP 440, the default versioning for Renovate's copier manager. Consumers pin references to a tag. A change that consumers must react to (a new requirement the workflow places on a repo, a preset behavior change, or a skill renamed or removed) is a major version. A LID bump in the skills package is the exception, a minor version: every consumer must walk it, but its LID version check already enforces that.
 
 ## Key Design Decisions
 
@@ -176,7 +176,7 @@ Copier never edits the repo-owned reference files after the first render, and Re
   - the repo settings that platform automerge needs (applied at onboarding).
 
   Everything else is forge-neutral. The checks are mise tasks, the preset's policy is plain Renovate config, and the template files don't mention a forge. Each template asks a `forge` question (only `github` for now) that selects which CI stub and preset reference to render. Adding GitLab means a GitLab CI component in this repo that runs the same `mise run check`, a `gitlab` answer, and `gitlab>` references. No existing file changes owner.
-- **Template skills are pinned by the template and installed from its lock file.** Each template pins the skills package and LID's `linked-intent-dev` plugin in its own `apm.yml` in `.config/<template>/`, with `targets: [claude]`. Renovate's apm manager bumps a pin and its lock file in the template repo, and copier renders the manifest and lock file into consumers as template-owned files. `apm install --frozen` in that directory deploys the skills to `.config/<template>/.claude/skills/` (APM always deploys under `.claude/skills/` beside its manifest), which the template gitignores. Delivering the pins through the template gives each consumer a single update channel for its baseline, and the hosted Renovate app has to run `apm install` only in template repos and this one. A skill update reaches consumers one template release after the package is tagged.
+- **Template skills are pinned by the template and installed from its lock file.** Each template pins the skills package in its own `apm.yml` in `.config/<template>/`, with `targets: [claude]`. The package lists LID's `linked-intent-dev` plugin as a dependency in this repo's root `apm.yml`, so APM installs LID's skills with it, and every template and consumer runs the LID version this repo pins. That root manifest is both this repo's own and the package's dependency list: LID stays under `dependencies` (APM doesn't install a package's `devDependencies`), and anything added there reaches every consumer. Renovate's apm manager bumps the pin and its lock file in the template repo, and copier renders the manifest and lock file into consumers as template-owned files. `apm install --frozen` in that directory deploys the skills to `.config/<template>/.claude/skills/` (APM always deploys under `.claude/skills/` beside its manifest), which the template gitignores. Delivering the pins through the template gives each consumer a single update channel for its baseline, and the hosted Renovate app has to run `apm install` only in template repos and this one. A skill update reaches consumers one template release after the package is tagged.
 
   The skills are installed wherever something reads them:
   - **locally,** by the `setup` task, re-run after a template update that changes the lock file;
@@ -185,6 +185,7 @@ Copier never edits the repo-owned reference files after the first render, and Re
 
   The lock file pins each package's commit and each deployed file's hash, so every install is reproducible. A frozen install fetches by git alone and needs no GitHub API access (tested with APM 0.33.0 from an empty cache, behind a proxy refusing `api.github.com`). The cost is that a session or CI run without network access to GitHub has no packaged skills, and a fresh clone's skill links point nowhere until the first install. *Alternatives:*
   - deployed skill files committed to each consumer (a copy of another repo's files in every consumer and in every update diff, as committing `node_modules` would be, in exchange for needing no install step);
+  - each template pinning LID beside the package (a second LID pin to keep in step with this repo's, and a held Renovate PR in each template repo for every LID release);
   - each consumer pins the packages in its own `apm.yml` (a second update channel per repo, and `apm install` on the hosted app in every consumer);
   - a plugin marketplace declared in the repo's settings (cloud sessions don't install those plugins);
   - for LID, its vendored workflow doc (gives a harness the workflow text, but not `/update-lid` or `/lid-coach`).
@@ -202,8 +203,10 @@ Copier never edits the repo-owned reference files after the first render, and Re
   APM doesn't create the links, and copier can't render one link per entry of a list, so a package release that adds, renames or removes a skill needs a matching hand edit to each template's links, on the Renovate PR that bumps the pin; the template's tests fail that PR until the links match. Copier's update never deletes a symlink, so a removed or renamed skill leaves dangling links in consumers, and a `skill-links` check in each consumer's `check` fails the update PR until a person deletes them.
 - **Conflicts never automerge.** Renovate reports a conflicted copier update as an artifact error, which blocks automerge. A conflict-marker check in each repo's `check` task is a second guard, which also covers updates run by hand.
 - **LID pin bumps are the one exception to automerge.** Moving a project to a new LID version needs a `/update-lid` walk of its design docs, which the bump PR can't do. Two guards hold a bump until a person has walked it:
-  - the shared preset holds Renovate's apm PRs that bump LID, in a template repo or in any repo whose own `apm.yml` pins it;
+  - the shared preset holds Renovate's apm PRs that bump LID in any repo whose own `apm.yml` pins it, this one included;
   - every repo's `check` fails while the `- Version:` in its instruction file's `## LID` block differs from the LID version its lock file pins. This catches the bump that reaches a consumer inside a template update, which the copier manager otherwise automerges. A person runs `/update-lid` on the update's branch and pushes the result, and the PR then merges as usual.
+
+  A LID release therefore reaches consumers in three steps: the held LID PR here, walked and merged; a tag of this repo, whose package bump in each template repo automerges with LID inside it (a template's own docs follow its root `apm.yml`, not its template's); and the template release, held in each consumer by its check until walked.
 
   *Alternatives:* each consumer pins LID in its own `apm.yml`, so the preset's hold covers it (a second update channel per repo, for one package); holding template updates that change the LID pin (Renovate sees only the template's version, so a check would have to detect the change, which the version check already does).
 - **Public repositories.** A public repo can call only public reusable workflows, and a private repo can call a private repo's workflows only after an access policy is set ([GitHub reference](https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workflow-configurations)). Public tooling repos remove that constraint for every consumer, and their content is configuration with no personal data.

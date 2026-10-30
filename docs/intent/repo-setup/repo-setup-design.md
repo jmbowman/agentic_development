@@ -9,6 +9,8 @@ prefix: SETUP
 
 The HLD's decisions on template skills and LID pin bumps reach consumers through copier-python, which renders the manifest, lock file, links, tasks and hook into each of them. This repo doesn't apply that template to itself yet, so it carries the same setup by hand, in the form a repo without a template takes: the manifest sits at the repo root, and there's no `.config/<template>/` directory. Once the template applies itself here, this node shrinks to what the template doesn't cover.
 
+This repo's root `apm.yml` has a second job: because the repo root is the skills package, the same manifest is the package's dependency list. Every template that pins the package installs the LID plugin listed here, so the LID version this repo pins is the one every consumer runs, and anything added to the manifest's `dependencies` reaches them all.
+
 The setup has one rule: a fresh clone plus `mise run setup` locally, the SessionStart hook in a cloud session, or `mise run check` in CI each leaves the repo with the same tools and skills, from committed pins and lock files.
 
 ## Skills layout
@@ -18,7 +20,7 @@ The setup has one rule: a fresh clone plus `mise run setup` locally, the Session
 | `skills/<name>/` | The source of each skill developed here: the skills package's skills |
 | `.claude/skills/` | A real directory. For each skill in `skills/`, a committed relative link `<name>` to `../../skills/<name>`. LID's installed skills, as real directories, gitignored |
 | `.agents/skills/` | A real directory. For each skill in `skills/`, a committed relative link `<name>` to `../../skills/<name>`. For each skill LID's package deploys, a committed relative link `<name>` to `../../.claude/skills/<name>` |
-| `apm.yml` | `targets: [claude]` and one dependency, `jszmajda/lid/plugins/linked-intent-dev#vX.Y.Z` |
+| `apm.yml` | `targets: [claude]` and one dependency, `jszmajda/lid/plugins/linked-intent-dev#vX.Y.Z`, under `dependencies` (not `devDependencies`, which APM doesn't install for a package's users) |
 | `apm.lock.yaml` | The lock file `apm install` writes: each package's commit, and each deployed file and its hash |
 | `.gitignore` | `apm_modules/` (APM adds it on install), `/.claude/skills/*`, and a `!/.claude/skills/<name>` line for each skill in `skills/` |
 
@@ -86,7 +88,8 @@ The hook's run in a real cloud session is checked by hand: a cloud session on a 
 |---|---|---|---|
 | Loading the skills developed here | A committed link per skill from `.claude/skills/<name>` and `.agents/skills/<name>` into `skills/` | Linking all of `.claude/skills` to `skills/`; a copy kept in sync by a test; `--plugin-dir` | One copy of the source, editable outside `.claude/`, and committed links load in cloud sessions. A whole-directory link would put installed skills inside the package; a copy can drift; `--plugin-dir` doesn't reach cloud sessions |
 | `.agents/skills/` | A real directory with a link per skill | One link from `.agents/skills` to `.claude/skills`; APM's `agent-skills` target | Matches the layout the HLD sets for every repo, so a skill can be for other agents only. The single link would also need no edits per skill. The `agent-skills` target would install a second copy of every skill |
-| Where LID is pinned | A root `apm.yml` | A user-level LID plugin; LID's vendored workflow doc | A plugin installed per user doesn't reach cloud sessions or other contributors; the workflow doc carries no `/update-lid` or `/lid-coach` |
+| Where LID is pinned | A root `apm.yml`, which is also the skills package's dependency list | A user-level LID plugin; LID's vendored workflow doc; a separate manifest for this repo's own use | A plugin installed per user doesn't reach cloud sessions or other contributors; the workflow doc carries no `/update-lid` or `/lid-coach`. APM reads the package's dependencies from the root manifest, so one pin serves this repo and every consumer, and a second manifest would be a second LID pin to keep in step |
+| What the manifest may list | LID's core plugin only | Further packages, such as LID's arrow-maintenance | Every dependency here installs in every consumer, so a package earns a place only when all of them should have it |
 | Ignoring installed skills | `/.claude/skills/*` with a `!` line per own skill | One line per LID skill | A skill a later LID release adds stays ignored without an edit; the `!` lines change only when a skill is added here, which already needs hand-made links |
 | LID's skills for other agents | A committed `.agents/skills/` link per LID skill | No links, so only Claude Code sees LID | `AGENTS.md` tells every agent to consult the skill; the links cost one edit when a LID release adds or removes a skill, which the layout test flags |
 | Where the version gate runs | A pytest test, run by `check` | A step in the `lid` task | Matches how this repo's other structural checks run, and pyyaml is already a test dependency; the `lid` task stays one `lidc` call |
