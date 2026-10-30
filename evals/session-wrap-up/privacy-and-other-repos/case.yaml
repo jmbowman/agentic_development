@@ -1,0 +1,10 @@
+# @spec WRAP-LES-008, WRAP-LES-017, WRAP-LES-018
+# @spec WRAP-RPT-003, WRAP-RPT-004
+schema_version: "1.1"
+name: privacy-and-other-repos
+description: >-
+  Secrets and other people's private records go nowhere, personal context goes only to
+  user-level destinations, internal runbook material waits for restatement, and a bug in another
+  repo becomes a general draft in the report with nothing edited there.
+context:
+  scaffold_script: scaffold.sh

@@ -1,6 +1,6 @@
 # Behavior evals for this repo's skills
 
-Cases for `claude plugin eval`, run by hand from the repo root (the repo root is the plugin). Each skill's cases live in `evals/<skill>/`, one directory per case, and carry the skill's name as a tag; `--eval-dir evals/<skill>` runs one skill's suite. Only `prior-art-search` has cases so far. Each run is a real model call, and the online cases search the web and clone repositories, so a full suite takes a while and costs real usage. Runs are isolated: no user or project instructions load, so a pass shows what the skill itself contributes, and every case also runs without the plugin for comparison.
+Cases for `claude plugin eval`, run by hand from the repo root (the repo root is the plugin). Each skill's cases live in `evals/<skill>/`, one directory per case, and carry the skill's name as a tag; `--eval-dir evals/<skill>` runs one skill's suite. `prior-art-search` and `session-wrap-up` have cases. Each run is a real model call, and the online cases search the web and clone repositories, so a full suite takes a while and costs real usage. Runs are isolated: no user or project instructions load, so a pass shows what the skill itself contributes, and every case also runs without the plugin for comparison.
 
 Cases are also tagged `online` (they need web search and network access) or `offline` (everything they need is in the case's scaffold). `--tag` matches any of the tags given, so combine a skill and a network tag with `--eval-dir` plus `--tag`, not two tags. Every case that seeds a workspace needs `--scaffold`.
 
@@ -24,4 +24,12 @@ Cases that grant Bash need Claude Code's sandbox (bubblewrap and socat on Linux)
 
 Add `--case <name> --runs 1 --ablation none` to iterate on one case. Results go to `results/` inside the eval directory, which is gitignored.
 
-Each case's `case.yaml` lists the specs it exercises in `@spec` comments. For prior-art-search, `tests/test_prior_art_skill.py` checks that every spec marked *(eval)* in `docs/intent/prior-art-search/prior-art-search-specs.md` has a case, and that each case sits under its skill's directory with its tag.
+Each case's `case.yaml` lists the specs it exercises in `@spec` comments. Each skill's structure tests (`tests/test_prior_art_skill.py`, `tests/test_session_wrap_up_skill.py`) check that every spec its specs file marks *(eval)* has a case in its own suite. `tests/test_evals.py` checks that every case loads in the runner and sits under its skill's directory with its tag.
+
+The session-wrap-up cases are offline, and each gives the skill a record of a session to wrap up inside its prompt, since an eval is a single prompt. Run them with:
+
+```bash
+claude plugin eval . --eval-dir evals/session-wrap-up --tag offline --scaffold --allow-tools Bash Write Edit
+```
+
+Behavior an eval can't reach (an interactive run, or another live session) is checked by hand from the scripts in `evals/session-wrap-up/manual.md`, which also hold the dated results. Its specs are marked *(manual)*.

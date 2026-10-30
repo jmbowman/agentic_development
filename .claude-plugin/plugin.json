@@ -1,6 +1,6 @@
 {
   "name": "agentic-development",
-  "description": "Skills for an agentic development process. First: a prior-art search that checks for existing software before an agent recommends building something.",
+  "description": "Skills for an agentic development process: a prior-art search that checks for existing software before an agent recommends building something, and a session wrap-up that proposes where each lesson from a session belongs and how the next session should start.",
   "author": {
     "name": "Jeremy Bowman"
   },

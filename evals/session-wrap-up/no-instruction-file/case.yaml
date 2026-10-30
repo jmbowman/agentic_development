@@ -1,0 +1,10 @@
+# @spec WRAP-RULE-002, WRAP-RULE-003, WRAP-RULE-004
+# @spec WRAP-RPT-002, WRAP-RPT-005, WRAP-RPT-006, WRAP-RPT-009
+schema_version: "1.1"
+name: no-instruction-file
+description: >-
+  In a repo with no instruction file, project rules go into one proposed new AGENTS.md, a
+  knowledge-base fact goes to the existing docs/, roles with no home are reported missing with
+  their lessons dropped, and no handoff document is proposed even when asked for one.
+context:
+  scaffold_script: scaffold.sh

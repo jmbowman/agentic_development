@@ -1,0 +1,11 @@
+# @spec WRAP-RUN-006, WRAP-RUN-007
+# @spec WRAP-LES-002, WRAP-LES-005, WRAP-LES-009, WRAP-LES-010, WRAP-LES-011, WRAP-LES-020
+# @spec WRAP-RPT-001, WRAP-RPT-002, WRAP-RPT-007
+schema_version: "1.1"
+name: recorded-and-changed-rules
+description: >-
+  A lesson already recorded is skipped with its location; a narrowed rule becomes an edit; a
+  reversed rule becomes a Decide item; a repo-specific refinement of a user-level rule becomes a
+  new repo rule; assent to a quoted proposal counts as a decision; no next step is left.
+context:
+  scaffold_script: scaffold.sh

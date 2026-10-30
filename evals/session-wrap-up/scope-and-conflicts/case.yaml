@@ -1,0 +1,10 @@
+# @spec WRAP-RULE-007, WRAP-LES-012, WRAP-LES-019, WRAP-RUN-015
+schema_version: "1.1"
+name: scope-and-conflicts
+description: >-
+  A decision whose home the user-level and project instructions disagree on becomes a Decide
+  item; a lesson the developer says holds everywhere goes to the user-level instructions; an
+  internal hostname in a repo of undecided visibility is stripped, or held back with a question
+  in the report.
+context:
+  scaffold_script: scaffold.sh
