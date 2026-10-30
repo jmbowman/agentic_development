@@ -17,7 +17,7 @@ node = "24.22.2"
 # mise's npm installer (aube) refuses a dependency whose provenance is weaker than an earlier
 # release's. @yarnpkg/libzip 3.2.2 was published by a Yarn maintainer without provenance, from
 # the yarnpkg/berry release commit 2eb9830716 (checked 2026-10-12).
-"npm:renovate" = { version = "44.186.6", trust_policy_excludes = ["@yarnpkg/libzip@3.2.2"] }
+"npm:renovate" = { version = "44.186.8", trust_policy_excludes = ["@yarnpkg/libzip@3.2.2"] }
 
 [tasks.setup]
 run = ["mise install", "mise run skills", "prek install -c .config/prek.toml"]
