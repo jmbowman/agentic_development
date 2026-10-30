@@ -43,7 +43,7 @@ from repo to repo fails in predictable ways:
 | `renovate/default.json` | The Renovate preset: update pull requests merge automatically once CI passes, most new releases wait 3 days first, and template-owned files are left to the template. |
 | `skills/prior-art-search/` | An agent skill that searches for existing software before an agent recommends building something: sources chosen by the need, candidates classified with licenses read from their license files, limitations verified in source, and a dated note saved for costly choices. It follows the [Agent Skills](https://agentskills.io) format, so it works in Claude Code and other agents. |
 | `.claude-plugin/` | Packages this repo as a Claude Code plugin (the repo root is the plugin), with a one-plugin marketplace, so Claude Code can install it straight from this repo. |
-| `apm.yml`, `apm.lock.yaml`, `.claude/hooks/` | This repo's own agent setup: [LID](https://github.com/jszmajda/lid)'s skills pinned with [APM](https://github.com/microsoft/apm), and a hook that installs the tools and skills in Claude Code cloud sessions. |
+| `apm.yml`, `apm.lock.yaml`, `.claude/hooks/` | [LID](https://github.com/jszmajda/lid)'s skills pinned with [APM](https://github.com/microsoft/apm). The pin serves this repo and, as the skills package's dependency, every repo that installs the package. Also this repo's hook that installs the tools and skills in Claude Code cloud sessions. |
 | `evals/` | Behavior evals for each skill, in `evals/<skill>/`, run by hand with `claude plugin eval`; see its README. |
 | `scripts/` | The workflow's helper script, fetched at the workflow's own commit. |
 | `docs/` | The system's high-level design and each component's design and specs. |
