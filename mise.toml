@@ -13,7 +13,7 @@ prek = "0.5.7"
 "github:EtaCassiopeia/lid-tooling" = { version = "0.3.0", asset_pattern = "lidc-x86_64-unknown-linux-gnu" }
 apm = "0.35.0"
 # Renovate runs as a CLI in the preset tests; this Renovate release needs Node 24.
-node = "24.22.1"
+node = "24.22.2"
 # mise's npm installer (aube) refuses a dependency whose provenance is weaker than an earlier
 # release's. @yarnpkg/libzip 3.2.2 was published by a Yarn maintainer without provenance, from
 # the yarnpkg/berry release commit 2eb9830716 (checked 2026-10-12).
