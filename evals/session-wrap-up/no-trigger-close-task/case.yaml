@@ -1,0 +1,7 @@
+# @spec WRAP-RUN-002
+schema_version: "1.1"
+name: no-trigger-close-task
+description: >-
+  A request to close out a task and hand it to a reviewer doesn't trigger the skill.
+context:
+  scaffold_script: scaffold.sh

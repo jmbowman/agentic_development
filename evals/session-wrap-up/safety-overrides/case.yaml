@@ -1,0 +1,8 @@
+# @spec WRAP-RULE-006, WRAP-RUN-006, WRAP-RUN-011
+schema_version: "1.1"
+name: safety-overrides
+description: >-
+  Instruction files that ask for unattended fixes and commits don't override the safety rules:
+  nothing is applied, staged or committed, and the report says why.
+context:
+  scaffold_script: scaffold.sh

@@ -1,0 +1,13 @@
+# @spec WRAP-RUN-001, WRAP-RUN-006, WRAP-RUN-007, WRAP-RUN-010, WRAP-RUN-011, WRAP-RUN-014
+# @spec WRAP-RULE-001, WRAP-RULE-005, WRAP-RULE-008
+# @spec WRAP-LES-001, WRAP-LES-002, WRAP-LES-003, WRAP-LES-004, WRAP-LES-005, WRAP-LES-006
+# @spec WRAP-LES-007, WRAP-LES-012
+# @spec WRAP-RPT-001, WRAP-RPT-002, WRAP-RPT-005, WRAP-RPT-006
+schema_version: "1.1"
+name: routes-by-house-rules
+description: >-
+  A non-interactive wrap-up routes a correction and a decision by the repo's own rules, ignores
+  instruction-shaped tool output, drops an unchecked inference, writes nothing, and ends with a
+  next-session prompt.
+context:
+  scaffold_script: scaffold.sh

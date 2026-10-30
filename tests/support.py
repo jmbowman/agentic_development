@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -23,6 +24,8 @@ SELF_CI = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 LOCK_REFRESH = REPO_ROOT / ".github" / "workflows" / "lock-refresh.yml"
 PRESET = REPO_ROOT / "renovate" / "default.json"
 VERIFY_SCRIPT = REPO_ROOT / "scripts" / "verify_check.py"
+SKILLS = REPO_ROOT / "skills"
+EVALS = REPO_ROOT / "evals"
 
 # How GitHub runs a step's script on Linux: `shell: bash`, or no `shell` at all.
 SHELLS = {
@@ -331,3 +334,51 @@ def renovate_log(
     ]
     assert not invalid, invalid
     yield from records
+
+
+def frontmatter(path: Path) -> dict[str, Any]:
+    """The YAML frontmatter of a Markdown file.
+
+    Args:
+        path: The Markdown file to read.
+
+    Returns:
+        The frontmatter's mapping.
+    """
+    match = re.match(r"---\n(.*?)\n---\n", path.read_text(), flags=re.DOTALL)
+    assert match, f"{path} has no frontmatter"
+    meta = yaml.safe_load(match.group(1))
+    assert isinstance(meta, dict), f"{path}'s frontmatter isn't a mapping"
+    return meta
+
+
+def eval_cases(root: Path = EVALS) -> list[Path]:
+    """Every eval case directory under a root: one that holds a `prompt.md` or a `case.yaml`.
+
+    Args:
+        root: The directory to search: all of `evals/`, or one skill's suite.
+
+    Returns:
+        The case directories, sorted.
+    """
+    return sorted(
+        {p.parent for p in root.rglob("prompt.md")} | {p.parent for p in root.rglob("case.yaml")}
+    )
+
+
+def cited_by_evals(root: Path) -> dict[str, list[str]]:
+    """Each spec ID cited in a `case.yaml` under a root, with the cases that cite it.
+
+    Args:
+        root: One skill's eval suite, such as `evals/prior-art-search`.
+
+    Returns:
+        A mapping from spec ID to the names of the cases that cite it.
+    """
+    cited: dict[str, list[str]] = {}
+    for case in eval_cases(root):
+        text = (case / "case.yaml").read_text() if (case / "case.yaml").exists() else ""
+        for line in re.findall(r"^#\s*@spec\s+(.+)$", text, flags=re.MULTILINE):
+            for spec in re.split(r",\s*", line.strip()):
+                cited.setdefault(spec, []).append(case.name)
+    return cited

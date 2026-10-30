@@ -4,23 +4,17 @@ from __future__ import annotations
 
 import json
 import re
-from typing import TYPE_CHECKING, Any
 
 import pytest
-import yaml
 
-from tests.support import REPO_ROOT
+from tests.support import EVALS, REPO_ROOT, SKILLS, cited_by_evals, frontmatter
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-SKILLS = REPO_ROOT / "skills"
 SKILL = SKILLS / "prior-art-search"
 SKILL_MD = SKILL / "SKILL.md"
 REFERENCES = SKILL / "references"
 PLUGIN_JSON = REPO_ROOT / ".claude-plugin" / "plugin.json"
 MARKETPLACE_JSON = REPO_ROOT / ".claude-plugin" / "marketplace.json"
-EVALS = REPO_ROOT / "evals"
+SUITE = EVALS / "prior-art-search"
 SPECS = REPO_ROOT / "docs" / "intent" / "prior-art-search" / "prior-art-search-specs.md"
 
 EVIDENCE_RECORD = (
@@ -28,24 +22,6 @@ EVIDENCE_RECORD = (
     "evidence_kind, read_depth, commit, as_of}"
 )
 LEDGER_RECORD = "{route, state, queries, reason, as_of}"
-# What `claude plugin eval` accepts (code.claude.com/docs/en/plugin-evals); anything else fails.
-PROMPT_KEYS = {
-    "schema_version",
-    "name",
-    "description",
-    "tags",
-    "plugins",
-    "runs",
-    "expected_outcome",
-    "model",
-    "max_turns",
-    "timeout_seconds",
-    "allowed_tools",
-    "append_system_prompt",
-    "env",
-}
-GRADER_TYPES = {"regex", "tool_used", "tool_order", "file_exists", "llm", "baseline"}
-GRADER_ARMS = {"with-only", "both"}
 NOTE_SECTIONS = [
     "Need and criteria",
     "Verdict",
@@ -57,35 +33,10 @@ NOTE_SECTIONS = [
 ]
 
 
-def frontmatter(path: Path) -> dict[str, Any]:
-    """The YAML frontmatter of a Markdown file."""
-    match = re.match(r"---\n(.*?)\n---\n", path.read_text(), flags=re.DOTALL)
-    assert match, f"{path} has no frontmatter"
-    return yaml.safe_load(match.group(1))
-
-
-def eval_cases() -> list[Path]:
-    """Every eval case directory: one that holds a `prompt.md` or a `case.yaml`."""
-    return sorted(
-        {p.parent for p in EVALS.rglob("prompt.md")} | {p.parent for p in EVALS.rglob("case.yaml")}
-    )
-
-
 def eval_spec_ids() -> list[str]:
     """The IDs of the specs marked as verified only by behavior evals."""
     pattern = r"\*\*(PRIOR-[A-Z]+-\d{3})\*\*:.*\*\(eval\)\*$"
     return [m.group(1) for m in re.finditer(pattern, SPECS.read_text(), re.MULTILINE)]
-
-
-def cited_by_evals() -> dict[str, list[str]]:
-    """Each spec ID cited in an eval case's `case.yaml`, with the cases that cite it."""
-    cited: dict[str, list[str]] = {}
-    for case in eval_cases():
-        text = (case / "case.yaml").read_text() if (case / "case.yaml").exists() else ""
-        for line in re.findall(r"^#\s*@spec\s+(.+)$", text, flags=re.MULTILINE):
-            for spec in re.split(r",\s*", line.strip()):
-                cited.setdefault(spec, []).append(case.name)
-    return cited
 
 
 # @spec PRIOR-PKG-001
@@ -193,52 +144,9 @@ def test_skill_carries_its_license() -> None:
     assert (SKILL / "LICENSE.txt").read_text() == (REPO_ROOT / "LICENSE").read_text()
 
 
-@pytest.mark.parametrize("case", eval_cases(), ids=lambda p: p.name)
-def test_eval_case_loads(case: Path) -> None:
-    """Each eval case has a case file named for its directory, a prompt and a grader."""
-    meta = yaml.safe_load((case / "case.yaml").read_text())
-    assert meta["schema_version"] == "1.1"
-    assert meta["name"] == case.name
-    assert (case / "prompt.md").is_file()
-    assert list((case / "graders").glob("*.md"))
-    if scaffold := meta.get("context", {}).get("scaffold_script"):
-        assert (case / scaffold).is_file()
-
-
-@pytest.mark.parametrize("case", eval_cases(), ids=lambda p: p.name)
-def test_eval_case_is_grouped_under_its_skill(case: Path) -> None:
-    """Each skill's cases live in `evals/<skill>/` and carry its tag, so one suite runs alone."""
-    skill = case.parent
-    assert skill.parent == EVALS
-    assert (SKILLS / skill.name / "SKILL.md").is_file()
-    assert skill.name in frontmatter(case / "prompt.md")["tags"]
-
-
-@pytest.mark.parametrize("case", eval_cases(), ids=lambda p: p.name)
-def test_eval_prompt_frontmatter_is_valid(case: Path) -> None:
-    """Prompt settings stay within what the runner accepts, and say whether a case needs network."""
-    meta = frontmatter(case / "prompt.md")
-    assert set(meta) <= PROMPT_KEYS
-    assert len({"online", "offline"} & set(meta["tags"])) == 1
-    assert 0 < meta["max_turns"] <= 200
-    assert 0 < meta["timeout_seconds"] <= 3600
-
-
-@pytest.mark.parametrize(
-    "grader",
-    sorted(EVALS.glob("*/*/graders/*.md")),
-    ids=lambda p: f"{p.parent.parent.name}/{p.stem}",
-)
-def test_eval_grader_frontmatter_is_valid(grader: Path) -> None:
-    """Each grader has a known type, and an arm only where the runner defines one."""
-    meta = frontmatter(grader)
-    assert meta["type"] in GRADER_TYPES
-    assert meta.get("arm", "with-only") in GRADER_ARMS
-
-
 def test_eval_citations_name_eval_specs() -> None:
     """Eval cases cite only specs that the specs file marks as verified by evals."""
-    stray = sorted(set(cited_by_evals()) - set(eval_spec_ids()))
+    stray = sorted(set(cited_by_evals(SUITE)) - set(eval_spec_ids()))
     assert not stray, stray
 
 
@@ -264,4 +172,4 @@ def test_eval_citations_name_eval_specs() -> None:
 @pytest.mark.parametrize("spec", eval_spec_ids())
 def test_eval_spec_is_exercised_by_an_eval_case(spec: str) -> None:
     """Every eval-verified spec has at least one eval case that exercises it."""
-    assert spec in cited_by_evals()
+    assert spec in cited_by_evals(SUITE)
