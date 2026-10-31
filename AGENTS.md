@@ -4,9 +4,10 @@ Shared tooling for an agentic development process: the pieces each project **ref
 
 ## Working rules
 
-- **Commits:** agents don't commit. They draft `commit-message.md` (gitignored), and the developer they work for commits with `git commit -F commit-message.md`. One commit per slice that has cleared tests and the review wave.
+- **Commits:** agents don't commit. They draft `commit-message.md` (gitignored), and the developer they work for commits with `git commit -F commit-message.md`. One commit per slice that has cleared tests and the review wave. Several sessions can work in this repo at once, so re-read `commit-message.md` right before writing it, and don't replace a draft that hasn't been committed yet (compare its summary line with `git log -1`).
 - **LID stop cadence (project policy):** the developer reviews the HLD, LLD, EARS and edge-audit stops. For the **tests stop and the Phase 6 completion sign-off**, the review wave is the named inspector. Warn once, then continue to the review wave rather than waiting.
 - **Spec-review findings:** apply fixes that don't change meaning (clarity, coverage gaps, scope wording), loop, and list every applied fix in the stop summary. Anything that chooses between two readings of intent goes to the developer as a numbered fork.
+- **Review log:** after triaging a review wave or an eval run, append its row to `docs/review-log.md`, in the order the waves ran.
 - **README:** `README.md` is for people deciding whether and how to use this repo, and LID's coherence checks don't cover it. Before handing back a change, re-read it against the change. Correct anything the change made false (paths, commands, setup steps, status, what the repo contains), and add a mention of anything a user now needs to know (a new component, command, requirement or limitation). Internal details stay in `docs/`. The review wave checks this too.
 - **Public content only:** this repo is public. Don't reference private repositories or files in them, and don't name or assume a particular user. Cite public sources, or restate what's needed here.
 - **Subagents** for LID probes and review waves are authorized. Never use the built-in Explore or Plan agents for implementation or review work, because they don't load project rules.
