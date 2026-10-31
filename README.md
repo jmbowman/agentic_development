@@ -47,7 +47,7 @@ from repo to repo fails in predictable ways:
 | `apm.yml`, `apm.lock.yaml`, `.claude/hooks/` | [LID](https://github.com/jszmajda/lid)'s skills pinned with [APM](https://github.com/microsoft/apm). The pin serves this repo and, as the skills package's dependency, every repo that installs the package. Also this repo's hook that installs the tools and skills in Claude Code cloud sessions. |
 | `evals/` | Behavior evals for each skill, in `evals/<skill>/`, run by hand with `claude plugin eval`; see its README. |
 | `scripts/` | The workflow's helper script, fetched at the workflow's own commit. |
-| `docs/` | The system's high-level design, each component's design and specs, prior-art notes, and a log of each review wave's yield and cost. |
+| `docs/` | The system's high-level design, each component's design and specs, prior-art notes, a log of each review wave's yield and cost, and lessons about the development process. |
 
 ## Using it
 
