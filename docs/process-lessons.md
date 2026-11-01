@@ -4,12 +4,13 @@ Lessons about this repo's development process, drawn from building its skills, f
 
 ## Slices and specs
 
-- **Specs grow in review.** A slice estimated before the EARS coverage review can double: coverage gaps and edge-audit forks add specs. Count a slice's specs after that review, and re-cut it if it passes about 40.
+- **Specs grow in review.** A slice estimated before the EARS coverage review can double or more (session-wrap-up's second slice went from 8 specs to 38): coverage gaps and edge-audit forks add specs. Count a slice's specs after that review, and re-cut it if it passes about 40.
 - **Spikes before EARS pay off.** Running the platform behaviors a design depends on (memory paths, session listing, the eval runner) removes wrong assumptions before any spec is written. Record the results as facts in the LLD.
 
 ## Review and evals
 
 - **Evals find what review waves don't.** After six review waves on session-wrap-up's first slice, eval runs still found 8 skill-text misses and 9 grader or prompt faults. Run a skill's evals before its slice is committed.
+- **Trial the riskiest cases first.** Run a new suite's riskiest cases on the real model before the full set. For session-wrap-up's second slice, two cases cost $0.37 and found four faults.
 - **Know when to stop reviewing.** Yield fell from 40 to 12 to 5 to 5 findings across one slice's code-review waves. Two narrow re-checks after the main wave were the useful stopping point.
 
 ## Approval steps
