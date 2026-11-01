@@ -1,0 +1,8 @@
+# @spec WRAP-RPT-008, WRAP-RPT-011, WRAP-RPT-012
+schema_version: "1.1"
+name: handoff-document
+description: >-
+  A handoff document the instruction files name gets an update covering only what the session
+  changed, with no person named, and the next-session prompt flags the document as out of date.
+context:
+  scaffold_script: scaffold.sh

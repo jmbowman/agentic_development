@@ -1,0 +1,8 @@
+# @spec WRAP-RUN-026
+schema_version: "1.1"
+name: repeat-nothing-new
+description: >-
+  A second wrap-up with nothing new since the first re-lists the open item and says no new lesson
+  was found, rather than that nothing durable was found.
+context:
+  scaffold_script: scaffold.sh

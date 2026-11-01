@@ -1,0 +1,8 @@
+# @spec WRAP-LES-029, WRAP-LES-032
+schema_version: "1.1"
+name: check-no-template
+description: >-
+  A rule that holds across many repos, in a repo with no shared template, stays prose for the
+  user-level instructions, and no template item is invented.
+context:
+  scaffold_script: scaffold.sh

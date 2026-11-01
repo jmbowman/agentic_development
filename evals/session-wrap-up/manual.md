@@ -1,10 +1,10 @@
 # Manual runs for session-wrap-up
 
-Some specs need a live, interactive session, or another live session, which `claude plugin eval` can't provide. Each section below is a script for one such check. A person runs it in Claude Code with this repo's skills loaded, and appends a dated result line: the Claude Code version, pass or fail, and a note on any failure.
+Some specs need a live, interactive session, or another live session, which `claude plugin eval` can't provide. Each section below is a script for one such check. A person runs it in Claude Code with this repo's skills loaded (`claude --plugin-dir <path to this repo>`), and appends a dated result line: the Claude Code version, pass or fail, and a note on any failure.
 
 ## Interactive run (WRAP-RUN-008)
 
-1. In a scratch git repo with an `AGENTS.md` that has a `## Working rules` section, start a session.
+1. In a scratch git repo with `cli.py` holding one argparse command, and an `AGENTS.md` that has a `## Working rules` section, start a session.
 2. Type: `Add a --verbose flag to cli.py.` Then correct the agent once: `Use logging, not print, for verbose output.`
 3. Type: `Wrap up the session.`
 
@@ -28,6 +28,17 @@ An eval's harness always states a sandbox memory directory, so this case needs a
 2. Make one change and give one correction about how you like summaries written, then type: `Wrap up the session.`
 
 Pass: the report lists agent memory as a missing role, proposes nothing for memory, and reads nothing under `~/.claude/projects/`.
+
+Results:
+
+## A real compaction (WRAP-LES-015, harness half; WRAP-LES-027)
+
+An eval can simulate a compaction but can't produce one, so the harness stating the transcript's location needs a real session. Tool calls show the order of the search, which an eval's graders can't check.
+
+1. In the scratch repo, make a change that runs a command, give one correction (`From now on, use logging, not print, in cli.py.`), then type `/compact`.
+2. Make one more change, then type: `Wrap up the session.`
+
+Pass: the report proposes the correction from before the compaction. The tool calls read the transcript at the path the compaction summary gave, search the developer's and agent's turns first, and open a tool result only to check a specific candidate. No file is written.
 
 Results:
 

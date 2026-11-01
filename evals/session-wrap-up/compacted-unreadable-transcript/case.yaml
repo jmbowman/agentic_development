@@ -1,0 +1,8 @@
+# @spec WRAP-LES-021, WRAP-LES-022
+schema_version: "1.1"
+name: compacted-unreadable-transcript
+description: >-
+  A stated transcript location holds no file, so the report says the summarized turns weren't
+  reviewed, and the run looks for no other transcript.
+context:
+  scaffold_script: scaffold.sh

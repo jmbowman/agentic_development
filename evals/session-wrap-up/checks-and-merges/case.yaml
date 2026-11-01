@@ -1,0 +1,9 @@
+# @spec WRAP-LES-013, WRAP-LES-014, WRAP-LES-023, WRAP-LES-026
+schema_version: "1.1"
+name: checks-and-merges
+description: >-
+  A rule the repo's own linter can check becomes a lint rule, a rule no tool checks stays prose as
+  one line in the section it fits, and a lesson on a subject the file already covers tightens that
+  rule, even though a tool might check it.
+context:
+  scaffold_script: scaffold.sh

@@ -1,0 +1,8 @@
+# @spec WRAP-RPT-008, WRAP-RPT-009, WRAP-RPT-013
+schema_version: "1.1"
+name: handoff-by-title
+description: >-
+  A document the session read, titled as the record of current state, counts as a handoff document;
+  one the instruction files name but that doesn't exist becomes a question, not a new file.
+context:
+  scaffold_script: scaffold.sh

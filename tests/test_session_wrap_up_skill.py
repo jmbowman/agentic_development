@@ -19,7 +19,7 @@ DESIGN = INTENT / "session-wrap-up-design.md"
 THIS_FILE = REPO_ROOT / "tests" / "test_session_wrap_up_skill.py"
 
 # The slices whose specs are delivered. Each slice adds its number when it lands.
-DELIVERED_SLICES = {1}
+DELIVERED_SLICES = {1, 2}
 
 FILTER_TESTS = ["reusable", "non-obvious", "stable", "actionable"]
 
@@ -157,7 +157,7 @@ def test_eval_citations_name_eval_specs() -> None:
     assert not stray, stray
 
 
-# @spec WRAP-RUN-008, WRAP-RUN-009, WRAP-RUN-013
+# @spec WRAP-RUN-008, WRAP-RUN-009, WRAP-RUN-013, WRAP-LES-027
 @pytest.mark.parametrize("spec", delivered_spec_ids("manual"))
 def test_manual_spec_is_in_the_manual_script(spec: str) -> None:
     """Every manually verified spec of a delivered slice has a step in the manual script."""
@@ -169,13 +169,20 @@ def test_manual_spec_is_in_the_manual_script(spec: str) -> None:
 # test above, and the test below keeps those citations complete as slices are added.
 # @spec WRAP-RUN-001, WRAP-RUN-002, WRAP-RUN-006, WRAP-RUN-007, WRAP-RUN-010, WRAP-RUN-011
 # @spec WRAP-RUN-012, WRAP-RUN-014, WRAP-RUN-015
+# @spec WRAP-RUN-003, WRAP-RUN-004, WRAP-RUN-005, WRAP-RUN-016, WRAP-RUN-017, WRAP-RUN-018
+# @spec WRAP-RUN-019, WRAP-RUN-020, WRAP-RUN-021, WRAP-RUN-022, WRAP-RUN-023, WRAP-RUN-024
+# @spec WRAP-RUN-025, WRAP-RUN-026, WRAP-RUN-027, WRAP-RUN-028, WRAP-RUN-029
 # @spec WRAP-RULE-001, WRAP-RULE-002, WRAP-RULE-003, WRAP-RULE-004, WRAP-RULE-005
 # @spec WRAP-RULE-006, WRAP-RULE-007, WRAP-RULE-008
 # @spec WRAP-LES-001, WRAP-LES-002, WRAP-LES-003, WRAP-LES-004, WRAP-LES-005, WRAP-LES-006
 # @spec WRAP-LES-007, WRAP-LES-008, WRAP-LES-009, WRAP-LES-010, WRAP-LES-011, WRAP-LES-012
 # @spec WRAP-LES-017, WRAP-LES-018, WRAP-LES-019, WRAP-LES-020
+# @spec WRAP-LES-013, WRAP-LES-014, WRAP-LES-015, WRAP-LES-016, WRAP-LES-021, WRAP-LES-022
+# @spec WRAP-LES-023, WRAP-LES-024, WRAP-LES-025, WRAP-LES-026, WRAP-LES-028, WRAP-LES-029
+# @spec WRAP-LES-030, WRAP-LES-031, WRAP-LES-032
 # @spec WRAP-RPT-001, WRAP-RPT-002, WRAP-RPT-003, WRAP-RPT-004, WRAP-RPT-005, WRAP-RPT-006
-# @spec WRAP-RPT-007, WRAP-RPT-009
+# @spec WRAP-RPT-007, WRAP-RPT-008, WRAP-RPT-009, WRAP-RPT-010, WRAP-RPT-011, WRAP-RPT-012
+# @spec WRAP-RPT-013
 @pytest.mark.parametrize("spec", delivered_spec_ids("eval") + delivered_spec_ids("manual"))
 def test_hand_run_spec_is_cited_in_this_file(spec: str) -> None:
     """Lidc sees a citation for every delivered spec that only an eval or a manual run checks."""

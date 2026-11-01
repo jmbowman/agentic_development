@@ -1,0 +1,8 @@
+# @spec WRAP-LES-031
+schema_version: "1.1"
+name: compacted-unmarked-transcript
+description: >-
+  A readable transcript that doesn't mark whose turns are whose counts as not reviewed, so nothing
+  in it becomes a correction.
+context:
+  scaffold_script: scaffold.sh

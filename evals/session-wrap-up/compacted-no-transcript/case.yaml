@@ -1,0 +1,9 @@
+# @spec WRAP-RUN-017, WRAP-LES-016, WRAP-LES-021, WRAP-LES-024
+schema_version: "1.1"
+name: compacted-no-transcript
+description: >-
+  After a compaction with no transcript location stated, the run looks for no transcript, says the
+  summarized turns weren't reviewed, warns that declined items may come back, and turns what the
+  summary suggests into a question, not a lesson.
+context:
+  scaffold_script: scaffold.sh

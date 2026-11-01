@@ -1,0 +1,8 @@
+# @spec WRAP-LES-028, WRAP-LES-029
+schema_version: "1.1"
+name: check-for-template
+description: >-
+  A check that holds across many repos, in a repo generated from a shared template, becomes a
+  draft for the template's repo, and nothing is proposed for the host repo.
+context:
+  scaffold_script: scaffold.sh

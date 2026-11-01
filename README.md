@@ -42,7 +42,7 @@ from repo to repo fails in predictable ways:
 | `.github/workflows/lock-refresh.yml` | A reusable workflow for repos that commit `mise.lock`. On Renovate's template-update PRs it reruns `mise lock` and pushes the result with a GitHub App token, so those PRs pass CI's locked install and still merge automatically. |
 | `renovate/default.json` | The Renovate preset: update pull requests merge automatically once CI passes, most new releases wait 3 days first, and template-owned files are left to the template. |
 | `skills/prior-art-search/` | An agent skill that searches for existing software before an agent recommends building something: sources chosen by the need, candidates classified with licenses read from their license files, limitations verified in source, and a dated note saved for costly choices. It follows the [Agent Skills](https://agentskills.io) format, so it works in Claude Code and other agents. |
-| `skills/session-wrap-up/` | An agent skill that closes out a session: it proposes a home for each durable lesson, following the repo's own rules for where knowledge lives, drafts feedback for other repos, and ends with a prompt that starts the next session. This first version only proposes; the developer applies what they choose. |
+| `skills/session-wrap-up/` | An agent skill that closes out a session: it proposes a home for each durable lesson, following the repo's own rules for where knowledge lives, drafts feedback for other repos, and ends with a prompt that starts the next session. This version only proposes; the developer applies what they choose. After a context compaction it searches the session transcript, but only at a location the harness or the developer states; without one, it says which turns it didn't review. |
 | `.claude-plugin/` | Packages this repo as a Claude Code plugin (the repo root is the plugin), with a one-plugin marketplace, so Claude Code can install it straight from this repo. |
 | `apm.yml`, `apm.lock.yaml`, `.claude/hooks/` | [LID](https://github.com/jszmajda/lid)'s skills pinned with [APM](https://github.com/microsoft/apm). The pin serves this repo and, as the skills package's dependency, every repo that installs the package. Also this repo's hook that installs the tools and skills in Claude Code cloud sessions. |
 | `evals/` | Behavior evals for each skill, in `evals/<skill>/`, run by hand with `claude plugin eval`; see its README. |
@@ -71,7 +71,7 @@ and from `.agents/skills/` (for other agents).
 ## Status
 
 Early: one template (Python), GitHub only, Linux runners. Two shared agent skills are built:
-prior-art search, and the first slice of session wrap-up, which proposes but doesn't yet apply.
+prior-art search, and session wrap-up, which proposes but doesn't yet apply; its loose-end checks, memory triage and cross-repo routing are still to come.
 Delivering skills through the template, installed from a lock file, is designed and not yet
 released. Process guardrails (commit gates, review loops) are designed in
 outline only.

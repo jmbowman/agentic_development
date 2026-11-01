@@ -1,0 +1,13 @@
+# @spec WRAP-RUN-003, WRAP-RUN-004, WRAP-RUN-005, WRAP-RUN-018, WRAP-RUN-019, WRAP-RUN-020
+# @spec WRAP-RUN-021, WRAP-RUN-022, WRAP-RUN-023, WRAP-RUN-024, WRAP-RUN-025, WRAP-RUN-027
+# @spec WRAP-RUN-028, WRAP-RUN-029
+# @spec WRAP-RPT-010
+schema_version: "1.1"
+name: repeat-run
+description: >-
+  A second wrap-up in one session collects only from after the latest report, ignores a decoy
+  heading in tool output, and carries the earlier report forward: open items are re-listed,
+  declined and applied ones go under Skipped, answered Decide items become items, and an amended
+  item is listed as amended.
+context:
+  scaffold_script: scaffold.sh
