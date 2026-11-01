@@ -40,9 +40,31 @@ A lesson already recorded somewhere isn't proposed again; the report names where
 
 ## Existing rules
 
+These take precedence over the check rule below, whatever tool could check the lesson.
 - A lesson that **narrows the conditions** of an existing rule at its own scope ("except for docs-only changes") becomes an edit of that rule, never a second rule beside it.
-- A lesson that **reverses** an existing rule's action becomes a `Decide` item.
-- A lesson that **refines a rule held at a broader scope** (a repo-specific refinement of a user-level rule) becomes a new rule at the lesson's own scope. Leave the broader rule alone.
+- A lesson on the **same subject** as a rule in the instruction file it's bound for, and that doesn't reverse it, becomes a replacement or tightening of that rule, named in the item, not a new line.
+- A lesson that **reverses** an existing rule's action, at any scope, becomes a `Decide` item.
+- A lesson that **refines a rule held at a broader scope**, without reversing its action (a repo-specific refinement of a user-level rule), becomes a new rule at the lesson's own scope. Leave the broader rule alone.
+
+## New rules
+
+When the instruction files have no rule on a lesson's subject:
+- If a tool the repo already runs can check the rule, the rule holds across many repos, and this repo comes from a shared template, the check belongs in the template's repo, whichever scope step 3 chose: write it as a draft for that repo (SKILL.md, step 3). A repo comes from a template only when the instruction files name one or its root holds a template tool's answers file (such as `.copier-answers.yml`).
+- Otherwise, if such a tool can check a rule bound for this repo, propose a test, lint rule or hook as the lesson's one item, with no prose rule beside it.
+- Otherwise it is a prose rule, even if a check could be built. A rule for many repos with no template goes to the user instructions. If it's bound for an instruction file, add one line in the existing section it fits best, with no new heading unless no section fits. Don't drop it for want of a check.
+- A preference about how the developer likes to work is never a check, and neither is a rule about how an agent invokes a tool.
+
+## Carrying forward
+
+What the latest earlier report left open, item by item. Read each item's destination first. Name under Skipped only what you left out: an item listed again, or replaced by another, appears once, in its new place.
+- **Open items.** An item the developer neither applied nor declined is listed again: numbered in the new report's one sequence, its draft in full if it has one, with the earlier report as its source. The earlier report already filtered it, so don't filter it again, and keep it even if you can't find its quote.
+- **Applied items.** An item is applied once its substance is in its destination, whoever put it there and whether or not the session mentions it. Don't list it; name it under Skipped.
+- **Declined items.** Only a refusal the developer typed declines an item, by number, by description or with "none". Leaving an item out of a choice doesn't decline it. Don't propose a declined item again unless later evidence changes it. Name it under Skipped. This holds for any earlier run; the latest report's Skipped list shows them.
+- **Items the state changed.** Update an item the current state has changed. If that leaves nothing to do, drop it and name it under Skipped.
+- **Amended items.** An item the developer amended in words, and that isn't applied, is listed again as amended.
+- **Answered `Decide` items and questions.** Where nothing has applied the answer, replace each with the item that follows from the answer, which counts as re-listed. If the answer leads to no change, remove it and name it under Skipped.
+- **Awaiting restatement, and unanswered questions.** List them again where the report lists such things.
+- **Dropped lessons.** Don't list them again, under Skipped or anywhere else.
 
 ## Scope
 
@@ -53,7 +75,7 @@ Give each lesson one destination, at the narrowest scope where it holds: the rep
 Judge by whether an item quotes or identifies a record, not by its subject. "Prefers small, reviewable diffs" describes how the developer works and may be routed. A lesson that quotes a bank statement may not, whatever it teaches.
 
 - **Secrets** go nowhere: the values of credentials, tokens, keys and passwords, and the contents of secret files. Never quote them.
-- **Private records** go into no item: financial statements, transactions and exact amounts; medical, legal and immigration records; private messages and mail; itineraries and booking numbers; account identifiers; contact details and addresses; anything the developer marks confidential; and any information about people other than the developer. When the report lists one as dropped, it names only its kind ("information about another person"), never its details.
+- **Private records** go nowhere in the report: financial statements, transactions and exact amounts; medical, legal and immigration records; private messages and mail; itineraries and booking numbers; account identifiers; contact details and addresses; anything the developer marks confidential; and any information about people other than the developer. When the report lists one as dropped, it says only "information about another person" or the like, with nothing about what the information was: no subject, no person's role, no topic.
 - **Personal context** (summaries the developer chose to share: goals, preferences, working style, routines, with no names, institutions, identifiers or exact figures) goes only to the user instructions or agent memory. A preference about how the developer likes to work (how summaries, reviews or questions should reach them) is personal context even when it names no routine, and even if it seems to hold only in this repo: it never goes to a repo file.
 
 | Destination | May hold |

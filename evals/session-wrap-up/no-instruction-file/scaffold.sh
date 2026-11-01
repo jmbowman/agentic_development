@@ -11,6 +11,7 @@ cat > thumb.py <<'EOF'
 from PIL import Image
 
 def thumbnail(path):
+    # PNG inputs keep their mode and format: no convert() here.
     image = Image.open(path)
     image.thumbnail((128, 128))
     image.save(path.replace(".", "_thumb."))
