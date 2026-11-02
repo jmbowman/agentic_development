@@ -1,0 +1,8 @@
+# @spec WRAP-LOOSE-001, WRAP-LOOSE-013, WRAP-LOOSE-018
+schema_version: "1.1"
+name: loose-ends-compacted-with-transcript
+description: >-
+  With a stated transcript, the sweep reads the summarized turns, and it covers the whole session:
+  a promise from before an earlier report is a loose end, though no lesson comes from those turns.
+context:
+  scaffold_script: scaffold.sh

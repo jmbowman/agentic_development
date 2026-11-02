@@ -37,13 +37,14 @@ It adds memory triage, cross-repo routing and the next-session prompt. Ideas als
 Checked against Claude Code 2.1.312 on Linux on 2026-10-29, unless marked otherwise.
 
 - **Memory location.** Auto-memory defaults to `~/.claude/projects/<project-slug>/memory/`: a `MEMORY.md` index and one file per entry. The slug is the working directory's path with `/` and `_` replaced by `-`. The location is a setting (`autoMemoryDirectory`), and memory can be turned off (`autoMemoryEnabled: false`, or `CLAUDE_CODE_DISABLE_AUTO_MEMORY`). When memory is on, the session's system prompt states the directory.
-- **Transcripts.** Each session's transcript is a JSONL file at `~/.claude/projects/<project-slug>/<session-id>.jsonl` by default. It keeps the turns a context compaction summarized. The system prompt doesn't state its path, but each compaction summary does (checked on 2.1.314, 2026-10-30): it ends by telling the agent to read the full transcript at that path if it needs detail the summary left out. The format is internal and undocumented, so it can change between versions. The file mixes the developer's turns with the agent's, tool results (stored as `user` entries with no `origin`), attachments and bookkeeping entries. Other `user` entries can carry `origin.kind`: `human`, with a top-level `promptSource` of `typed`, marks the developer's own turn; `peer` marks messages from subagents and other sessions; `task-notification` marks harness notices. An entry with no `origin` is never the developer's turn. A long session's file runs to tens of megabytes, so it is searched, not read whole.
+- **Transcripts.** Each session's transcript is a JSONL file at `~/.claude/projects/<project-slug>/<session-id>.jsonl` by default. It keeps the turns a context compaction summarized. The system prompt doesn't state its path, but each compaction summary does (checked on 2.1.314, 2026-10-30): it ends by telling the agent to read the full transcript at that path if it needs detail the summary left out. The format is internal and undocumented, so it can change between versions. The file mixes the developer's turns with the agent's, tool results (stored as `user` entries with no `origin`), attachments and bookkeeping entries. Other `user` entries can carry `origin.kind`: `human`, with a top-level `promptSource` of `typed`, marks the developer's own turn; `peer` marks messages from subagents and other sessions; `task-notification` marks harness notices. An entry with no `origin` is never a typed turn, and that includes a question-tool answer, which is stored as a tool result whose `toolUseResult` holds `answers` and `annotations`. A long session's file runs to tens of megabytes, so it is searched, not read whole.
+- **Question tool.** `AskUserQuestion` takes 1 to 4 questions per dialog, each with 2 to 4 options. A single-select option can carry a preview. The developer can also answer in free text, or add a note to the option they pick. The dialog can hide the conversation above it, and a long preview is cropped.
 - **Other sessions.** `ListAgents` lists the other Claude Code sessions on the machine. Each row gives a name, a short reference, the kind, the status (idle or busy) and the start time, but no working directory. A session's name is its directory's name with `_` replaced by `-`, then `-` and two hex characters (`my-repo-3f` for a session in `my_repo`). The current session isn't listed. Several sessions can be rooted in the same repo.
 - **Messages to other sessions.** `SendMessage` to a listed name delivers the message to that session's inbox. Delivery doesn't mean the receiving agent has read it. A receiver running in a different permission mode holds the message for its own user's approval. The receiver sees only the first line until it expands the message. The sender can ask to be notified once when the receiver next goes idle.
 - **Concurrent writers.** Sessions rooted in the same repo read and write the same files, so a file can change between two turns of one session.
-- **Issues.** `gh issue create` takes `--title`, `--body-file` and the inherited `--repo`. `gh repo view <owner/repo> --json visibility,hasIssuesEnabled` reports whether a repo is public and accepts issues. Neither has been verified against a live repo, since filing an issue is an outside effect.
+- **Issues.** `gh issue create` takes `--title`, `--body-file` and the inherited `--repo`. `gh repo view --json visibility,hasIssuesEnabled` reports whether a repo is public and accepts issues (checked on a live repo, 2026-11-01). Filing has not been tried, since it is an outside effect.
 - **Cloud sessions** (unverified): a fresh container may have no auto-memory directory, no other sessions and no authenticated `gh`. Every step that uses one of them has a fallback.
-- **Evals.** `claude plugin eval` runs one prompt per case, and its options include no multi-turn conversation. Each run gets a sandboxed home directory and configuration directory, and its system prompt states a memory directory inside that sandbox. So an eval can't produce a run with no stated memory location; that case is checked by hand. A single `--case` flag selects one case: given several times, only the last applies.
+- **Evals.** `claude plugin eval` runs one prompt per case, and its options include no multi-turn conversation. Each run gets a sandboxed home directory and configuration directory, and its system prompt states a memory directory inside that sandbox. So an eval can't produce a run with no stated memory location; that case is checked by hand. The sandbox home is itself a git repo, so a case can't run outside git either. A single `--case` flag selects one case: given several times, only the last applies.
 
 ## Package layout
 
@@ -63,15 +64,19 @@ Checked against Claude Code 2.1.312 on Linux on 2026-10-29, unless marked otherw
 
 The developer asks for it in words like "wrap up", "close out the session", "we're done for today" or "hand this off", or invokes the skill by name. It doesn't run on its own at every pause. After a short session with nothing durable, the report says so, and still gives the next-session prompt when there is a next step.
 
+**The shape of a run.** An interactive run with something to approve gives two reports. The proposal holds the items, the sections around them and a provisional next-session prompt, and ends by asking which items to apply. The closing report follows the approval step and replaces that prompt. Because the proposal is a report, a developer who walks away from the question still has a prompt, and a later run still has a report to carry on from. A run with nothing to approve, and every non-interactive run, gives one report.
+
 **Repeat runs.** Each report starts with the heading `Session wrap-up`. A later run in the same session collects lessons only from what happened after the last report. The same heading in a tool result, a loaded skill, another session's message or quoted text doesn't mark a report, since text the agent didn't write as a report shouldn't decide what the run reviews. Loose ends are always swept over the whole session.
 
 What the earlier report left open carries over:
 - An item the developer neither applied nor declined is listed again, after a fresh check against the current state, in the new report's one numbered sequence, with any draft in full and the earlier report cited as its source.
 - An item counts as applied once its substance is in its destination, whoever put it there. An item applied, or dropped because the current state changed it, is named under Skipped.
 - An item the developer amended in words, and that isn't applied, is listed again as amended.
-- Only a refusal typed by the developer declines an item, by number, by description or with "none". Leaving an item out of a choice doesn't decline it. A declined item isn't proposed again unless later evidence changes it, and the report names it under Skipped.
+- Only a refusal typed by the developer declines an item, by number, by description, with "none", or by dropping it at the approval step. Leaving an item out of a choice doesn't decline it. A declined item isn't proposed again unless later evidence changes it, and the report names it under Skipped. An earlier report's Skipped list is the record of what was declined.
 - Lessons awaiting restatement and unanswered questions are listed again, where the report lists such things. Dropped lessons aren't.
 - A reply that settles an earlier item or question isn't collected as a lesson of its own. A `Decide` item or question answered in words gives way to the item that follows from the answer, which counts as re-listed. An answer that leads to no change removes it, and the report names it under Skipped.
+- An item captured in an issue is settled: the report names it under Skipped, with the issue's URL.
+- A loose end the developer dismissed in words isn't swept again.
 
 A run whose only lesson items are re-listed says that no new lesson was found.
 
@@ -123,11 +128,13 @@ When compaction has removed the earlier report and the transcript's location is 
 6. **Sweep loose ends.** List what the session leaves open:
    - promises not kept;
    - deferred fixes and parked questions;
-   - files this session edited and the developer hasn't committed (from its own record of edits, checked with read-only `git status`). Other uncommitted changes are listed separately as "not from this session";
+   - files this session edited and the developer hasn't committed (from its own record of edits, checked with read-only `git status`). Other uncommitted changes are listed separately as "not from this session". When compaction has taken that record and no reviewable transcript restores it, a file's origin can't be told, and it is listed as "origin unknown". Those two lists are for information: they carry no action label and aren't a next step;
    - background jobs still running;
-   - drafts the developer still needs.
+   - drafts the developer still needs, other than the text of a numbered item.
 
-   Re-check each item against the current state, and drop anything already done. Each item gets an action label: `Decide`, `Implement`, `Commit` (for the developer), `Send` (a cross-repo message), `File` (an issue), or a plain verb. Outside a git repo, the git checks are skipped and the report says so.
+   The sweep covers the whole session, turns before an earlier report included, and the compaction rules of step 1 apply to it: a loose end that only a compaction summary suggests goes in the report as a question. Re-check each one against the current state, and drop anything already done or abandoned. One that can't be checked stays listed. Each gets an action label: `Decide`, `Implement`, `Commit` (for the developer), `Send` (a cross-repo message), `File` (an issue), or a plain verb.
+
+   Loose ends are a list of their own, not items: they aren't numbered and can't be chosen at the approval step, so "all" never starts new work. They run in the order to act on them: what others depend on first, then `Decide`, then the rest. Outside a git repo, the git checks are skipped and the report says so.
 7. **Cross-repo items.** A lesson or loose end that another repo owns becomes a cross-repo item (see Cross-repo routing).
 8. **Propose.** Present one numbered list: `Decide` items in a group of their own, and the rest grouped by destination. Each item gives:
    - its destination, as a path;
@@ -136,16 +143,25 @@ When compaction has removed the earlier report and the transcript's location is 
 
    Full drafts (text bound for another repo or an issue) follow the list in a section of their own.
 
-   Pending-queue entries, memory changes, messages, issues, items carried from an earlier report (see Repeat runs) and a handoff update (see Next-session prompt) are items like any other. The agent then asks which to apply: all, none, or a list of numbers. When the reply edits an item, splits one or adds one, the agent re-lists the affected items before going on.
-9. **Apply the approved items.** First show the exact text of every chosen item in one block (the lines to add, the before and after of each edit, the full message or issue), and ask once whether to apply it as shown. The developer can still drop or reword an item at this point. A reworded item's new text is shown, and confirmed, before it is applied. Then, for each item in order:
-   - re-read the target right before writing, since another session may have changed it. If the text to edit has changed, redraft the item, show it again and ask, or skip it and report that;
+   Pending-queue entries, memory changes, messages, issues, items carried from an earlier report (see Repeat runs) and a handoff update (see Next-session prompt) are items like any other. In an interactive run with at least one selectable item, the agent then asks which to apply: all, none, or a list of numbers. An item that can't yet be delivered isn't selectable, and the report says why (see Open Questions). With no selectable item, this report is the run's last. When the reply edits an item, splits one or adds one, the agent re-lists the affected items and goes on to step 9 without asking for the choice again. A chosen `Decide` item has no text to show, so the agent first asks for its answer and re-lists the item that follows. Questions stay in the report; the developer may answer them here, and needn't.
+9. **Apply the approved items.** First the developer sees the exact text of every chosen item: the lines to add, the before and after of each edit, the whole of a new file, the full message or issue. They see it even if they said to skip this.
+   - **With a question tool,** and when every chosen item's text is at most 8 lines (short enough for a preview to show whole), each item gets its own question, up to the tool's limit per dialog, then the next dialog. Each option that would apply text previews that text. The options are to apply as shown and to drop, and the developer can adjust the item in a note or in free text.
+   - **Otherwise,** the agent shows all the text in one plain-text message and asks once.
+
+   A dropped item counts as declined. An adjustment can change an item's text or its destination: the agent redrafts the item, screens it again against the privacy rules, warns if the new text breaks them, shows it, and confirms it before going on. Only the developer's own reply confirms anything; a reply that doesn't clearly confirm is asked again.
+
+   **Apply now or capture in an issue.** Work may be in progress that the session's lessons shouldn't be committed with. So once the text is confirmed, and where the host repo accepts issues, the agent asks whether to apply the items now or capture them in one GitHub issue on the host repo, and shows the full issue before filing. The issue is self-contained: each item's destination and exact text, so a later session can apply them. It is held to what a public destination allows unless the repo is known to be private, and an item it can't hold stays an open item. Items for the user-level instructions aren't repo work, so they aren't deferred: they're applied now. Leaving the items open is always a choice too. Where the repo can't take an issue, or `gh` isn't available, the agent says so and offers to apply now or leave the items open. An adjusted issue is shown again. A refused issue returns to applying now or leaving the items open, and a failed filing leaves them open.
+
+   To apply, for each item in order:
+   - re-read the target right before writing, since another session may have changed it. If the text to edit has changed since the developer saw it, or a file to create now exists, redraft the item, show it again and ask, or skip it and report that. The run's own earlier edits don't count as a change;
    - make the edit as a reviewable change to the file (an exact before and after), not by regenerating the whole file;
    - write nothing outside the approved items.
 
-   An approved message is sent, and an approved issue filed, only as drafted. When a write fails, the agent goes on with the other items and lists the failed one as a loose end. Afterwards, it runs the repo's fast checks, if its instructions name them, and re-reads what changed. A failing check is reported with a proposed fix; nothing is reverted on the agent's own initiative.
-10. **Report and hand off.** After step 9, re-check the loose ends, then write the report:
+   An approved message is sent, and an approved issue filed, only as drafted. When a write fails, the agent goes on with the other items, except those that depend on the failed one, and each stays an open item. Afterwards, if host-repo files changed and the instruction files name fast checks, it runs them and re-reads what changed. A check known to change git state is skipped, and the report says so. The report names any file a check changed. A failing check is reported with a proposed fix, as text, not as a new approval; nothing is reverted on the agent's own initiative.
+10. **Report and hand off.** After step 9, re-check the loose ends, then write the closing report:
     - what was applied, and where;
-    - what was proposed but not applied;
+    - what was captured in an issue, with its URL;
+    - what was proposed but not applied, and what was declined;
     - what was skipped because it was already recorded, and where it lives;
     - roles the repo doesn't implement, and steps that were skipped;
     - cross-repo items sent or filed, with their status ("delivered, not yet confirmed read" for a message);
@@ -200,12 +216,12 @@ A message or issue body is self-contained: what to change and why, the sources t
 
 ## Next-session prompt
 
-The report ends with a block the developer can paste to start the next session, under the line **To start the next session, paste this:**, in a code block. It is written for a session that has never seen this one, and reflects the state after step 9:
+The report ends with a block the developer can paste to start the next session, under the line **To start the next session, paste this:**, in a code block. It is written for a session that has never seen this one, and reflects the state the run leaves (in a proposal, the state before any item is applied):
 - what work continues, and where its state lives (the files to read first);
 - the first concrete step;
 - anything the developer must decide or provide first.
 
-It is 3 to 8 lines. Applying the report's own items isn't a next step: when nothing else is left, the report says there is no next step instead.
+It is 3 to 8 lines. Applying the report's own items isn't a next step, and neither is a `Commit` loose end on its own: when nothing else is left, the report says there is no next step instead.
 
 A **handoff document** is one the instruction files name as the record of current state, or one the session read or changed whose title says it records current state. A README, a changelog or a backlog isn't one. When the session changed what such a document records, an update to it is one of the proposed items.
 - The update covers only what the session changed, since the session holds no evidence for the rest.
@@ -234,18 +250,27 @@ The cases cover:
 - a repeat run, with items left open, declined and settled;
 - a compacted session, with a readable transcript, none, and an unreadable one;
 - a rule a tool can check, and a rule to merge;
-- a handoff document.
+- a handoff document;
+- loose ends: a kept promise, a dismissed one, uncommitted files of each origin, and a repo that isn't under git.
 
 In an eval, the record stands for the conversation: a report filling an `[agent]` turn is an earlier report, and a `[developer]` turn is typed by the developer. Compaction can't happen in an eval, so a case's record simulates it and the developer states the transcript's location. The harness stating it, in a real compaction summary, is checked by a manual run.
 
-An eval is non-interactive, has no other live sessions, and can't check the order of tool calls. Behavior that needs any of these (the approval gate, applying items, messages to a matching session, and the order of a transcript search) is checked by a scripted manual run instead. Its script and dated results are kept in `evals/session-wrap-up/manual.md`, and its specs are marked *(manual)*. Every spec marked *(eval)* has a case, checked by a pytest test, as for prior-art-search.
+An eval is non-interactive, has no other live sessions, and can't check the order of tool calls. Behavior that needs any of these (the approval gate on both of its routes, applying items, capture in an issue, messages to a matching session, and the order of a transcript search) is checked by a scripted manual run instead. Its script and dated results are kept in `evals/session-wrap-up/manual.md`, and its specs are marked *(manual)*. Every spec marked *(eval)* has a case, checked by a pytest test, as for prior-art-search.
 
 ## Decisions & Alternatives
 
 | Decision | Choice | Rationale | Alternatives considered |
 |---|---|---|---|
 | Build vs. adopt | Build on goagrawal-genai/wrap-up, without its three unapproved-write paths, adding memory triage, cross-repo routing and the next-session prompt | Once those paths are removed, it meets every hard criterion in the prior-art note (approval, no git, defers to the repo's rules, local and cloud, compatible license), and it covers more of the need than any other candidate | Build on hewonjeong/retro (cleaner approval, but fixed destinations and no memory); adapt kdeldycke `wrapup-session` (best loose ends, but designed to finish unattended and to commit) |
-| Approval | One numbered list to choose items; then the exact text of the chosen items in one block, confirmed once | The developer sees every word that will persist and can still drop or reword an item, at the cost of one extra reply. Full text for every proposal up front would make the list too long to read | Choose by number, then write straight away (hewonjeong; the text is seen only as it lands); approve item by item (slow) |
+| Approval | One numbered list to choose items; then the exact text of the chosen items, as one previewed question per item where a question tool is available and the text fits, otherwise in one plain-text message, confirmed once | The developer sees every word that will persist and can still drop or adjust an item. Full text for every proposal up front would make the list too long to read. A dialog can hide the conversation and crops long previews, so text shown above a dialog, or one long preview, can hide what is being approved. Per-item questions keep each item's text visible while batching still needs only one pass; the plain-text route keeps the step working in any agent (tenet 7) and carries items too long to preview | Choose by number, then write straight away (hewonjeong; the text is seen only as it lands); plain text only (one route, but loses the dialog's Apply and Drop and its notes); one text block in a question (cropped); approve each item in its own round, without selection (slow) |
+| Apply now or capture in an issue | After the text is confirmed, offer one issue on the host repo instead of applying, where the repo accepts issues | Other work may be under way at the end of a session, and the lessons shouldn't be committed with it. An issue keeps the confirmed text for a later session and leaves the tree alone | Always apply (ties the lessons to unrelated work); leave items open for a later wrap-up (lost if no one runs one); a local file (a write the repo didn't choose, and it needs committing too); a choice per item (more questions for a choice that is usually about the whole set) |
+| Interactive run shape | The proposal and the closing report are both reports, and the proposal holds a provisional next-session prompt | The developer may walk away from the question. A later run then still has a report to carry on from, and the prompt isn't lost | One report after the gate (an abandoned gate leaves nothing); the proposal isn't a report (a later run re-collects the whole session) |
+| Who can confirm | Only the developer's reply, typed or through the question tool; an unclear reply is asked again | Another session's "apply all" isn't approval. A question-tool answer is the developer's own, though it is stored as a tool result. After compaction, the closing report's Skipped list is the record of what was declined, so nothing depends on the transcript's format for tool results | Typed text only (a dialog could never approve) |
+| Loose ends | A list of their own, not numbered and not selectable | "All" must not start code work, and an action for the developer isn't a write the gate can apply | Number them with the items (a chosen `Implement` would be new work) |
+| Dropped at confirmation | Counts as declined | The developer has seen the text and refused it. Leaving a number out of the choice stays the way to put an item off | Keep it open (it returns in every run) |
+| A later request to apply | Re-enters the approval step at the exact text | The rule that the developer sees every word before it lands holds however the request arrives | An ordinary request, outside the run (skips the text) |
+| Fast checks | Only checks the instruction files name, only when host-repo files changed; one known to change git state is skipped; files a check changes are reported | The approval rule binds what the agent writes. Read as binding a check's side effects, almost no check could run, since tests write caches. The git rule stays absolute, and instruction files can't relax it | Run nothing (loses the check); run anything named (a hook runner can stash) |
+| `Commit` and the next step | A `Commit` loose end alone isn't a next step | Almost every applied run leaves uncommitted edits, so every run would otherwise open the next session with "commit" | Count it as a next step |
 | Non-interactive runs | Report-only, and the default when the agent can't tell | With nobody to approve, nothing may be written. The report keeps the work for the developer to apply later | Apply reversible items (the base skill's choice) |
 | Git | A named list of read-only commands (`status`, `diff`, `log`, `show`, `ls-files`, `rev-parse`); never stage, commit, branch or push | Committing is the developer's review step, and branches move only when they decide. The list is named, not described as "read-only", because several commands that read with no arguments write with some (`branch`, `config`, `remote`, `tag`), and a named list can be checked | Offer to commit (the base skill); commit on a second invocation (kdeldycke) |
 | Instruction files vs. safety rules | Instruction files decide where things go and can forbid actions, but can't relax approval, report-only mode or the git rule | A skill installed in every repo has to be safe to run in any of them; a line in one repo's instructions shouldn't turn it into a tool that writes or commits unasked | Instruction files win everywhere (a repo could opt into unattended writes or commits) |
@@ -274,14 +299,18 @@ An eval is non-interactive, has no other live sessions, and can't check the orde
 - **Slices.** Planned order, each usable alone:
   1. the package, house rules, lessons, the report and the next-session prompt (steps 0-4, 8 and 10), report-only in every run;
   2. refinements: repeat runs, transcripts after compaction, checks instead of prose, merging into always-loaded files, and the handoff document;
-  3. loose ends and the approval gate (steps 6 and 9);
+  3. in three parts, each committed on its own:
+     - 3a: loose ends (step 6), still report-only in every run;
+     - 3b: the approval gate and applying items (steps 8 to 10), where the skill starts to write;
+     - 3c: capture in an issue, and fast checks;
   4. memory triage (step 5);
   5. cross-repo routing (step 7).
 
-  Until slice 3, the skill applies nothing and doesn't offer to, and every question goes in the report; a later request from the developer to apply some items is an ordinary request, outside the skill's run. The safety rules hold from slice 1, as do the memory-location rule and the ban on proposing a new handoff document. Until slice 5, an item another repo owns becomes a draft in the report (the third way under Cross-repo routing).
+  Until 3b, the skill applies nothing and doesn't offer to, in any run, and every question goes in the report. The safety rules hold from slice 1, as do the memory-location rule and the ban on proposing a new handoff document. Until slice 4, an item for agent memory stays proposed and isn't selectable, because no spec covers adding an entry and its index line. Until slice 5, an item another repo owns becomes a draft in the report (the third way under Cross-repo routing), and isn't selectable. An item for the user-level instructions is selectable when its path is known; if that path resolves into another repo, it is treated as an item for that repo.
 
 ### Deferred
 
+- Issue capture and issue routing on forges other than GitHub, such as GitLab. Until then, a host repo `gh` can't reach takes the no-issue route.
 - A `SessionStart` hook that surfaces the last wrap-up's next-session prompt.
 - Triage across every project's memory at once.
 

@@ -65,6 +65,7 @@ What the latest earlier report left open, item by item. Read each item's destina
 - **Answered `Decide` items and questions.** Where nothing has applied the answer, replace each with the item that follows from the answer, which counts as re-listed. If the answer leads to no change, remove it and name it under Skipped.
 - **Awaiting restatement, and unanswered questions.** List them again where the report lists such things.
 - **Dropped lessons.** Don't list them again, under Skipped or anywhere else.
+- **Loose ends.** Step 5 sweeps them afresh. Don't bring back one the developer dismissed in words.
 
 ## Scope
 
