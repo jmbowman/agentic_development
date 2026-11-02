@@ -1,4 +1,4 @@
-# @spec WRAP-LES-028, WRAP-LES-029
+# @spec WRAP-LES-028, WRAP-LES-029, WRAP-LOOSE-019
 schema_version: "1.1"
 name: check-for-template
 description: >-

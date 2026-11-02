@@ -11,6 +11,8 @@ Lessons about this repo's development process, drawn from building its skills, f
 
 - **Evals find what review waves don't.** After six review waves on session-wrap-up's first slice, eval runs still found 8 skill-text misses and 9 grader or prompt faults. Run a skill's evals before its slice is committed.
 - **Trial the riskiest cases first.** Run a new suite's riskiest cases on the real model before the full set. For session-wrap-up's second slice, two cases cost $0.37 and found four faults.
+- **Run the whole suite when a report gains a section.** Session-wrap-up's slice 3a passed its new cases, then the full suite failed seven more: the new state check exposed scaffolds that didn't match their records, and the new section gave the agent room to invent follow-ups.
+- **Re-run a surprise before diagnosing it.** Two of three single failures passed twice on re-run. The third failed again, and was a real trigger gap.
 - **Know when to stop reviewing.** Yield fell from 40 to 12 to 5 to 5 findings across one slice's code-review waves. Two narrow re-checks after the main wave were the useful stopping point.
 
 ## Approval steps
@@ -19,4 +21,4 @@ Lessons about this repo's development process, drawn from building its skills, f
 - **Keep each preview short enough to show whole.** A long preview is cropped ("8 lines hidden"), hiding exactly the text being approved. Give each item its own question (a question tool can ask several at once), so each preview holds one item's text.
 - **Every option shows the text it would apply.** An option that applies only part of a change ("only item 4") previews that part. One with no preview leaves the developer approving text they can't see.
 
-These apply to session-wrap-up's approval gate in its third slice.
+These apply to session-wrap-up's approval gate in slice 3b.

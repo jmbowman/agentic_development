@@ -1,0 +1,8 @@
+# @spec WRAP-RPT-014, WRAP-LOOSE-015
+schema_version: "1.1"
+name: loose-ends-commit-only
+description: >-
+  When only a commit is left, the report lists it as a loose end and says there is no next step,
+  and uncommitted work from elsewhere doesn't make one.
+context:
+  scaffold_script: scaffold.sh

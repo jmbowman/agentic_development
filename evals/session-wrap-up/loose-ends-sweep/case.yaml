@@ -1,0 +1,11 @@
+# @spec WRAP-LOOSE-001, WRAP-LOOSE-002, WRAP-LOOSE-004, WRAP-LOOSE-005, WRAP-LOOSE-006
+# @spec WRAP-LOOSE-007, WRAP-LOOSE-008, WRAP-LOOSE-009, WRAP-LOOSE-010, WRAP-LOOSE-017
+# @spec WRAP-RUN-031
+schema_version: "1.1"
+name: loose-ends-sweep
+description: >-
+  The sweep lists what the session leaves open, each checked against the repo: unkept promises, a
+  deferred fix, a parked question, a job it can't check and a draft still needed. It drops what is
+  done or dismissed, and separates the session's uncommitted files from the rest.
+context:
+  scaffold_script: scaffold.sh

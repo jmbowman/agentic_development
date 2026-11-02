@@ -28,3 +28,22 @@ def parse_amount(text):
 EOF
 git add -A
 git -c user.name=eval -c user.email=eval@example.invalid commit -qm "initial"
+cat > mise.toml <<'EOF'
+[tasks.test]
+run = "pytest -q --fixtures-dir tests/fixtures"
+EOF
+git add -A
+git -c user.name=eval -c user.email=eval@example.invalid commit -qm "Add the test task"
+cat > src/importer.py <<'EOF'
+import locale
+
+
+def read_header(line):
+    _bank, encoding, amount_locale = line.strip().split(";")[:3]
+    return encoding, amount_locale
+
+
+def parse_amount(text, amount_locale):
+    locale.setlocale(locale.LC_NUMERIC, amount_locale.replace("-", "_"))
+    return locale.atof(text)
+EOF

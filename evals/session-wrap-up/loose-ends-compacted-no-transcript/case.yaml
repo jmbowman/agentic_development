@@ -1,0 +1,9 @@
+# @spec WRAP-LOOSE-011, WRAP-LOOSE-012, WRAP-LOOSE-014
+schema_version: "1.1"
+name: loose-ends-compacted-no-transcript
+description: >-
+  After a compaction with no transcript, a promise only the summary mentions becomes a question,
+  a file edited since the compaction stays the session's, the rest are "origin unknown", and the
+  report says the summarized turns weren't reviewed for loose ends.
+context:
+  scaffold_script: scaffold.sh

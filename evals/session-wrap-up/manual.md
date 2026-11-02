@@ -2,13 +2,24 @@
 
 Some specs need a live, interactive session, or another live session, which `claude plugin eval` can't provide. Each section below is a script for one such check. A person runs it in Claude Code with this repo's skills loaded (`claude --plugin-dir <path to this repo>`), and appends a dated result line: the Claude Code version, pass or fail, and a note on any failure.
 
-## Interactive run (WRAP-RUN-008)
+## Interactive run (WRAP-RUN-008, WRAP-RUN-031)
 
 1. In a scratch git repo with `cli.py` holding one argparse command, and an `AGENTS.md` that has a `## Working rules` section, start a session.
 2. Type: `Add a --verbose flag to cli.py.` Then correct the agent once: `Use logging, not print, for verbose output.`
 3. Type: `Wrap up the session.`
 
-Pass: the report starts with `Session wrap-up`, and treats the run as interactive: it doesn't say the run is non-interactive, and it doesn't refuse to continue the conversation. (Until slice 3, it still applies nothing and labels each item `not applied`.)
+Pass: the report starts with `Session wrap-up`, and treats the run as interactive: it doesn't say the run is non-interactive, and it doesn't refuse to continue the conversation. (Until slice 3b, it still applies nothing, doesn't offer to, labels each item `not applied`, and puts every question in the report.)
+
+Results:
+
+## Outside a git repo (WRAP-LOOSE-003)
+
+An eval's sandbox home is itself a git repo, so a case can't run outside git.
+
+1. In a scratch directory that isn't under git, with one script and an `AGENTS.md`, start a session.
+2. Make one change, have the agent promise a follow-up it doesn't do, then type: `Wrap up the session.`
+
+Pass: the report says the git checks were skipped because this isn't a git repo, and still lists the follow-up as a loose end.
 
 Results:
 

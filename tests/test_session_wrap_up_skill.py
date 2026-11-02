@@ -19,7 +19,9 @@ DESIGN = INTENT / "session-wrap-up-design.md"
 THIS_FILE = REPO_ROOT / "tests" / "test_session_wrap_up_skill.py"
 
 # The slices whose specs are delivered. Each slice adds its number when it lands.
-DELIVERED_SLICES = {1, 2}
+DELIVERED_SLICES = {"1", "2", "3a"}
+
+SLICE_HEADING = r"^## .*\(slice (\d+[a-z]?)\)$"
 
 FILTER_TESTS = ["reusable", "non-obvious", "stable", "actionable"]
 
@@ -38,11 +40,11 @@ def table_rows(text: str) -> list[list[str]]:
 def delivered_spec_ids(marker: str) -> list[str]:
     """The IDs of the delivered slices' specs that carry a marker such as `eval` or `manual`."""
     ids: list[str] = []
-    slice_number = 0
+    current_slice = ""
     for line in SPECS.read_text().splitlines():
-        if heading := re.match(r"^## .*\(slice (\d+)\)$", line):
-            slice_number = int(heading.group(1))
-        elif slice_number in DELIVERED_SLICES and line.endswith(f"*({marker})*"):
+        if heading := re.match(SLICE_HEADING, line):
+            current_slice = heading.group(1)
+        elif current_slice in DELIVERED_SLICES and line.endswith(f"*({marker})*"):
             spec = re.search(r"\*\*(WRAP-[A-Z]+-\d{3})\*\*", line)
             assert spec, line
             ids.append(spec.group(1))
@@ -136,10 +138,7 @@ def test_skill_text_has_no_spec_annotations() -> None:
 
 def test_delivered_slices_have_specs() -> None:
     """The slice list in this file names slices the specs file defines."""
-    headings = {
-        int(n) for n in re.findall(r"^## .*\(slice (\d+)\)$", SPECS.read_text(), re.MULTILINE)
-    }
-    assert headings >= DELIVERED_SLICES
+    assert set(re.findall(SLICE_HEADING, SPECS.read_text(), re.MULTILINE)) >= DELIVERED_SLICES
 
 
 # @spec WRAP-PKG-009
@@ -182,7 +181,11 @@ def test_manual_spec_is_in_the_manual_script(spec: str) -> None:
 # @spec WRAP-LES-030, WRAP-LES-031, WRAP-LES-032
 # @spec WRAP-RPT-001, WRAP-RPT-002, WRAP-RPT-003, WRAP-RPT-004, WRAP-RPT-005, WRAP-RPT-006
 # @spec WRAP-RPT-007, WRAP-RPT-008, WRAP-RPT-009, WRAP-RPT-010, WRAP-RPT-011, WRAP-RPT-012
-# @spec WRAP-RPT-013
+# @spec WRAP-RPT-013, WRAP-RPT-014
+# @spec WRAP-LOOSE-001, WRAP-LOOSE-002, WRAP-LOOSE-003, WRAP-LOOSE-004, WRAP-LOOSE-005
+# @spec WRAP-LOOSE-006, WRAP-LOOSE-007, WRAP-LOOSE-008, WRAP-LOOSE-009, WRAP-LOOSE-010
+# @spec WRAP-LOOSE-011, WRAP-LOOSE-012, WRAP-LOOSE-013, WRAP-LOOSE-014, WRAP-LOOSE-015
+# @spec WRAP-LOOSE-016, WRAP-LOOSE-017, WRAP-LOOSE-018, WRAP-LOOSE-019, WRAP-RUN-031
 @pytest.mark.parametrize("spec", delivered_spec_ids("eval") + delivered_spec_ids("manual"))
 def test_hand_run_spec_is_cited_in_this_file(spec: str) -> None:
     """Lidc sees a citation for every delivered spec that only an eval or a manual run checks."""
