@@ -1,4 +1,4 @@
-# @spec WRAP-LOOSE-011, WRAP-LOOSE-012, WRAP-LOOSE-014
+# @spec WRAP-LOOSE-011, WRAP-LOOSE-012, WRAP-LOOSE-014, WRAP-LOOSE-020
 schema_version: "1.1"
 name: loose-ends-compacted-no-transcript
 description: >-

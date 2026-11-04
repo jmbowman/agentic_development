@@ -12,6 +12,8 @@ Lessons about this repo's development process, drawn from building its skills, f
 - **Evals find what review waves don't.** After six review waves on session-wrap-up's first slice, eval runs still found 8 skill-text misses and 9 grader or prompt faults. Run a skill's evals before its slice is committed.
 - **Trial the riskiest cases first.** Run a new suite's riskiest cases on the real model before the full set. For session-wrap-up's second slice, two cases cost $0.37 and found four faults.
 - **Run the whole suite when a report gains a section.** Session-wrap-up's slice 3a passed its new cases, then the full suite failed seven more: the new state check exposed scaffolds that didn't match their records, and the new section gave the agent room to invent follow-ups.
+- **Put an output rule in the output's template.** In session-wrap-up's slice 3b, rules stated in a step's text kept slipping, even after rewording. Moved into the report template's placeholder lines, which the agent copies as it writes, they mostly held.
+- **Set a last round before starting it.** Once each remaining miss was down to one run in three, a final round was named in advance, and what still slipped was logged with its rate instead of starting another round.
 - **Re-run a surprise before diagnosing it.** Two of three single failures passed twice on re-run. The third failed again, and was a real trigger gap.
 - **Know when to stop reviewing.** Yield fell from 40 to 12 to 5 to 5 findings across one slice's code-review waves. Two narrow re-checks after the main wave were the useful stopping point.
 
