@@ -1,4 +1,4 @@
-# @spec WRAP-RPT-014, WRAP-LOOSE-015
+# @spec WRAP-RPT-014, WRAP-RPT-015, WRAP-LOOSE-015
 schema_version: "1.1"
 name: loose-ends-commit-only
 description: >-

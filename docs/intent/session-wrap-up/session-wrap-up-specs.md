@@ -46,8 +46,8 @@ In an eval, the session record in the prompt stands for the conversation: a turn
 
 ## Triggering and runs (slice 1)
 
-- [x] **WRAP-RUN-001**: When the developer asks to wrap up, close out, end or hand off the session, or invokes the skill by name, the skill shall trigger. *(eval)*
-- [x] **WRAP-RUN-002**: The skill shall not trigger for a request that doesn't ask to wrap up, close out, end or hand off the session, including a request to close or hand off a task or an artifact. *(eval)*
+- [x] **WRAP-RUN-001**: When the developer asks to wrap up, close out, end or hand off the session, asks to apply items from a wrap-up report, or invokes the skill by name, the skill shall trigger. *(eval)*
+- [x] **WRAP-RUN-002**: The skill shall not trigger for a request that doesn't ask to wrap up, close out, end or hand off the session or to apply items from a wrap-up report, including a request to close or hand off a task or an artifact, or to apply a patch. *(eval)*
 - [x] **WRAP-RUN-006**: While the run is non-interactive, the agent shall write no file anywhere, memory and scratch files included, send no message and file no issue, and shall label each item in the report `not applied`. *(eval)*
 - [x] **WRAP-RUN-007**: When the request says the run is non-interactive, or the agent knows the run is headless, scheduled or an eval, the agent shall treat the run as non-interactive. *(eval)*
 - [x] **WRAP-RUN-008**: When none of the conditions of WRAP-RUN-007 holds and the wrap-up request was typed by the developer, the agent shall treat the run as interactive. *(manual)*
@@ -148,7 +148,7 @@ In an eval, the session record in the prompt stands for the conversation: a turn
 
 - [x] **WRAP-RPT-008**: Where the host repo has a handoff document and the session changed what it records, the agent shall propose an update covering only that change as an item. *(eval)*
 - [x] **WRAP-RPT-011**: An update to a handoff document shall state project state and shall name no person. *(eval)*
-- [x] **WRAP-RPT-012**: Where a run ends with the update to a handoff document not applied and the run's last next-session prompt lists the document among the files to read, that prompt shall flag the document as out of date. *(eval)*
+- [x] **WRAP-RPT-012**: Where the update to a handoff document hasn't been applied when a next-session prompt is written, and the prompt lists the document among the files to read, the prompt shall flag the document as out of date. *(eval)*
 - [x] **WRAP-RPT-013**: Where the instruction files name a handoff document that doesn't exist, the agent shall ask about it in the report rather than propose creating it. *(eval)*
 
 ## Loose ends (slice 3a)
@@ -158,12 +158,13 @@ In an eval, the session record in the prompt stands for the conversation: a turn
 - [x] **WRAP-LOOSE-003**: Where the host repo isn't a git repo, the agent shall skip the git checks and say so in the report. *(manual)*
 - [x] **WRAP-LOOSE-004**: Before listing a loose end, the agent shall check it against the current state with a read-only tool where one can, and drop it when it is done or the developer abandoned it. *(eval)*
 - [x] **WRAP-LOOSE-008**: When a loose end can't be checked against the current state, the agent shall keep it listed. *(eval)*
-- [x] **WRAP-LOOSE-005**: The agent shall begin each loose end with one of the labels `Decide`, `Implement`, `Commit`, `Send` or `File`, or, where none fits, with a plain verb. *(eval)*
+- [x] **WRAP-LOOSE-005**: The agent shall begin each loose end with one of the labels `Decide`, `Implement`, `Commit`, `Send` or `Issue`, or, where none fits, with a plain verb. *(eval)*
 - [x] **WRAP-LOOSE-006**: The agent shall run no git command other than `git status`, `git diff`, `git log`, `git show`, `git ls-files` and `git rev-parse`, and none with an option that writes a file. *(eval)*
 - [x] **WRAP-LOOSE-007**: The report shall list the loose ends in the order to act on them: those others depend on first, then `Decide` loose ends, then the rest. *(eval)*
 - [x] **WRAP-LOOSE-009**: The report shall list the loose ends unnumbered, in a section of their own after Skipped. *(eval)*
 - [x] **WRAP-LOOSE-010**: When the developer has dismissed a loose end in words, the agent shall not list it again. *(eval)*
-- [x] **WRAP-LOOSE-011**: While compaction has summarized turns that the agent can't review, the agent shall take no loose end from the compaction summary, and shall put any loose end the summary suggests in the report's questions only, keeping it out of the next-session prompt. *(eval)*
+- [x] **WRAP-LOOSE-011**: While compaction has summarized turns that the agent can't review, the agent shall take no loose end from the compaction summary, and shall put any loose end the summary suggests in the report's questions. *(eval)*
+- [x] **WRAP-LOOSE-020**: A next-session prompt shall not give a loose end that only a compaction summary suggests as the work or a step, and may ask about it only as something to decide first, saying that it comes from the summary. *(eval)*
 - [x] **WRAP-LOOSE-012**: While compaction has removed the agent's record of its edits and no transcript it can review under WRAP-LES-022 and WRAP-LES-031 restores it, the agent shall label "origin unknown" each uncommitted file it can't place, including a file only the compaction summary names, and a file it edited since the compaction stays under WRAP-LOOSE-002. *(eval)*
 - [x] **WRAP-LOOSE-015**: The agent shall list files labelled "not from this session" or "origin unknown" for information, with no action label, and shall not count them as a next step. *(eval)*
 - [x] **WRAP-LOOSE-013**: When compaction has summarized turns of the session, the harness or the developer states the transcript's location, and the transcript marks the developer's turns, the agent shall sweep those turns in the transcript for loose ends. *(eval)*
@@ -172,49 +173,58 @@ In an eval, the session record in the prompt stands for the conversation: a turn
 - [x] **WRAP-LOOSE-019**: The agent shall add no follow-up of its own to the loose ends, such as a check to run or a local workaround. *(eval)*
 - [x] **WRAP-LOOSE-016**: When a loose end is the same thing as a numbered item, the agent shall list only the item. *(eval)*
 - [x] **WRAP-LOOSE-017**: The agent shall list a question that is a loose end only in the loose ends, not also in the report's questions. *(eval)*
+- [x] **WRAP-RPT-015**: The report shall offer no work beyond its items and the approval question, such as drafting a commit message. *(eval)*
 - [x] **WRAP-RPT-014**: The agent shall not count a `Commit` loose end on its own as a next step under WRAP-RPT-005 or WRAP-RPT-007. *(eval)*
-- [x] **WRAP-RUN-031**: Until the approval gate (slice 3b) is delivered, the agent shall apply no item in any run, shall not offer or ask to apply items, and shall put every question in the report. *(eval)*
 
 ## Approval (slice 3b)
 
+The skill carries every spec in this section. The *(manual)* ones haven't been run yet: they wait for the interactive eval harness, which will replace their scripts in `evals/session-wrap-up/manual.md`.
+
 ### Choosing items
 
-- [ ] **WRAP-GATE-001**: While the run is interactive and the proposal has a selectable item, the agent shall end the proposal by asking which items to apply: all, none, or a list of numbers. *(manual)*
-- [ ] **WRAP-GATE-015**: While the run is interactive and the proposal has no selectable item, the agent shall end the run with the proposal. *(manual)*
-- [ ] **WRAP-GATE-016**: While the run is interactive, the proposal shall say why each item that isn't selectable isn't. *(manual)*
-- [ ] **WRAP-GATE-031**: Where an item's destination is the user-level instruction file and its path resolves into a repo other than the host repo, the agent shall treat the item as one bound for that repo. *(manual)*
-- [ ] **WRAP-GATE-018**: When the developer chooses a `Decide` item, the agent shall ask for its answer before showing any exact text. *(manual)*
-- [ ] **WRAP-GATE-035**: When the developer answers a `Decide` item or a question during the approval steps, the agent shall treat the answer as WRAP-RUN-024, WRAP-RUN-025 and WRAP-RUN-027 treat an answer to an earlier report's. *(manual)*
-- [ ] **WRAP-GATE-040**: When the developer answers "none", or chooses an item that isn't selectable, the agent shall leave each item that isn't selectable open, and say why when it was chosen. *(manual)*
-- [ ] **WRAP-GATE-002**: When the developer's choice edits, splits or adds an item, the agent shall list the affected items again and go on to the exact text without asking for the choice again. *(manual)*
-- [ ] **WRAP-RUN-013**: When, after a run has ended, the developer asks the agent to apply items from its report, the agent shall treat those items as chosen under WRAP-GATE-001. *(manual)*
+- [x] **WRAP-GATE-001**: While the run is interactive and the proposal has a selectable item, the agent shall end the proposal by asking which items to apply: all, none, or a list of numbers. *(manual)*
+- [x] **WRAP-GATE-015**: While the run is interactive and the proposal has no selectable item, the agent shall end the run with the proposal. *(manual)*
+- [x] **WRAP-GATE-016**: While the run is interactive, the proposal shall say why each item that isn't selectable isn't. *(manual)*
+- [x] **WRAP-GATE-031**: Where an item's destination is the user-level instruction file and its path resolves into a repo other than the host repo, the agent shall treat the item as one bound for that repo. *(manual)*
+- [x] **WRAP-GATE-018**: When the developer chooses a `Decide` item, the agent shall ask for its answer before showing any exact text. *(manual)*
+- [x] **WRAP-GATE-035**: When the developer answers a `Decide` item or a question during the approval steps, the agent shall treat the answer as WRAP-RUN-024, WRAP-RUN-025 and WRAP-RUN-027 treat an answer to an earlier report's. *(manual)*
+- [x] **WRAP-GATE-040**: When the developer answers "none", or chooses an item that isn't selectable, the agent shall leave each item that isn't selectable open, and say why when it was chosen. *(manual)*
+- [x] **WRAP-GATE-002**: When the developer's choice edits, splits or adds an item, the agent shall list the affected items again and go on to the exact text without asking for the choice again. *(manual)*
+- [x] **WRAP-RUN-013**: When, after a run of any kind has ended, the developer asks the agent to apply items from its report, the agent shall treat those items as chosen under WRAP-GATE-001. *(manual)*
+- [x] **WRAP-GATE-042**: When the developer's reply to the question of which items to apply is a new request with no choice in it, the agent shall end the run, leave the items open, and carry out the request. *(manual)*
+- [x] **WRAP-GATE-043**: When the developer's reply both chooses items and makes a new request, the agent shall finish the approval steps before starting the request. *(manual)*
 
 ### Exact text
 
-- [ ] **WRAP-GATE-003**: After the developer chooses items, and before applying any, the agent shall show the exact text of every chosen item, by WRAP-GATE-019 or WRAP-GATE-020, even if the developer said to skip this: the lines to add, the before and after of each edit, the whole of a new file, and the full text of each message or issue. *(manual)*
-- [ ] **WRAP-GATE-019**: Where a question tool is available and each chosen item's text is at most 8 lines, the agent shall ask one question per chosen item, up to the tool's limit per dialog and then in further dialogs, with the exact text in the preview of each option that applies it. *(manual)*
-- [ ] **WRAP-GATE-020**: Where no question tool is available, or a chosen item's text is longer than 8 lines, the agent shall show the exact text of all the chosen items in one plain-text message and ask once for confirmation. *(manual)*
-- [ ] **WRAP-GATE-021**: Each question under WRAP-GATE-019 shall offer to apply the item as shown and to drop it, and shall let the developer adjust it in a note or in free text. *(manual)*
-- [ ] **WRAP-GATE-004**: When the developer drops an item at the confirmation, the agent shall leave it out of what it applies and count it as declined. *(manual)*
-- [ ] **WRAP-GATE-005**: When the developer adjusts an item's text or destination at the confirmation, the agent shall redraft it, show the new text and get confirmation before applying it. *(manual)*
-- [ ] **WRAP-GATE-022**: Before showing an adjusted item, the agent shall check it against the instruction files' privacy rules and the personal-data rules for its destination, and warn the developer of anything they don't allow, without changing the developer's words. *(manual)*
-- [ ] **WRAP-GATE-023**: The agent shall count as confirmation only a clear reply typed by the developer, and ask again after any other reply. *(manual)*
-- [ ] **WRAP-GATE-006**: The agent shall write, send or file nothing that isn't in a confirmed item or an issue confirmed under WRAP-GATE-027. *(manual)*
+- [x] **WRAP-GATE-003**: After the developer chooses items, and before applying any, the agent shall show the exact text of every chosen item, by WRAP-GATE-019 or WRAP-GATE-020, even if the developer said to skip this: the lines to add, the before and after of each edit, the whole of a new file, and the full text of each message or issue. *(manual)*
+- [x] **WRAP-GATE-019**: Where a question tool that shows previews is available and each chosen item's text is at most 8 displayed lines, the agent shall ask one question per chosen item, up to the tool's limit per dialog and then in further dialogs, with the exact text in the preview of each option that applies it. *(manual)*
+- [x] **WRAP-GATE-020**: Where no question tool that shows previews is available, or a chosen item's text is longer than 8 displayed lines, the agent shall show the exact text of all the chosen items in one plain-text message and ask once for confirmation. *(manual)*
+- [x] **WRAP-GATE-044**: The agent shall count an item's displayed lines over its whole text, before and after together, with each 80 characters of a line counting as one line. *(manual)*
+- [x] **WRAP-GATE-045**: Each question under WRAP-GATE-019 shall name the item's number and destination. *(manual)*
+- [x] **WRAP-GATE-021**: Each question under WRAP-GATE-019 shall offer to apply the item as shown, to leave it for now and to decline it, and shall let the developer adjust it in a note on any option or in free text. *(manual)*
+- [x] **WRAP-GATE-004**: When the developer declines or drops an item at the confirmation, the agent shall leave it out of what it applies and count it as declined. *(manual)*
+- [x] **WRAP-GATE-046**: When the developer leaves an item for now at the confirmation, or dismisses a dialog without answering it, the agent shall leave each item in question open. *(manual)*
+- [x] **WRAP-GATE-005**: When the developer adjusts an item's text or destination at the confirmation, the agent shall redraft it, show the new text and get confirmation before applying it. *(manual)*
+- [x] **WRAP-GATE-022**: Before showing an item the developer adjusted, edited, split or added, the agent shall check it against the instruction files' privacy rules and the personal-data rules for its destination, and warn the developer of anything they don't allow, without changing the developer's words. *(manual)*
+- [x] **WRAP-GATE-047**: After the developer adjusts, edits, splits or adds an item, the agent shall check again whether it is selectable. *(manual)*
+- [x] **WRAP-GATE-023**: The agent shall count as a choice or a confirmation only a clear reply typed by the developer, and ask again after an unclear one. *(manual)*
+- [x] **WRAP-GATE-006**: The agent shall write, send or file nothing that isn't in a confirmed item or an issue confirmed under WRAP-GATE-027. *(manual)*
 
 ### Applying
 
-- [ ] **WRAP-GATE-041**: After the developer confirms the text, the agent shall apply the confirmed items in order, unless the developer chooses otherwise under WRAP-GATE-024 or WRAP-GATE-025. *(manual)*
-- [ ] **WRAP-GATE-007**: Immediately before applying an item that edits or creates a file, the agent shall re-read the file or check that it doesn't exist. *(manual)*
-- [ ] **WRAP-GATE-008**: If the text an item edits has changed since the developer saw it, other than by this run's own earlier items, or a file it creates now exists, then the agent shall redraft the item and ask again, or skip the item and say so in the report. *(manual)*
-- [ ] **WRAP-GATE-009**: The agent shall apply each edit as a change to the existing text, not by rewriting the whole file. *(manual)*
-- [ ] **WRAP-GATE-036**: After applying items, the agent shall re-read what it changed, and list as an open item any item whose confirmed text isn't there. *(manual)*
-- [ ] **WRAP-GATE-010**: If applying an item fails, then the agent shall go on with the remaining items, except those that depend on the failed one, and each of those stays an open item. *(manual)*
+- [x] **WRAP-GATE-041**: After the developer confirms the text, the agent shall apply the confirmed items in order, unless the developer chooses otherwise under WRAP-GATE-024 or WRAP-GATE-025. *(manual)*
+- [x] **WRAP-GATE-007**: Immediately before applying an item that edits or creates a file, the agent shall re-read the file or check that it doesn't exist. *(manual)*
+- [x] **WRAP-GATE-008**: If the text an item edits has changed since the developer saw it, other than by this run's own earlier items, or a file it creates now exists, then the agent shall redraft the item and ask again, or skip the item and say so in the report. *(manual)*
+- [x] **WRAP-GATE-009**: The agent shall apply each edit as a change to the existing text, not by rewriting the whole file. *(manual)*
+- [x] **WRAP-GATE-036**: After applying items, the agent shall re-read what it changed, and list as an open item any item whose confirmed text isn't there. *(manual)*
+- [x] **WRAP-GATE-010**: If applying an item fails, then the agent shall go on with the remaining items, except those that depend on the failed one, and each of those stays an open item. *(manual)*
 
 ### Closing report
 
-- [ ] **WRAP-GATE-013**: After the approval steps, the agent shall give a closing report, even when nothing was applied, whose loose ends and next-session prompt reflect the state the run leaves. *(manual)*
-- [ ] **WRAP-GATE-014**: The closing report shall list each applied item with its path, each declined item under Skipped, and each open item, labelled `not applied`. *(manual)*
-- [ ] **WRAP-RUN-030**: The agent shall count an item that an earlier report names as declined as declined. *(eval)*
+- [x] **WRAP-GATE-013**: After the approval steps, the agent shall give a closing report, even when nothing was applied, whose loose ends and next-session prompt reflect the state the run leaves. *(manual)*
+- [x] **WRAP-GATE-014**: The closing report shall list each applied item with its path, each declined item under Skipped, and each open item, labelled `not applied`, each under its number from the proposal. *(manual)*
+- [x] **WRAP-GATE-048**: The closing report shall give each status line that applies, as the proposal does. *(manual)*
+- [x] **WRAP-RUN-030**: The agent shall count an item that an earlier report names as declined as declined. *(eval)*
 
 ## Capture and fast checks (slice 3c)
 

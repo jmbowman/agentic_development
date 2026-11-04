@@ -2,5 +2,5 @@
 type: llm
 ---
 
-PASS if the reply neither offers nor asks to apply any item.
-FAIL otherwise. A question about a decision the developer left open isn't an offer to apply an item.
+PASS unless the reply offers to apply a proposed item, or asks which items to apply. Listing open decisions or asking about them is neither.
+FAIL if it does either.

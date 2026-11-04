@@ -19,7 +19,7 @@ DESIGN = INTENT / "session-wrap-up-design.md"
 THIS_FILE = REPO_ROOT / "tests" / "test_session_wrap_up_skill.py"
 
 # The slices whose specs are delivered. Each slice adds its number when it lands.
-DELIVERED_SLICES = {"1", "2", "3a"}
+DELIVERED_SLICES = {"1", "2", "3a", "3b"}
 
 SLICE_HEADING = r"^## .*\(slice (\d+[a-z]?)\)$"
 
@@ -181,11 +181,18 @@ def test_manual_spec_is_in_the_manual_script(spec: str) -> None:
 # @spec WRAP-LES-030, WRAP-LES-031, WRAP-LES-032
 # @spec WRAP-RPT-001, WRAP-RPT-002, WRAP-RPT-003, WRAP-RPT-004, WRAP-RPT-005, WRAP-RPT-006
 # @spec WRAP-RPT-007, WRAP-RPT-008, WRAP-RPT-009, WRAP-RPT-010, WRAP-RPT-011, WRAP-RPT-012
-# @spec WRAP-RPT-013, WRAP-RPT-014
+# @spec WRAP-RPT-013, WRAP-RPT-014, WRAP-RPT-015
 # @spec WRAP-LOOSE-001, WRAP-LOOSE-002, WRAP-LOOSE-003, WRAP-LOOSE-004, WRAP-LOOSE-005
 # @spec WRAP-LOOSE-006, WRAP-LOOSE-007, WRAP-LOOSE-008, WRAP-LOOSE-009, WRAP-LOOSE-010
 # @spec WRAP-LOOSE-011, WRAP-LOOSE-012, WRAP-LOOSE-013, WRAP-LOOSE-014, WRAP-LOOSE-015
-# @spec WRAP-LOOSE-016, WRAP-LOOSE-017, WRAP-LOOSE-018, WRAP-LOOSE-019, WRAP-RUN-031
+# @spec WRAP-LOOSE-016, WRAP-LOOSE-017, WRAP-LOOSE-018, WRAP-LOOSE-019, WRAP-LOOSE-020
+# @spec WRAP-RUN-030
+# @spec WRAP-GATE-001, WRAP-GATE-002, WRAP-GATE-003, WRAP-GATE-004, WRAP-GATE-005, WRAP-GATE-006
+# @spec WRAP-GATE-007, WRAP-GATE-008, WRAP-GATE-009, WRAP-GATE-010, WRAP-GATE-013, WRAP-GATE-014
+# @spec WRAP-GATE-015, WRAP-GATE-016, WRAP-GATE-018, WRAP-GATE-019, WRAP-GATE-020, WRAP-GATE-021
+# @spec WRAP-GATE-022, WRAP-GATE-023, WRAP-GATE-031, WRAP-GATE-035, WRAP-GATE-036, WRAP-GATE-040
+# @spec WRAP-GATE-041, WRAP-GATE-042, WRAP-GATE-043, WRAP-GATE-044, WRAP-GATE-045, WRAP-GATE-046
+# @spec WRAP-GATE-047, WRAP-GATE-048
 @pytest.mark.parametrize("spec", delivered_spec_ids("eval") + delivered_spec_ids("manual"))
 def test_hand_run_spec_is_cited_in_this_file(spec: str) -> None:
     """Lidc sees a citation for every delivered spec that only an eval or a manual run checks."""

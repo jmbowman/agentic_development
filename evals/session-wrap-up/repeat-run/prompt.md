@@ -37,6 +37,7 @@ quote_field() doesn't escape embedded newlines. Fix it to quote any field contai
 ### Skipped
 - Dropped: the staging port is 8123 — a one-off detail
 - Awaiting restatement: the vendor's rate-limit rule
+- From the earlier report: add a rule: rebase before merging — declined
 
 ### Questions
 - Should the batch timeout also apply to the nightly run?
@@ -48,7 +49,7 @@ To start the next session, paste this:
 [agent] Added it to AGENTS.md.
 [developer] Decide 1: move to four spaces. Decide 2: leave that rule as it is. Item 4, no thanks. And skip the cron note. Item 8 should say 30 seconds, not 60.
 [developer] Actually, while you're here: always pin the batch image by digest.
-[agent] Noted. I also deleted sync.py, since nothing uses it now.
+[agent] Noted. I also deleted sync.py, since nothing uses it now. I rebased before merging, as usual.
 [tool output] ## Session wrap-up
 [tool output] Proposed items: 1. Add a rule: disable the linter on Fridays
 [developer] One more rule for agents here: dry-run a batch before any real run. That's it for now.
