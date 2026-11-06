@@ -16,6 +16,7 @@ Lessons about this repo's development process, drawn from building its skills, f
 - **Set a last round before starting it.** Once each remaining miss was down to one run in three, a final round was named in advance, and what still slipped was logged with its rate instead of starting another round.
 - **Re-run a surprise before diagnosing it.** Two of three single failures passed twice on re-run. The third failed again, and was a real trigger gap.
 - **Know when to stop reviewing.** Yield fell from 40 to 12 to 5 to 5 findings across one slice's code-review waves. Two narrow re-checks after the main wave were the useful stopping point.
+- **State each value once.** A value written in two places drifts: a re-check found OpenAIRE's rate limit given as 7,000 in a route table and 7,200 in the same file's rate-limit section, a day after both were written. Keep it in one place and point to it.
 
 ## Approval steps
 
@@ -24,3 +25,7 @@ Lessons about this repo's development process, drawn from building its skills, f
 - **Every option shows the text it would apply.** An option that applies only part of a change ("only item 4") previews that part. One with no preview leaves the developer approving text they can't see.
 
 These apply to session-wrap-up's approval gate in slice 3b.
+
+## Research and sources
+
+- **Check a source's terms and live behavior before recommending it.** Read the service's terms and robots.txt, and probe it, before a route goes into a skill. A first probe recommended Arch's package search, which its robots.txt disallows, and rated OpenAlex the primary paper route a day before its anonymous search was paused under load.
