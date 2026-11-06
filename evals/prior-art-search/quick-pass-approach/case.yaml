@@ -1,0 +1,6 @@
+# @spec PRIOR-LIT-014, PRIOR-LIT-001, PRIOR-EFF-003, PRIOR-EFF-006
+schema_version: "1.1"
+name: quick-pass-approach
+description: >-
+  A developer-chosen quick pass on an approach question may count a literature route as searched,
+  and each paper it presents carries a read state and a class.

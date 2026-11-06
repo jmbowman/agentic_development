@@ -1,0 +1,8 @@
+# @spec PRIOR-EFF-005, PRIOR-EFF-002, PRIOR-RPT-003
+schema_version: "1.1"
+name: quick-pass-gap
+description: >-
+  A quick pass whose only candidate leaves a core requirement unmet, with nothing else covering it,
+  switches to the full method before concluding.
+context:
+  scaffold_script: scaffold.sh

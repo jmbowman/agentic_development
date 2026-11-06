@@ -1,0 +1,8 @@
+# @spec PRIOR-ACC-001, PRIOR-ACC-002, PRIOR-ACC-004, PRIOR-SRCH-008
+schema_version: "1.1"
+name: settings-required-missing
+description: >-
+  With no settings file, a route whose setting is required is recorded unavailable without being searched or
+  its value invented, an optional route is tried without credentials, and nothing is registered for.
+context:
+  scaffold_script: scaffold.sh
