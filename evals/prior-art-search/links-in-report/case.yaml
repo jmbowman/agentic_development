@@ -1,0 +1,8 @@
+# @spec PRIOR-RPT-008, PRIOR-RPT-009, PRIOR-RPT-005, PRIOR-CLS-001
+schema_version: "1.1"
+name: links-in-report
+description: >-
+  The report names every candidate as a Markdown link to a URL it took from the candidate's own files,
+  and says "no link found" for a candidate that has none.
+context:
+  scaffold_script: scaffold.sh

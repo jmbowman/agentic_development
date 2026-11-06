@@ -46,9 +46,11 @@ Skills come from three sources:
 
 Packaged skills are installed, not committed. A repo commits its manifests and lock files, and `apm install --frozen` deploys the locked skills wherever an agent or a check needs them: the `setup` task locally, a committed SessionStart hook in cloud sessions (Claude Code on the web), and the `check` task in CI. A cloud session starts from a fresh clone and doesn't install the plugins a repo's settings declare, so the hook is what gives it skills.
 
-The first designed component is the **prior-art search skill** ([design](intent/prior-art-search/prior-art-search-design.md)). It runs before an agent recommends building, or substantially extending, a tool, library, script, subsystem or skill. It searches for existing software against the underlying need, and verifies the top candidates' limitations in their source. For choices that are costly to reverse, it saves a dated note with the full query log, so that "nothing fits" can be audited.
+The first designed component is the **prior-art search skill** ([design](intent/prior-art-search/prior-art-search-design.md)). It runs before an agent recommends building, or substantially extending, a tool, library, script, subsystem or skill. It searches for existing software against the underlying need, and verifies the top candidates' limitations in their source. Where the need is about an approach or technique, it also searches published research (papers, surveys, theses), whose findings it reports as borrowed ideas and tags by how much of each was read. For choices that are costly to reverse, it saves a dated note with the full query log, so that "nothing fits" can be audited.
 
 The second designed component is the **session wrap-up skill** ([design](intent/session-wrap-up/session-wrap-up-design.md)). An agent runs it at the end of a session. It proposes a home for each durable lesson from the session, following the repo's own rules for where knowledge lives. It also proposes moving agent memory that belongs in the repo into the repo's docs, lists loose ends, and routes feedback that belongs to another repo to a session rooted there or to an issue on that repo. It ends with a prompt that starts the next session. It writes nothing without the developer's approval, and changes no git state.
+
+The third designed component is the **interactive eval harness** ([design](intent/interactive-evals/interactive-evals-design.md)). It checks the skill behavior that a single-prompt eval can't reach: several typed turns, answers to the agent's question dialogs, and what lands on disk at each stop. It drives a real Claude Code session through the Claude Agent SDK, and checks on-screen rendering through a terminal emulator. Its scenarios are pytest tests, run by hand like the evals.
 
 The planned components, not yet designed:
 - a commit-message skill and commit linting;
@@ -67,7 +69,7 @@ The planned components, not yet designed:
 - **`lidc`:** a third-party CLI that checks LID's spec-to-test-to-code links.
 - **mise:** a tool-version manager and task runner.
 - **Named exception:** one relaxation of the strict baseline, written in a repo-owned file or as an inline suppression, scoped to the narrowest path, line or rule the tool allows.
-- **Prior-art search:** a search for existing software that could do a job, cut its implementation work, or supply ideas, run before recommending that something be built.
+- **Prior-art search:** a search for existing software, and for published research on approaches, that could do a job, cut its implementation work, or supply ideas, run before recommending that something be built.
 - **prek:** a fast git-hook runner, compatible with pre-commit.
 - **Renovate:** a dependency-update bot. Here it runs as the hosted GitHub app and opens a pull request per update, which merges automatically once CI passes.
 - **ruff:** a Python linter and formatter.
@@ -154,6 +156,7 @@ Components:
 | Renovate presets | this repo | Shared Renovate behavior: automerge policy, the supply-chain delay, paths Renovate must not touch, the exception that holds LID pin bumps for a manual upgrade, and treating the lock-refresh App's commits as Renovate's own |
 | copier-python | [copier-python](https://github.com/jmbowman/copier-python) (`../copier-python` locally), with its own design docs | The Python baseline files, their owners, and the template's own tests. Its pin of the skills package (which brings LID's skills), the manifest, lock file and skill links it renders into consumers, and the tasks and SessionStart hook that install the skills there |
 | Skills package | this repo, `skills/` (the repo root is the plugin) | The template-owned skills, released with this repo's tags, and their structure tests and evals. Every skill's frontmatter uses only the Agent Skills fields, and its instructions work in any agent that reads them. Claude Code features (subagents, hooks, its extra frontmatter) are optional speed-ups in the instructions where possible, with the portability cost noted where not. Skill names are specific, because a consumer can't give its own skill the name of a template skill. A script a skill ships passes the strict profile here, the only repo that lints it. The skills are the [prior-art search skill](intent/prior-art-search/prior-art-search-design.md) and the [session wrap-up skill](intent/session-wrap-up/session-wrap-up-design.md) |
+| Interactive eval harness | this repo, `evals/interactive/` | The shared driver for multi-turn, interactive checks of the skills, and the conventions for writing a skill's scenarios. It isn't shipped to consumers |
 | Process hooks | this repo (planned) | Commit gates and other hooks. Not yet designed |
 
 Copier never edits the repo-owned reference files after the first render, and Renovate never edits template-owned files (the shared preset excludes them), so two update mechanisms never touch the same line.

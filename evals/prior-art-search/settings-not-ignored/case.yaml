@@ -1,0 +1,8 @@
+# @spec PRIOR-ACC-007, PRIOR-ACC-009, PRIOR-ACC-005
+schema_version: "1.1"
+name: settings-not-ignored
+description: >-
+  A settings file that git doesn't ignore is not read, and the agent asks whether to add the ignore line
+  but doesn't edit .gitignore on its own.
+context:
+  scaffold_script: scaffold.sh

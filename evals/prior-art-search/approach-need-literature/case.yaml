@@ -1,0 +1,12 @@
+# @spec PRIOR-LIT-001, PRIOR-LIT-002, PRIOR-LIT-003, PRIOR-LIT-004, PRIOR-LIT-005
+# @spec PRIOR-LIT-006, PRIOR-LIT-007, PRIOR-LIT-009, PRIOR-LIT-010, PRIOR-LIT-011
+# @spec PRIOR-LIT-013, PRIOR-ACC-006, PRIOR-RPT-008, PRIOR-RPT-009, PRIOR-SAVE-009
+# @spec PRIOR-SRCH-013, PRIOR-SRCH-015
+schema_version: "1.1"
+name: approach-need-literature
+description: >-
+  A need about which approach helps selects the literature routes beside the software routes, keeps
+  papers outside the matrix, tags their claims, uses legal copies only, links the papers it names and
+  keeps every route within its stated rate limit.
+context:
+  scaffold_script: scaffold.sh

@@ -5,6 +5,14 @@ __pycache__/
 evals/**/results/
 tmp/
 
+# Files the developer drops in for an agent to read, such as papers obtained for a prior-art search.
+# They may be copyrighted, so they must never be committed.
+inbox/
+
+# Optional access keys and contact addresses for the prior-art search skill's routes.
+# The template is skills/prior-art-search/references/settings.example.toml.
+.config/prior-art-sources.toml
+
 
 # APM dependencies
 apm_modules/

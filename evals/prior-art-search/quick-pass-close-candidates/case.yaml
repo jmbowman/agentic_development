@@ -1,0 +1,7 @@
+# @spec PRIOR-EFF-005, PRIOR-EFF-002
+schema_version: "1.1"
+name: quick-pass-close-candidates
+description: >-
+  A quick pass in which two candidates both meet every hard criterion switches to the full method.
+context:
+  scaffold_script: scaffold.sh

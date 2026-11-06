@@ -1,0 +1,9 @@
+# @spec PRIOR-LIT-008, PRIOR-LIT-012, PRIOR-LIT-004, PRIOR-LIT-005, PRIOR-LIT-003, PRIOR-LIT-011
+# @spec PRIOR-SAVE-009, PRIOR-SAVE-003, PRIOR-PRIV-002
+schema_version: "1.1"
+name: paper-supplied-update
+description: >-
+  When the developer supplies a paper that an earlier note listed as worth retrieving manually, the agent reads
+  it, updates the saved note in place for that paper only, and quotes it only briefly in a public repo.
+context:
+  scaffold_script: scaffold.sh

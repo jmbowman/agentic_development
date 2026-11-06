@@ -1,0 +1,46 @@
+# Access settings for the prior-art-search skill. The whole file is optional.
+#
+# To use it, copy this file to `.config/prior-art-sources.toml` in your repo, fill in the values you
+# want, and make sure that path is in your `.gitignore`. Reading it needs Python 3.11 or later. The
+# agent reads the file only when git ignores it, and never stages, commits, prints or logs a value. With no file or no value, a route whose setting
+# is marked `optional` is searched without credentials, and a route whose setting is marked `required`
+# is recorded as unavailable and not searched.
+#
+# Register yourself, after reading the service's terms. The agent never registers for you.
+# Each comment below gives: the mark, what the setting buys, where to register, the terms (link and the
+# date they were read), and the gist of the terms.
+
+[openalex]
+# optional. A free key gives $1 of usage a day instead of the much smaller anonymous budget, and 30
+# requests a second instead of 10. Register at https://openalex.org with a real email address, which is
+# verified through an emailed link. Terms read 2026-11-05 (rate limits and keys:
+# https://help.openalex.org/api/authentication/; data license: https://help.openalex.org/access/pricing/):
+# all data is released under CC0. The terms-of-service PDFs linked from https://openalex.org/terms were
+# not read.
+api_key = ""
+
+[librariesio]
+# required (every request needs a key). A free key gives one package search across 32 package managers
+# and dependents lookups, at 60 requests a minute. Register by hand at https://libraries.io (its terms
+# forbid accounts registered by bots), then copy the key from your account page. Terms read 2026-11-05
+# (https://libraries.io/terms): the data is CC BY-SA 4.0, and automated access is allowed through its
+# documented API.
+api_key = ""
+
+[crossref]
+# optional. A contact email puts requests in Crossref's "polite" pool: a rate limit of 10 with 3 concurrent
+# requests, against 5 and 1 in the public pool. No registration is needed: any address you're content to
+# share works. Terms read 2026-11-05: the access page has no formal terms-of-use section
+# (https://www.crossref.org/documentation/retrieve-metadata/rest-api/access-and-authentication/), and the
+# REST API page says almost none of the metadata is subject to copyright and it may be used for any
+# purpose, though some abstracts may be (https://www.crossref.org/documentation/retrieve-metadata/rest-api/).
+mailto = ""
+
+[semanticscholar]
+# optional. A key lifts the rate limits on citations, references and recommendations. The skill prefers
+# OpenAlex for the first two and uses Semantic Scholar for recommendations and as OpenAlex's substitute.
+# Request one at https://www.semanticscholar.org/product/api to register. Terms read 2026-11-05
+# (https://www.semanticscholar.org/product/api/license, last updated 2023-05-17): a terminable, non-transferable license; credit
+# "Semantic Scholar" in published materials; don't redistribute the API or share the key outside your
+# organization; the data carries its own licenses, such as CC BY-NC.
+api_key = ""

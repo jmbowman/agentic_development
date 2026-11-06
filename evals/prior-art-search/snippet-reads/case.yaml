@@ -1,0 +1,8 @@
+# @spec PRIOR-CLS-013, PRIOR-CLS-014, PRIOR-CLS-010, PRIOR-SRC-008, PRIOR-SRC-009
+schema_version: "1.1"
+name: snippet-reads
+description: >-
+  A limitation that sits far from where a quick look lands is tagged verified in source only after a full
+  read, and a subagent's snippet-depth reading stays a lead until the files are read in full.
+context:
+  scaffold_script: scaffold.sh

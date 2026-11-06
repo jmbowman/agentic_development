@@ -1,0 +1,8 @@
+# @spec PRIOR-EFF-005, PRIOR-EFF-002
+schema_version: "1.1"
+name: quick-pass-small-extension
+description: >-
+  A quick pass whose candidate needs only a small extension on a base built to be extended stays a quick
+  pass and concludes build on.
+context:
+  scaffold_script: scaffold.sh

@@ -1,0 +1,6 @@
+# @spec PRIOR-TRIG-004
+schema_version: "1.1"
+name: approach-question-asks-first
+description: >-
+  A question about which approaches help, with nothing being built, gets a question about using the skill,
+  and no search starts before the developer says yes.

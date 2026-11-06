@@ -1,0 +1,6 @@
+# @spec PRIOR-LIT-016, PRIOR-LIT-017, PRIOR-RPT-001, PRIOR-LIT-001
+schema_version: "1.1"
+name: approach-only-findings
+description: >-
+  A search the developer asked for about approaches, with nothing being built, excludes the software routes,
+  skips the matrix and verification, and ends in the verdict findings or inconclusive.
