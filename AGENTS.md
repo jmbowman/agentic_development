@@ -9,6 +9,8 @@ Shared tooling for an agentic development process: the pieces each project **ref
 - **Spec-review findings:** apply fixes that don't change meaning (clarity, coverage gaps, scope wording), loop, and list every applied fix in the stop summary. Anything that chooses between two readings of intent goes to the developer as a numbered fork.
 - **Review log:** after triaging a review wave or an eval run, append its row to `docs/review-log.md`, in the order the waves ran.
 - **README:** `README.md` is for people deciding whether and how to use this repo, and LID's coherence checks don't cover it. Before handing back a change, re-read it against the change. Correct anything the change made false (paths, commands, setup steps, status, what the repo contains), and add a mention of anything a user now needs to know (a new component, command, requirement or limitation). Internal details stay in `docs/`. The review wave checks this too.
+- **Tool feedback:** proposed enhancements and bugs for tools this repo uses or plans to adopt go in `docs/tool-feedback/<tool>.md` (where, what, evidence, suggested fix, whether raised upstream) until they're raised upstream.
+- **Supplied papers:** the developer drops lawfully obtained papers in `inbox/` (gitignored). Read them there, record the read state in the relevant note, and never stage them.
 - **Public content only:** this repo is public. Don't reference private repositories or files in them, and don't name or assume a particular user. Cite public sources, or restate what's needed here.
 - **Subagents** for LID probes and review waves are authorized. Never use the built-in Explore or Plan agents for implementation or review work, because they don't load project rules.
 
