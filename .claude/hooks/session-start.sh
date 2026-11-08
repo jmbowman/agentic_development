@@ -37,7 +37,7 @@ trap on_exit EXIT
 
 # Keep in step with the `version:` input of jdx/mise-action in .github/workflows/; Renovate
 # bumps both together.
-MISE_VERSION=2026.11.1
+MISE_VERSION=2026.11.2
 bin_dir="$HOME/.local/bin"
 mise="$bin_dir/mise"
 
