@@ -46,6 +46,10 @@ run = "ty check"
 depends = ["sync", "skills"]
 run = "uv run --locked pytest"
 
+# Runs `claude plugin eval .` from a copy of the plugin's files: mise run eval -- <runner args>.
+[tasks.eval]
+run = "uv run --locked scripts/run_evals.py"
+
 [tasks.lid]
 run = "lidc check --only reverse-orphan,coverage,spec-id-format --fail-on warning"
 
