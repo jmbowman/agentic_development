@@ -307,6 +307,83 @@ def test_rate_limits_section_names_every_queried_route() -> None:
     assert not missing, f"no rate limit given for: {missing}"
 
 
+# Each settings section in the template, and the name its service's bullet uses in `sources.md`.
+SETTING_SERVICES = {
+    "openalex": "OpenAlex",
+    "librariesio": "libraries.io",
+    "crossref": "Crossref",
+    "semanticscholar": "Semantic Scholar",
+}
+
+
+def rate_limit_bullet(service: str) -> str:
+    """The Rate limits bullet whose bold name is `service`, or an empty string."""
+    for bullet in re.split(r"\n(?=- )", sources_section("Rate limits")):
+        if re.match(rf"- \*\*{re.escape(service)}:?\*\*", bullet.strip()):
+            return str(bullet)
+    return ""
+
+
+def value_carriers(text: str) -> set[str]:
+    """Backticked names that `text` calls a parameter or header, other than the user agent.
+
+    Matches "the `x-api-key` header", "the `api_key` query parameter", "header `x-api-key`".
+    """
+    after = re.findall(r"`([^`]+)`\s+(?:[\w-]+\s+)?(?:parameter|header)\b", text)
+    before = re.findall(r"\b(?:parameter|header)\s+`([^`]+)`", text)
+    return {name for name in after + before if name.lower() != "user-agent"}
+
+
+@pytest.mark.parametrize(
+    ("text", "carriers"),
+    [
+        ("sent in the `x-api-key` request header", {"x-api-key"}),
+        ("as the `api_key` query parameter", {"api_key"}),
+        ("the header `Authorization`", {"Authorization"}),
+        ("Crossref also asks for a `User-Agent` header", set()),
+    ],
+)
+def test_value_carriers(text: str, carriers: set[str]) -> None:
+    """The carrier check accepts the usual phrasings and ignores the user agent."""
+    assert value_carriers(text) == carriers
+
+
+# @spec PRIOR-PKG-020
+@pytest.mark.parametrize(
+    "setting",
+    sorted(f"{s}.{k}" for s, keys in settings_in_example().items() for k in keys),
+)
+def test_access_settings_name_how_each_value_is_sent(setting: str) -> None:
+    """An agent can send each setting's value the way its service expects, without guessing."""
+    lines = [line for line in access_settings_section().splitlines() if f"`{setting}`" in line]
+    assert lines, f"the Access settings section doesn't name `{setting}`"
+    assert value_carriers(" ".join(lines)), (
+        f"`{setting}` doesn't say which parameter or header carries its value"
+    )
+
+
+def test_every_template_setting_has_a_service_name() -> None:
+    """The service-name mapping covers every setting the template has."""
+    assert set(settings_in_example()) == set(SETTING_SERVICES)
+
+
+# Every service with a setting today states a limit for requests that carry its value (a key, or
+# Crossref's polite-pool address), so PRIOR-PKG-022 applies to all four. A future setting whose
+# service states no such limit would need its own entry here.
+# @spec PRIOR-PKG-022
+@pytest.mark.parametrize(("section", "service"), sorted(SETTING_SERVICES.items()))
+def test_rate_limits_give_the_limit_with_each_setting(section: str, service: str) -> None:
+    """A run with a key or contact address set paces to the limit for requests that carry it."""
+    bullet = rate_limit_bullet(service)
+    assert bullet, f"the Rate limits section has no bullet for {service}"
+    with_value = r"\bwith (?:a|an|its|the|one)\b[^.;]*\b(?:key|address)\b|polite pool|\bper key\b"
+    clauses = [c for c in re.split(r";|\.\s", bullet) if re.search(with_value, c, re.IGNORECASE)]
+    assert any(re.search(r"\d", clause) for clause in clauses), (
+        f"the {service} bullet gives no limit for requests that carry `{section}`'s value"
+    )
+    assert "https://" in bullet, f"the {service} bullet doesn't say where its limit is stated"
+
+
 def test_eval_citations_name_eval_specs() -> None:
     """Eval cases cite only specs that the specs file marks as verified by evals."""
     stray = sorted(set(cited_by_evals(SUITE)) - set(eval_spec_ids()))
@@ -321,6 +398,7 @@ def test_eval_citations_name_eval_specs() -> None:
 # @spec PRIOR-SRCH-001, PRIOR-SRCH-002, PRIOR-SRCH-003, PRIOR-SRCH-004, PRIOR-SRCH-005
 # @spec PRIOR-SRCH-006, PRIOR-SRCH-007, PRIOR-SRCH-008, PRIOR-SRCH-009, PRIOR-SRCH-010
 # @spec PRIOR-SRCH-011, PRIOR-SRCH-012, PRIOR-SRCH-013, PRIOR-SRCH-014, PRIOR-SRCH-015
+# @spec PRIOR-SRCH-016
 # @spec PRIOR-CLS-001, PRIOR-CLS-002, PRIOR-CLS-003, PRIOR-CLS-004, PRIOR-CLS-005, PRIOR-CLS-006
 # @spec PRIOR-CLS-007, PRIOR-CLS-008, PRIOR-CLS-009, PRIOR-CLS-010, PRIOR-CLS-011, PRIOR-CLS-012
 # @spec PRIOR-LIC-001, PRIOR-LIC-002, PRIOR-LIC-003, PRIOR-LIC-004, PRIOR-LIC-005, PRIOR-LIC-006
@@ -332,6 +410,7 @@ def test_eval_citations_name_eval_specs() -> None:
 # @spec PRIOR-LIT-011, PRIOR-LIT-012, PRIOR-LIT-013, PRIOR-LIT-014, PRIOR-LIT-016, PRIOR-LIT-017
 # @spec PRIOR-ACC-001, PRIOR-ACC-002, PRIOR-ACC-003, PRIOR-ACC-004, PRIOR-ACC-005
 # @spec PRIOR-ACC-006, PRIOR-ACC-007, PRIOR-ACC-008, PRIOR-ACC-009
+# @spec PRIOR-ACC-010, PRIOR-ACC-011, PRIOR-ACC-012, PRIOR-ACC-013
 # @spec PRIOR-SKL-001, PRIOR-SKL-002, PRIOR-SKL-003, PRIOR-SKL-004, PRIOR-SKL-005
 # @spec PRIOR-RPT-001, PRIOR-RPT-002, PRIOR-RPT-003, PRIOR-RPT-004, PRIOR-RPT-005, PRIOR-RPT-006
 # @spec PRIOR-RPT-007, PRIOR-RPT-008, PRIOR-RPT-009
