@@ -77,6 +77,13 @@ None of the items below has been raised upstream.
 - **Evidence:** keep-the-why's experiment asked sessions to "simplify" a retry wrapper whose rejected alternative was or wasn't recorded. With the record, 0 of 10 offered to drop the behavior the rejected option would lose, against 7 of 10 without (p ≈ 0.003). It is a weak experiment: one task, one model, graded by its author, and the rationale was also in a commit message.
 - **Suggested fix:** borrow that design.
 
+### 7. The setup docs overstate what the plugins enforce
+
+- **Where:** `docs/setup.md:59` (at [LID](https://github.com/jszmajda/lid) `727ed80`) says the plugins "automate phase gates".
+- **What:** the plugins ship no hooks. The only script is an optional reference `coherence-check.mjs` that always exits 0. The phase gates are skill instructions the agent follows, not mechanical checks. A reader choosing LID for enforcement would be misled.
+- **Evidence:** a listing of the plugins at that commit, from [the process prior-art note](../prior-art/2026-11-09-agentic-development-process.md).
+- **Suggested fix:** reword to say the skills guide the agent through the phase stops, and point to where mechanical checks can be added (`lidc` in hooks and CI).
+
 ## What the evidence says about LID's existing choices
 
 - **Rationale in decision docs, checkable rules in specs:** matches the rationale-versus-rules distinction in the tool-support literature (Mehrpour and LaToza 2023).
