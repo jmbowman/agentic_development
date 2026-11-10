@@ -2,7 +2,8 @@
 
 Proposed enhancements and bugs for the tools this repo uses or plans to adopt, kept until they're raised upstream. One page per tool. Each item says where the problem is, what's wrong or missing, the evidence, a suggested fix, and whether it has been raised upstream.
 
-- [LID](lid.md): suggestions for decision docs and their tooling.
+- [LID](lid.md): suggestions for decision docs and their tooling; setup docs that overstate what the plugins enforce.
+- [lid-tooling (`lidc`)](lid-tooling.md): coverage that passes vacuously under a `test` directory; citations in script files ignored; six proposed checks.
 - [mdbook-lint](mdbook-lint.md): decision-record rules that misfire on LID's decision folders.
 - [kontext](kontext.md): the npm package isn't published.
 - [github-repo-meta-fetch](github-repo-meta-fetch.md): no releases; a generated `CLAUDE.md`.
