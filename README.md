@@ -15,6 +15,9 @@ from repo to repo fails in predictable ways:
 - **Changes need hand edits everywhere,** so most repos never get them.
 - **Guardrails erode.** An agent under pressure relaxes a check instead of fixing the code.
 
+The broader aim is to assemble the best existing methods and research for each part of the
+lifecycle into one system a single developer can drive, and to build only what's missing.
+
 ## What you get
 
 - **One baseline, kept current automatically.** A [copier](https://copier.readthedocs.io)

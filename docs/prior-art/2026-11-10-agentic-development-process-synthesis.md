@@ -341,7 +341,7 @@ Independently of upstream, this repo should review the ten checks it doesn't run
 
 ### 12. Commit, pull request and merge autonomy
 
-**Now.** The agent drafts `commit-message.md`; the developer commits one slice at a time. No commit lint yet. Renovate's dependency updates merge automatically once CI passes (HLD tenet 5); that is tooling, not agent work, and stays.
+**Now.** The agent drafts `commit-message.md`; the developer commits one slice at a time. No commit lint yet. Renovate's dependency updates merge automatically once CI passes (HLD tenet 6); that is tooling, not agent work, and stays.
 
 **Best found.**
 
