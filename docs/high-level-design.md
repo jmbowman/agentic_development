@@ -108,6 +108,7 @@ Ordered: when two conflict, the higher one wins.
 5. **Automerge and fix forward.** Updates to tooling and templates merge automatically once CI passes. A bad release is undone by a new release, not prevented by holding updates for human review. The prerequisites are solid test coverage and rollback maturity. For this primarily local system, automerging and fixing forward is worth it.
 6. **Self-contained skills over composed ones.** A skill carries the procedures it needs (for example, how to make a read-only scratch clone) rather than depending on other skills. A helper becomes a shared dependency only once several skills need it and it has proved stable.
 7. **Portable skills by default, Claude Code features where they pay.**
+8. **Committed instructions for what agents should know, hooks for live state.** Information that is the same every session (what exists, where it is, the rules for using it) goes in the project's `AGENTS.md`, where every agent reads it and git review covers it. A SessionStart hook reports only what can change between sessions, and stays silent when nothing needs attention.
 
 ## System Design
 
