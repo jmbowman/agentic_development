@@ -2,6 +2,8 @@
 
 ## Problem
 
+The aim is to push how much one developer can deliver, quickly, as high-quality, maintainable software by directing coding agents. Building a complete system for that from scratch would take years. But the pieces exist: specification methods, review techniques, enforcement mechanisms and research findings, each strong in one part of the software lifecycle and scattered across many projects and papers. Assembling the best of them, and building only what's missing, makes the system good early and better over time.
+
 When coding agents write most of a project's code, they write it faster than a developer can review line by line. The quality has to come from the process and its guardrails, not from a human reading every diff:
 
 - strict lint and type checks that run constantly;
@@ -16,7 +18,7 @@ Each repo needs the same baseline of tools and config, and keeping that baseline
 
 ## Approach
 
-This repo holds two things. One is the shared pieces that other repos reference by version. The other is the design of the whole system. Components that live in other repositories keep their own design docs, which point back here.
+This repo holds two things. One is the shared pieces that other repos reference by version. The other is the design of the whole system. Components that live in other repositories keep their own design docs, which point back here. Each part of the system is chosen by searching for the best existing piece for that part of the lifecycle, recorded in a prior-art note, before anything is built.
 
 ### Copied baseline: copier templates
 
@@ -102,13 +104,14 @@ The planned components, not yet designed:
 Ordered: when two conflict, the higher one wins.
 
 1. **Weigh license, maturity, active maintenance and fit for purpose.** Every tool choice accounts for all four. Fit for the task includes native support in the rest of the stack.
-2. **Reference over copy.** If a tool can pull shared config by a pinned reference, reference it, and copy only what can't be referenced.
-3. **Strict by default, divergence named.** A repo starts at the strict baseline, and each relaxation is a named exception.
-4. **Fast hooks, complete CI.** Commit-time hooks hold only checks fast enough not to interrupt work. CI runs everything.
-5. **Automerge and fix forward.** Updates to tooling and templates merge automatically once CI passes. A bad release is undone by a new release, not prevented by holding updates for human review. The prerequisites are solid test coverage and rollback maturity. For this primarily local system, automerging and fixing forward is worth it.
-6. **Self-contained skills over composed ones.** A skill carries the procedures it needs (for example, how to make a read-only scratch clone) rather than depending on other skills. A helper becomes a shared dependency only once several skills need it and it has proved stable.
-7. **Portable skills by default, Claude Code features where they pay.**
-8. **Committed instructions for what agents should know, hooks for live state.** Information that is the same every session (what exists, where it is, the rules for using it) goes in the project's `AGENTS.md`, where every agent reads it and git review covers it. A SessionStart hook reports only what can change between sessions, and stays silent when nothing needs attention.
+2. **Assemble before building.** For each part of the lifecycle, adopt or borrow the best existing piece, judged by depth of design and by evidence that it works. Build only the gaps, and build them small. Ideas taken from a piece are reimplemented or proposed upstream, rather than pulling in a whole framework for one mechanism.
+3. **Reference over copy.** If a tool can pull shared config by a pinned reference, reference it, and copy only what can't be referenced.
+4. **Strict by default, divergence named.** A repo starts at the strict baseline, and each relaxation is a named exception.
+5. **Fast hooks, complete CI.** Commit-time hooks hold only checks fast enough not to interrupt work. CI runs everything.
+6. **Automerge and fix forward.** Updates to tooling and templates merge automatically once CI passes. A bad release is undone by a new release, not prevented by holding updates for human review. The prerequisites are solid test coverage and rollback maturity. For this primarily local system, automerging and fixing forward is worth it.
+7. **Self-contained skills over composed ones.** A skill carries the procedures it needs (for example, how to make a read-only scratch clone) rather than depending on other skills. A helper becomes a shared dependency only once several skills need it and it has proved stable.
+8. **Portable skills by default, Claude Code features where they pay.**
+9. **Committed instructions for what agents should know, hooks for live state.** Information that is the same every session (what exists, where it is, the rules for using it) goes in the project's `AGENTS.md`, where every agent reads it and git review covers it. A SessionStart hook reports only what can change between sessions, and stays silent when nothing needs attention.
 
 ## System Design
 
@@ -204,7 +207,7 @@ Copier never edits the repo-owned reference files after the first render, and Re
   - **A skill developed in the repo** lives in the repo's own `skills/<name>/`, linked from `.claude/skills/<name>` and `.agents/skills/<name>`. Its source stays outside `.claude/`, which some sandboxes block agents from editing. A skill meant only for other agents gets only the second link.
   - **A skill the repo deploys with its own `apm.yml`** is installed into `.claude/skills/<name>/` and gitignored there. A repo that wants other agents to see it adds a link from `.agents/skills/<name>` by hand.
 
-  Separate directories let a repo keep a skill for other agents only, and the template's skills sit beside a repo's own as links of the same shape, under a directory that names their origin. APM deploys only to its `claude` target: it deploys by copying, so a second target would install a second copy of every skill, and it refuses to deploy over a link. Frontmatter limited to the Agent Skills fields (tenet 7) is also what claude.ai skill uploads accept, so a person can enable a skill on their claude.ai account for repos that have no template.
+  Separate directories let a repo keep a skill for other agents only, and the template's skills sit beside a repo's own as links of the same shape, under a directory that names their origin. APM deploys only to its `claude` target: it deploys by copying, so a second target would install a second copy of every skill, and it refuses to deploy over a link. Frontmatter limited to the Agent Skills fields (tenet 8) is also what claude.ai skill uploads accept, so a person can enable a skill on their claude.ai account for repos that have no template.
 
   APM doesn't create the links, and copier can't render one link per entry of a list, so a package release that adds, renames or removes a skill needs a matching hand edit to each template's links, on the Renovate PR that bumps the pin; the template's tests fail that PR until the links match. Copier's update never deletes a symlink, so a removed or renamed skill leaves dangling links in consumers, and a `skill-links` check in each consumer's `check` fails the update PR until a person deletes them.
 - **Conflicts never automerge.** Renovate reports a conflicted copier update as an artifact error, which blocks automerge. A conflict-marker check in each repo's `check` task is a second guard, which also covers updates run by hand.

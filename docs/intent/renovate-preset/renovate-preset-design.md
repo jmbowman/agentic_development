@@ -70,7 +70,7 @@ This repo's CI, before a tag:
 
 | Decision | Chosen | Alternatives Considered | Rationale |
 |---|---|---|---|
-| Automerge scope | Everything, majors included, except LID pins | Patch and minor only | Tenet 5. Majors are where breakage shows up, and CI catches it before merge |
+| Automerge scope | Everything, majors included, except LID pins | Patch and minor only | Tenet 6. Majors are where breakage shows up, and CI catches it before merge |
 | Automerge type | `pr` with platform automerge | `branch` (Renovate pushes passing updates straight to the default branch); `pr` merged by Renovate on its next run | Every update leaves a reviewable PR, and the default branch can require PRs. Platform automerge merges as soon as checks pass instead of waiting for Renovate's next run. It needs two repo settings, applied at onboarding |
 | Supply-chain delay | 3 days for third-party releases, plus uv's `exclude-newer` for lock files | None; 7 or 14 days | Unreviewed automerge makes a malicious release the main risk. Most are pulled within days, and 3 days keeps tools close to current |
 | Test harness | pytest driving the Renovate CLI (pinned through mise) in local-platform dry runs | Node tests importing Renovate's internal functions | Keeps the repo's code in one language, and tests Renovate's real behavior through its supported CLI rather than internal functions that can change between releases |
