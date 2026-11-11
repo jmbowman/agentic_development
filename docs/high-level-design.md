@@ -55,7 +55,7 @@ The second designed component is the **session wrap-up skill** ([design](intent/
 The third designed component is the **interactive eval harness** ([design](intent/interactive-evals/interactive-evals-design.md)). It checks the skill behavior that a single-prompt eval can't reach: several typed turns, answers to the agent's question dialogs, and what lands on disk at each stop. It drives a real Claude Code session through the Claude Agent SDK, and checks on-screen rendering through a terminal emulator. Its scenarios are pytest tests, run by hand like the evals.
 
 The planned components, not yet designed:
-- a commit-message skill and commit linting;
+- a commit-message and PR-description skill (a clear style and detail calibrated for review, not restating the diff), with commit linting as a cheap form check (Conventional Commits acceptable);
 - path-scoped rule files for code authoring;
 - review-wave orchestration with a commit gate;
 - a spec-review loop around LID's design phases.
