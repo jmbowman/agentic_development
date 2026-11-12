@@ -2,6 +2,7 @@
 
 Proposed enhancements and bugs for the tools this repo uses or plans to adopt, kept until they're raised upstream. One page per tool. Each item says where the problem is, what's wrong or missing, the evidence, a suggested fix, and whether it has been raised upstream.
 
+- [Claude Code](claude-code.md): a SubagentStop block replaces the report, or is ignored after a hand-back; no agent ID in a foreground result outside auto mode.
 - [LID](lid.md): suggestions for decision docs and their tooling; setup docs that overstate what the plugins enforce.
 - [lid-tooling (`lidc`)](lid-tooling.md): coverage that passes vacuously under a `test` directory; citations in script files ignored; six proposed checks.
 - [mdbook-lint](mdbook-lint.md): decision-record rules that misfire on LID's decision folders.
