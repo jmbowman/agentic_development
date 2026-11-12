@@ -25,31 +25,42 @@ The reviewer should see quickly and correctly what changed in code, Markdown and
 
 ## Verdict
 
-**Blend:** a new Rust tool with a neutral change model. Its first producer parses `git diff` patch output, and its own inline step shows each changed line once. It borrows line pairing from delta, a fallback threshold from jj, and uses tree-sitter for location. Difftastic's output is a later input where code precision matters. Behind it, a medium-term layer records each agent edit and its stated intent, and checks the claim against the diff.
+**Blend:** extend delta and difftastic upstream, keep lazygit as the glue between them, and build only the intent layer, small. This follows the HLD's tenet 2: assemble before building, and build only the gaps.
 
-**No single tool has P1, P2 and P3 together** (see the scorecard below):
-- jj's built-in `color-words` format comes closest, with P1 partial and P3, P4 and P5 native. But jj can't serve as the viewer for a git checkout under review. A colocated workspace records the working copy as commits and resets git's HEAD. A workspace on an external git repo leaves HEAD alone but has its own working-copy files, so it can't see the checkout's uncommitted changes. Neither mode has a view of git's index.
-- difftastic is the only mature structural differ, but it has no location (P1) and no inline merged lines (P3).
-- delta has location but no merged lines.
+**No single tool has P1, P2 and P3 together** (see the scorecard below), but the missing properties are mostly additions to existing tools rather than limits of their design:
 
-**The custom pieces, in stages:**
-1. **Patch-based renderer (medium).**
-   - Input: plain `git diff` patch output, so git owns attributes, drivers, function names and renames. A lazygit `stdinFilter` receives a plain patch anyway, and OSC 1717 staging needs each line's old and new numbers, which `--word-diff=porcelain` output loses.
-   - It pairs changed lines (delta's `infer_edits` approach), diffs tokens with `similar`, and renders each changed line once (P3), falling back to separate lines when a pair alternates too much (jj's `max-inline-alternation`).
-   - It uses ANSI colour plus strike and underline (P5).
-   - It adds a full breadcrumb (P1) from tree-sitter, with git's hunk section as the fallback.
-   - It works on the working tree, index and commits (P8), as an alias or a lazygit filter, so plain `git diff` is untouched (P9).
-2. **Code precision (medium).** For code files, take difftastic's JSON (changed spans per line) as a second producer. Difftastic's JSON is marked unstable (`DFT_UNSTABLE`, `src/options.rs:813` at 4618021), so pin the version. Word-diff porcelain stays an optional display-only mode for reflowed prose.
-3. **Intent layer (medium; the better foundation).**
-   - Capture each agent edit (old and new text, file and slice) at edit time, for example from a Claude Code `PostToolUse` hook on Edit and Write.
-   - Group the edits by purpose and by EARS ID (#89).
-   - Let the agent declare mechanical changes (rename, move, reflow) as rules, replay them, and show the reviewer the unexplained residue next to the full diff.
-   - Present stated intent as a claim to check, after the diff, never in place of it.
+| Tool | Missing | Fundamental? | Path |
+|---|---|---|---|
+| delta | Each changed line once (P3) | No. It already pairs minus and plus lines for its within-line highlights (`src/edits.rs:24`); only the painting step, which draws the minus block then the plus block (`src/paint.rs:671-700` at 3c2269c), would change. Medium | Upstream, via [delta#152](https://github.com/dandavison/delta/issues/152) |
+| delta | A full scope path (P1 beyond git's one-level function name) | No. Needs a tree-sitter or external scope lookup. Medium | Upstream, after the above |
+| delta | Structural precision (P2) | Yes: it's line-based throughout | Use `git diff -w` for the commonest case; difftastic for the rest |
+| difftastic | Function or class in hunk headers (P1) | No. The tree-sitter node kind is dropped at `src/parse/syntax.rs:116-131`, and headers carry only path and hunk number (`src/display/style.rs:539-579`, at 4618021). Small as a regex lookback, medium with tree-sitter scopes | Upstream, via [difftastic#304](https://github.com/Wilfred/difftastic/issues/304) |
+| difftastic | Each changed line once (P3); configurable colours (P5) | No. Medium and small | Upstream |
+| difftastic | Staging (P8) | Yes: it emits no patch, by design | Keep delta as the staging view |
+| difftastic | Markdown (P6) | No: a tree-sitter grammar exists. Medium | Upstream, if wanted |
+| jj | Use on a git checkout's working tree and index | Yes, for this workflow (see below) | Borrow ideas and code (Apache-2.0) |
 
-**Upstream contributions that would shrink the custom part:**
-- difftastic location (P1): [Wilfred/difftastic#304](https://github.com/Wilfred/difftastic/issues/304). Small as a regex lookback, medium with tree-sitter scopes.
-- delta merged-line mode (P3): [dandavison/delta#152](https://github.com/dandavison/delta/issues/152). Medium.
-- jj breadcrumb and TOML mapping (P1, P6). Small.
+jj's built-in `color-words` format comes closest as shipped, with P1 partial and P3, P4 and P5 native. But jj can't serve as the viewer for a git checkout under review. A colocated workspace records the working copy as commits and resets git's HEAD. A workspace on an external git repo leaves HEAD alone but has its own working-copy files, so it can't see the checkout's uncommitted changes. Neither mode has a view of git's index.
+
+**The tools already work together.** lazygit cycles between delta (with staging through OSC 1717), difftastic and git's word diff, and a `git d` alias mixes difftastic and delta in one stream by file type ([#91](https://github.com/jmbowman/agentic_development/issues/91) records the setup). What they can't give together is one view with P1, P2 and P3 at once, because difftastic emits no patch for delta to decorate. That combined view is deferred: structural diffs helped mainly on complex changes (see the research below), and `git diff -w` covers the commonest case.
+
+**Why not a new viewer:** it would rebuild what delta already has (patch parsing, line pairing, wrapping, line numbers, palette support, OSC 1717 staging) to gain one property delta can be extended to provide.
+
+**Upstream is viable, with a backlog.**
+- **delta:** 23 of its last 30 merged PRs were from outside contributors, merged in a median of 1 day, but 177 PRs are open (2026-11-11). Its maintainer discussed a design for merged lines in #152 in 2021, and that work stopped.
+- **difftastic:** 11 of its last 30 merged PRs were from outside contributors. Its AI policy asks for disclosure, and issue and PR comments must not be written with an LLM.
+- **jj:** its AI policy has the same rule about comments.
+- So agents can write the patches, but a person writes the PR text and replies.
+- If a PR stalls, keep a temporary fork whose patches stay ready to send upstream.
+
+Requests are recorded in [docs/tool-feedback/delta.md](../tool-feedback/delta.md) and [docs/tool-feedback/difftastic.md](../tool-feedback/difftastic.md).
+
+**The gap to build: the intent layer, kept small.**
+- Capture each agent edit (old and new text, file and slice) at edit time, for example from a Claude Code `PostToolUse` hook on Edit and Write.
+- Group the edits by purpose and by EARS ID (#89).
+- Let the agent declare mechanical changes (rename, move, reflow) as rules, replay them, and show the reviewer the unexplained residue next to the full diff.
+- Present stated intent as a claim to check, never in place of the diff.
+- Emit annotations that an existing viewer shows, rather than a new renderer. hunk (MIT) and lazydiff (MIT) both display agent annotations; which fits is not yet evaluated.
 
 ## Research evidence: what helps reviewers see what changed
 
@@ -117,7 +128,9 @@ Strength tags: [exp] a controlled experiment with a significant result; [exp-wea
 - Move can be a derived view of detach plus attach of one node (truediff). [obs]
 - Marks need provenance and confidence, because tree mappings are heuristic and GumTree is direction-unstable. [exp-weak]
 
-## Proposed change model and Rust stack
+## Proposed change model and Rust building blocks
+
+The change model is the intent layer's data model. The building blocks below are what a new Rust tool would use: for the intent layer, and for a standalone renderer if the upstream route fails.
 
 **Invariant:** every item records whether it is *observed* (a log), *computed* (a differ), *claimed* (an agent) or *verified* (replay or tests). What the reviewer sees of the target must always be derivable from computed primitives, so a false claim can't hide text.
 
@@ -137,7 +150,7 @@ Strength tags: [exp] a controlled experiment with a significant result; [exp-wea
 
 **Left out at first:** keystroke-level streams, merge and commutation semantics, revertable-group guarantees, fine intent taxonomies, automatic untangling, CRDT anchoring, and non-text artifacts.
 
-**Stage 1 stack (read in source; nothing was built or run):**
+**Rust stack for a standalone renderer (fallback only; read in source, nothing built or run):**
 
 | Need | Choice | License | Reason |
 |---|---|---|---|
@@ -184,18 +197,18 @@ Also scored, with nothing that changes the ranking:
 - **No diff command:** Mergiraf.
 
 **Ranking:**
-1. A patch-based renderer over `git diff`: covers P1 (with the breadcrumb added), P3–P6, P8 and P9; P2 limited to whitespace options until a structural producer is added.
-2. jj `color-words`: closest as shipped. It would rank first if it could render a git checkout's working tree and index.
-3. difftastic: the only practical P2. Its location (P1) and merged lines (P3) are upstream work.
-4. delta: keeps P1 and staging through lazygit OSC 1717. Merged lines (P3) are upstream work.
+1. delta, extended: covers P1, P4, P5, P6, P8 and P9 today. Merged lines (P3) and a full scope path are upstream additions; P2 is out of reach.
+2. difftastic, extended: the only practical P2. Function names (P1), merged lines (P3) and configurable colours (P5) are upstream additions; staging (P8) is out of reach.
+3. jj `color-words`: closest as shipped, and a source of ideas and Apache-2.0 code. It can't render a git checkout's working tree and index.
+4. A new patch-based renderer over `git diff`: the fallback if upstream work stalls.
 
 **Combination paths, best first:**
-1. Plain patch plus renderer.
-2. Difftastic JSON as a second producer for the same renderer.
-3. sem entity ranges joined onto patch hunks.
+1. lazygit cycling between extended delta (default, with staging) and extended difftastic, plus `git wd` for prose. No new code beyond the upstream patches.
+2. `git d`: difftastic for code files and delta for the rest, in one stream.
+3. A new renderer taking difftastic's JSON for code and patches for the rest. This is the only path to P1, P2 and P3 in one view, and it's deferred.
 4. GumTree edit scripts (large; Java; no Markdown).
 
-Word-diff porcelain as the main input was rejected: a lazygit filter gets a plain patch anyway, line identity for OSC 1717 is lost, and whitespace-only changes don't appear as word changes.
+For any new renderer, word-diff porcelain as the main input was rejected: a lazygit filter gets a plain patch anyway, line identity for OSC 1717 is lost, and whitespace-only changes don't appear as word changes.
 
 ## Limitations checked in source
 
@@ -281,4 +294,5 @@ Recheck when any of these happens:
 - difftastic#304 or delta#152 lands;
 - jj can render a git checkout's working tree and index without moving HEAD;
 - a controlled study of word-level highlighting or colour-blind diff palettes appears;
-- before starting stage 3 of the verdict.
+- a delta or difftastic PR from the verdict stalls, which would reopen the fork or new-renderer options;
+- before designing the intent layer.
