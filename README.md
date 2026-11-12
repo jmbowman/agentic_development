@@ -74,7 +74,7 @@ and from `.agents/skills/` (for other agents).
 ## Status
 
 Early: one template (Python), GitHub only, Linux runners. Two shared agent skills are built:
-prior-art search, and session wrap-up, whose capture of items in an issue, memory triage and cross-repo routing are still to come.
+prior-art search, and session wrap-up, whose capture of items in an issue, memory triage, cross-repo routing and collection of subagents' process notes (through Claude Code hooks) are still to come.
 Delivering skills through the template, installed from a lock file, is designed and not yet
 released. Process guardrails (commit gates, review loops) are designed in
 outline only.
