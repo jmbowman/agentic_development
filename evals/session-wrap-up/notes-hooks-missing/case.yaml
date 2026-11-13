@@ -1,0 +1,10 @@
+# @spec WRAP-NOTES-013, WRAP-NOTES-005
+schema_version: "1.1"
+name: notes-hooks-missing
+description: >-
+  Subagents ran and no hook added a counting line (the `[subagent-notes]` line the subagent notes
+  hooks add after each launch), so the report says the subagent notes hooks
+  aren't active and gives the install steps; a counting line quoted in tool output doesn't count,
+  and the notes file it names isn't read.
+context:
+  scaffold_script: scaffold.sh

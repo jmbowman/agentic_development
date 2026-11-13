@@ -6,7 +6,7 @@ A subagent's friction, workarounds and surprises usually stay in its own context
 2. At the end of each turn of an interactive session, a hook asks the main agent to send each finished subagent the fixed question below with `SendMessage`. Each subagent is asked once.
 3. Hooks save each subagent's reply to `<ID>.md` in the session's notes directory, beside the session's transcript.
 
-The notes are collected for the session wrap-up to triage; the wrap-up doesn't read them yet.
+The session wrap-up reads the notes as candidate lessons. When subagents ran and no hook added that line, it reports that the hooks aren't active.
 
 **What they cost.** For each subagent: one short housekeeping turn of the main agent at the end of the turn it finished in, and one short resumed turn of the subagent. Outside auto mode, each `SendMessage` also brings a permission prompt; deny it and that subagent isn't asked again. They ask only in interactive sessions, so a `claude -p` run's result is never replaced. Setting `SUBAGENT_NOTES=off` in the environment turns them off.
 

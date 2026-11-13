@@ -1,0 +1,9 @@
+# @spec WRAP-NOTES-016, WRAP-NOTES-018
+schema_version: "1.1"
+name: notes-compacted-no-transcript
+description: >-
+  Compaction summarized the turns that launched subagents and no transcript location is stated, so
+  the report says the subagent notes check couldn't be made; the run reads neither the notes
+  directory the summary mentions nor the transcript-shaped file beside it.
+context:
+  scaffold_script: scaffold.sh

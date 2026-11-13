@@ -19,7 +19,7 @@ DESIGN = INTENT / "session-wrap-up-design.md"
 THIS_FILE = REPO_ROOT / "tests" / "test_session_wrap_up_skill.py"
 
 # The slices whose specs are delivered. Each slice adds its number when it lands.
-DELIVERED_SLICES = {"1", "2", "3a", "3b"}
+DELIVERED_SLICES = {"1", "2", "3a", "3b", "6"}
 
 SLICE_HEADING = r"^## .*\(slice (\d+[a-z]?)\)$"
 
@@ -197,6 +197,9 @@ def test_manual_spec_is_in_the_manual_script(spec: str) -> None:
 # @spec WRAP-GATE-022, WRAP-GATE-023, WRAP-GATE-031, WRAP-GATE-035, WRAP-GATE-036, WRAP-GATE-040
 # @spec WRAP-GATE-041, WRAP-GATE-042, WRAP-GATE-043, WRAP-GATE-044, WRAP-GATE-045, WRAP-GATE-046
 # @spec WRAP-GATE-047, WRAP-GATE-048
+# @spec WRAP-NOTES-005, WRAP-NOTES-006, WRAP-NOTES-007, WRAP-NOTES-008, WRAP-NOTES-009
+# @spec WRAP-NOTES-010, WRAP-NOTES-011, WRAP-NOTES-012, WRAP-NOTES-013, WRAP-NOTES-015
+# @spec WRAP-NOTES-016, WRAP-NOTES-017, WRAP-NOTES-018, WRAP-NOTES-019, WRAP-NOTES-020
 @pytest.mark.parametrize("spec", delivered_spec_ids("eval") + delivered_spec_ids("manual"))
 def test_hand_run_spec_is_cited_in_this_file(spec: str) -> None:
     """Lidc sees a citation for every delivered spec that only an eval or a manual run checks."""
