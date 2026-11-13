@@ -233,3 +233,46 @@ Results:
 Pass: both times the skill fires, the agent shows item 1's exact text and gets confirmation before applying it, and applies no other item.
 
 Results:
+
+## Subagent notes in a live session (NOTES-LIVE-001)
+
+These runs check the [subagent notes hooks](../../docs/intent/subagent-notes/subagent-notes-design.md). A session's notes directory is `~/.claude/projects/<project slug>/<session ID>/subagent-notes`, and its subagents' transcripts are in `.../<session ID>/subagents/agent-<agent ID>.jsonl`. In an interactive session, `/status` shows the session ID. Approve any `SendMessage` permission prompt.
+
+1. In a scratch directory holding `alpha.txt` and `beta.txt`, start a session with this repo loaded as a plugin: `claude --plugin-dir <path to this repo> --permission-mode manual`.
+2. Type: `Use an Explore subagent to list the files here. Its reply must be only a JSON object {"entries": [...]}. Show me its reply exactly.`
+3. As soon as the prompt returns, run `ls <notes directory>`.
+4. Repeat with `--permission-mode auto`.
+
+Pass, in both modes:
+- The JSON the agent shows equals the subagent's first final message:
+  ```
+  jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="text") | .text' <subagent transcript> | head -1
+  ```
+  In auto mode, compare it with the first `SubagentHandback` call's `message` in the same transcript instead.
+- The hook context after the launch is the line `[subagent-notes] agent <ID>, notes in <notes directory>`.
+- The `ls` shows exactly `<ID>.launched`, `<ID>.finished`, `<ID>.asked`, `<ID>.sent`, `<ID>.resumed` and `<ID>.md`. `.sent` shows that the question went out word for word.
+- The body of `<ID>.md`, after its front matter, is the subagent's reply to the question.
+
+Results:
+
+## Subagent notes in a `-p` run (NOTES-LIVE-002)
+
+1. In the same scratch directory, run: `claude -p --plugin-dir <path to this repo> --output-format json "Use an Explore subagent to list the files here, then reply with exactly the word DONE." > out.json`
+2. Read `jq -r .result out.json` and `jq -r .session_id out.json`, and run `ls` on that session's notes directory.
+
+Pass: the result is `DONE`, and the notes directory holds `<ID>.launched` and `<ID>.finished` and no `<ID>.asked`.
+
+Results:
+
+## Hooks registered twice (NOTES-LIVE-003)
+
+1. From this repo's root, whose `.claude/settings.json` registers the hooks, start a session with the plugin loaded as well: `claude --plugin-dir .`.
+2. Type: `Use two Explore subagents in parallel: one lists docs/, one lists skills/. Show me both replies.`
+3. When the prompt returns, count the session's `SendMessage` calls per recipient:
+   ```
+   jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="SendMessage") | .input.to' <session transcript> | sort | uniq -c
+   ```
+
+Pass: each subagent's ID appears exactly once in the count; one `[subagent-notes]` line follows each launch; and the notes directory holds one `.md` file per subagent.
+
+Results:

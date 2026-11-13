@@ -1,0 +1,34 @@
+{
+  "description": "Subagent notes for the session wrap-up: ask each finished subagent one fixed question and save its reply. See skills/session-wrap-up/references/subagent-notes-hooks.md.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "SendMessage",
+        "hooks": [{"type": "command", "command": "python3 -I \"${CLAUDE_PLUGIN_ROOT}/skills/session-wrap-up/hooks/subagent_notes.py\" || true"}]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [{"type": "command", "command": "python3 -I \"${CLAUDE_PLUGIN_ROOT}/skills/session-wrap-up/hooks/subagent_notes.py\" || true"}]
+      },
+      {
+        "matcher": "SendMessage",
+        "hooks": [{"type": "command", "command": "python3 -I \"${CLAUDE_PLUGIN_ROOT}/skills/session-wrap-up/hooks/subagent_notes.py\" || true"}]
+      },
+      {
+        "matcher": "SubagentHandback",
+        "hooks": [{"type": "command", "command": "python3 -I \"${CLAUDE_PLUGIN_ROOT}/skills/session-wrap-up/hooks/subagent_notes.py\" || true"}]
+      }
+    ],
+    "Stop": [
+      {"hooks": [{"type": "command", "command": "python3 -I \"${CLAUDE_PLUGIN_ROOT}/skills/session-wrap-up/hooks/subagent_notes.py\" || true"}]}
+    ],
+    "SubagentStart": [
+      {"hooks": [{"type": "command", "command": "python3 -I \"${CLAUDE_PLUGIN_ROOT}/skills/session-wrap-up/hooks/subagent_notes.py\" || true"}]}
+    ],
+    "SubagentStop": [
+      {"hooks": [{"type": "command", "command": "python3 -I \"${CLAUDE_PLUGIN_ROOT}/skills/session-wrap-up/hooks/subagent_notes.py\" || true"}]}
+    ]
+  }
+}
