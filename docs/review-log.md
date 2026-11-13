@@ -69,3 +69,5 @@ The yield and cost of each review wave, so that the point of diminishing returns
 | 2026-11-12 | subagent-notes (#160) | Code | 3 | convergence check of run state, names, the hard-link fallback and their docs; converged (no high or medium) | 4 | 3 | 0 | 0 | 72k | 2.7 min |
 | 2026-11-13 | session-wrap-up slice 6 (#160) | Tests | 1 | spec fit, discrimination, fixture fact-check, regex robustness, cold read | 16 | 13 | 2 | 0 | 112k | 3.8 min |
 | 2026-11-13 | session-wrap-up slice 6 (#160) | Code | 1 | correctness against specs, arrow coherence, README and hooks reference, cold read, public content, manual scripts | 11 | 9 | 2 | 0 | 107k | 2.7 min |
+| 2026-11-13 | subagent-notes background-launch type (#160) | Tests | 1 | spec fit and discrimination, failure reasons, replayed event order, broken assumptions, house style | 5 | 5 | 0 | 0 | 64k | 1.2 min |
+| 2026-11-13 | subagent-notes background-launch type (#160) | Code | 1 | code against specs with odd inputs, readers of `.launched`, script contract, arrow coherence, README and references; converged (no high or medium) | 2 | 1 | 0 | 0 | 66k | 1.1 min |

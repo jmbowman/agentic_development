@@ -38,10 +38,11 @@ Specs marked *(manual)* need a live Claude Code session; the scripted run is kep
 
 ## Track
 
-- [x] **NOTES-TRACK-001**: When a main-agent PostToolUse event for the `Agent` tool has a `tool_response` whose `agentId` is a valid agent ID and whose `agentType` is non-empty and isn't `fork`, the script shall create `<agentId>.launched` holding a JSON object with the keys `agent_type` (the `agentType`), `description` and `name` (the launch's `tool_input.description` and `tool_input.name`, each an empty string when the launch has none) and `time` (ISO 8601 UTC).
+- [x] **NOTES-TRACK-006**: The script shall take a launch's agent type from `tool_response.agentType` when that is a non-empty string, otherwise from `tool_input.subagent_type` when that is a non-empty string, and otherwise as an empty string.
+- [x] **NOTES-TRACK-001**: When a main-agent PostToolUse event for the `Agent` tool has a `tool_response` whose `agentId` is a valid agent ID, and neither `tool_response.agentType` nor `tool_input.subagent_type` is `fork`, the script shall create `<agentId>.launched` holding a JSON object with the keys `agent_type` (the launch's agent type under NOTES-TRACK-006), `description` and `name` (the launch's `tool_input.description` and `tool_input.name`, each an empty string when the launch has none) and `time` (ISO 8601 UTC).
 - [x] **NOTES-TRACK-002**: When the script creates a `.launched` file under NOTES-TRACK-001, it shall print a `hookSpecificOutput` whose `hookEventName` is `PostToolUse` and whose `additionalContext` holds exactly the one line `[subagent-notes] agent <agent ID>, notes in <notes directory>`, with the notes directory as an absolute path with no trailing `/`.
 - [x] **NOTES-TRACK-003**: When a PostToolUse event for the `Agent` tool is not a main-agent event, the script shall create no file and print nothing.
-- [x] **NOTES-TRACK-004**: When a main-agent PostToolUse event for the `Agent` tool has a `tool_response` whose `agentType` is `fork`, the script shall create no file and print nothing.
+- [x] **NOTES-TRACK-004**: When a main-agent PostToolUse event for the `Agent` tool has a `tool_response.agentType` or a `tool_input.subagent_type` that is `fork`, the script shall create no file and print nothing.
 - [x] **NOTES-TRACK-005**: When the script creates a `.launched` file under NOTES-TRACK-001 for a `tool_response` whose `status` is `completed`, it shall also create `<agentId>.finished`.
 
 ## Finish
