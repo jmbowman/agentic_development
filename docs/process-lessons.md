@@ -17,6 +17,7 @@ Lessons about this repo's development process, drawn from building its skills, f
 - **Re-run a surprise before diagnosing it.** Two of three single failures passed twice on re-run. The third failed again, and was a real trigger gap.
 - **Know when to stop reviewing.** Yield fell from 40 to 12 to 5 to 5 findings across one slice's code-review waves. Two narrow re-checks after the main wave were the useful stopping point.
 - **State each value once.** A value written in two places drifts: a re-check found OpenAIRE's rate limit given as 7,000 in a route table and 7,200 in the same file's rate-limit section, a day after both were written. Keep it in one place and point to it.
+- **Replay the event orders a probe recorded.** Hook tests built from the order the design assumed passed (124 of 124) while a foreground subagent was never asked and no notes were captured: Claude Code fires those hooks in another order, which the probe's logs already showed. When code reacts to platform events, record the observed order as a fact in the LLD, and test whole flows in that order.
 
 ## Approval steps
 
