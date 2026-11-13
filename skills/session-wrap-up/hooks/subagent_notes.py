@@ -217,22 +217,31 @@ def counting_line(agent_id: str, notes: Path) -> str:
     return f"[subagent-notes] agent {agent_id}, notes in {notes}"
 
 
+def launch_type(response: dict[str, Any], fields: dict[str, Any]) -> str:
+    """The launched agent's type: the result's, else the requested one, else empty."""
+    for value in (response.get("agentType"), fields.get("subagent_type")):
+        if isinstance(value, str) and value:
+            return value
+    return ""
+
+
 # @spec NOTES-TRACK-001, NOTES-TRACK-002, NOTES-TRACK-003, NOTES-TRACK-004, NOTES-TRACK-005
+# @spec NOTES-TRACK-006
 def track(event: dict[str, Any], notes: Path) -> str:
     """Record a launch from the main agent, and tell the main agent the subagent's ID."""
     response = event.get("tool_response")
     tool_input = event.get("tool_input")
     if not isinstance(response, dict):
         return ""
-    agent_id = response.get("agentId")
-    agent_type = response.get("agentType")
-    if not valid_id(agent_id) or not isinstance(agent_type, str) or agent_type in {"", "fork"}:
-        return ""
     fields = tool_input if isinstance(tool_input, dict) else {}
+    agent_id = response.get("agentId")
+    # Background results can lack agentType, so a fork is recognized by either field.
+    if not valid_id(agent_id) or "fork" in (response.get("agentType"), fields.get("subagent_type")):
+        return ""
     description = fields.get("description")
     name = fields.get("name")
     launched = {
-        "agent_type": agent_type,
+        "agent_type": launch_type(response, fields),
         "description": description if isinstance(description, str) else "",
         "name": name if isinstance(name, str) else "",
         "time": now(),

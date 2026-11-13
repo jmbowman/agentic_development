@@ -57,9 +57,10 @@ Behavior an eval can't reach (an interactive run, another live session, a real c
 
 ## Writing graders
 
-- A `tool_used` grader's `input_match` runs against the tool input as JSON, so a command's quotes are escaped (`\"`). Match command text with `(?:[^"\\]|\\.)*`, not `[^"]*`.
+- A `tool_used` grader's `input_match` runs against the tool input as JSON, so a command's quotes are escaped (`\"`). Match command text with `(?:[^"\\]|\\.)*`, not `[^"]*`. In a grader that bans reading a path, end the stretch between the reader command and the path at command separators (`(?:[^"\\;&|]|\\.)*`), and anchor on the path's parent directory, so neither `cat a; ls dir` nor a `grep` for the directory's name matches.
 - Anchor a home-directory check on paths that start at a home (`~/.claude`, `/home/<user>/.claude`), or a project's own `.claude/` will match too.
 - Before trusting a regex, test it against tool inputs from a real trace (`--keep-temp`), both a call it should catch and one it shouldn't.
 - Keep each `llm` grader to one or two checks. A long multi-clause grader gets noisy verdicts, especially under the Haiku judge; split it, or judge with `--judge-model claude-sonnet-5-5`.
 - Write the grader to accept every reading the spec allows, not just the one you expected.
-- A scaffold must hold what its session record says was done. The agent checks the repo, so a change the record claims and the scaffold lacks becomes a loose end, and it changes the report.
+- A scaffold must hold what its session record says was done, and what any notes file or transcript it seeds claims. The agent checks the repo, so a change the record claims and the scaffold lacks becomes a loose end, and it changes the report.
+- A prompt can't name an absolute path: the runner substitutes nothing in it, and a scaffold can't edit it. A case that needs a directory outside the repo seeds it in a gitignored folder of the workspace and names it relative to the workspace.

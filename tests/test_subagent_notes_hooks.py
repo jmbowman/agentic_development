@@ -68,6 +68,8 @@ ATTENDED = {"CLAUDE_CODE_SESSION_ATTENDED": "1"}
 NOTES = "- The environment said this was a git repo, but `ls -A` showed no `.git`.\n"
 REPORT = '{"entries": ["alpha.txt", "beta.txt"]}'
 TIMEOUT = 10
+# Marks a field left out of a hook input, as opposed to one present with an empty or null value.
+MISSING = object()
 
 
 @functools.cache
@@ -540,11 +542,74 @@ def test_null_or_empty_agent_id_is_the_main_agent(session: Session, agent_id: st
     assert session.marker(AGENT, "launched").is_file()
 
 
-# @spec NOTES-TRACK-001
-def test_launch_with_no_agent_type_is_not_tracked(session: Session) -> None:
-    """Tracking needs a non-empty agent type."""
-    assert output(run(launch(session, launched_type="")), "PostToolUse") == ""
-    assert session.files() == set()
+def without_agent_type(event: dict[str, Any], value: object = MISSING) -> dict[str, Any]:
+    """A launch whose result lacks `agentType` (missing by default), as background results can."""
+    if value is MISSING:
+        del event["tool_response"]["agentType"]
+    else:
+        event["tool_response"]["agentType"] = value
+    return event
+
+
+def launched_type(session: Session, agent: str = AGENT) -> object:
+    """The agent type a `.launched` file records."""
+    return json.loads(session.marker(agent, "launched").read_text())["agent_type"]
+
+
+# @spec NOTES-TRACK-006, NOTES-TRACK-001, NOTES-TRACK-002
+@pytest.mark.parametrize(
+    "value", [MISSING, "", None, 123], ids=["missing", "empty", "null", "not-a-string"]
+)
+def test_launch_type_falls_back_to_the_requested_type(session: Session, value: object) -> None:
+    """A background result with no agentType is tracked, with the type the launch asked for."""
+    event = without_agent_type(launch(session, launched_type="general-purpose"), value)
+    expected = f"[subagent-notes] agent {AGENT}, notes in {session.notes}"
+    assert output(run(event), "PostToolUse") == expected
+    assert launched_type(session) == "general-purpose"
+
+
+# @spec NOTES-TRACK-006
+def test_launch_type_prefers_the_result(session: Session) -> None:
+    """The result's agentType is what actually ran, so it wins over the requested type."""
+    event = launch(session, launched_type="general-purpose")
+    event["tool_input"]["subagent_type"] = "Explore"
+    run(event)
+    assert launched_type(session) == "general-purpose"
+
+
+# @spec NOTES-TRACK-006, NOTES-TRACK-001
+def test_launch_with_no_type_anywhere_is_tracked_with_an_empty_one(session: Session) -> None:
+    """A valid agent ID shows a subagent ran, so a missing type doesn't lose its notes."""
+    event = without_agent_type(launch(session))
+    del event["tool_input"]["subagent_type"]
+    assert AGENT in output(run(event), "PostToolUse")
+    assert launched_type(session) == ""
+
+
+# @spec NOTES-TRACK-006, NOTES-TRACK-001
+@pytest.mark.parametrize("tool_input", [None, "fork", []], ids=["null", "string", "list"])
+def test_odd_tool_input_is_tracked_untyped(session: Session, tool_input: object) -> None:
+    """Without a tool_input object there is no requested type, and no field that says fork."""
+    event = without_agent_type(launch(session))
+    event["tool_input"] = tool_input
+    assert AGENT in output(run(event), "PostToolUse")
+    assert launched_type(session) == ""
+
+
+# @spec NOTES-TRACK-006
+def test_launch_with_a_non_string_requested_type_records_an_empty_one(session: Session) -> None:
+    """Only a string names a type."""
+    event = without_agent_type(launch(session))
+    event["tool_input"]["subagent_type"] = 123
+    run(event)
+    assert launched_type(session) == ""
+
+
+# @spec NOTES-TRACK-006, NOTES-TRACK-001
+def test_launch_with_empty_types_is_tracked_with_an_empty_one(session: Session) -> None:
+    """Empty strings in both fields give an empty recorded type."""
+    assert AGENT in output(run(launch(session, launched_type="")), "PostToolUse")
+    assert launched_type(session) == ""
 
 
 # @spec NOTES-TRACK-002
@@ -564,9 +629,15 @@ def test_launch_from_inside_a_subagent_is_not_tracked(session: Session) -> None:
 
 
 # @spec NOTES-TRACK-004
-def test_fork_is_not_tracked(session: Session) -> None:
-    """A fork shares the main conversation, so it isn't asked for notes."""
-    assert output(run(launch(session, launched_type="fork")), "PostToolUse") == ""
+@pytest.mark.parametrize(
+    ("result_type", "requested_type"),
+    [("fork", "fork"), (MISSING, "fork"), ("general-purpose", "fork"), ("fork", "general-purpose")],
+    ids=["both", "requested-only", "requested-with-other-result", "result-only"],
+)
+def test_fork_is_not_tracked(session: Session, result_type: object, requested_type: str) -> None:
+    """A fork shares the main conversation, so it isn't asked for notes, whichever field says so."""
+    event = without_agent_type(launch(session, launched_type=requested_type), result_type)
+    assert output(run(event), "PostToolUse") == ""
     assert session.files() == set()
 
 
@@ -1218,6 +1289,30 @@ def test_background_flow_then_later_work(session: Session) -> None:
     assert AGENT in printed[4]
     assert notes_file(session)[1] == NOTES
     assert session.marker(AGENT, "done").is_file()
+
+
+# @spec NOTES-TRACK-006, NOTES-TRACK-001, NOTES-ASK-001, NOTES-CAP-001
+def test_background_flow_with_no_agent_type_in_the_result(session: Session) -> None:
+    """A background launch whose result lacks agentType yields notes, typed from the request."""
+    printed = replay(
+        [
+            without_agent_type(launch(session)),
+            start(session),
+            handback(session, REPORT),
+            subagent_stop(session, ""),
+            stop(session),
+            pre_send(session),
+            send(session),
+            start(session),
+            handback(session, NOTES),
+            subagent_stop(session, ""),
+        ],
+    )
+    assert AGENT in printed[0]
+    assert AGENT in printed[4]
+    front, body = notes_file(session)
+    assert front["agent_type"] == "Explore"
+    assert body == NOTES
 
 
 # @spec NOTES-FIN-003, NOTES-ASK-001
