@@ -131,8 +131,12 @@ def test_routing_states_the_lesson_filter(word: str) -> None:
 
 # @spec WRAP-PKG-008
 def test_skill_text_has_no_spec_annotations() -> None:
-    """Annotations in skill text would load into the agent's context on every run."""
-    annotated = [p for p in SKILL.rglob("*") if p.is_file() and "@spec" in p.read_text()]
+    """Annotations in skill text would load into the agent's context on every run.
+
+    Hook scripts the skill ships aren't read by the agent, so they carry `@spec` like any code.
+    """
+    text = [SKILL_MD, *(SKILL / "references").glob("*")]
+    annotated = [p for p in text if p.is_file() and "@spec" in p.read_text()]
     assert not annotated, annotated
 
 

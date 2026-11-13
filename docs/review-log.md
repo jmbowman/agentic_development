@@ -63,3 +63,7 @@ The yield and cost of each review wave, so that the point of diminishing returns
 | 2026-11-11 | subagent-notes (#160) | LLD | 1 | gap probe of the new LLD and the wrap-up's reading of notes | 31 | 23 | 5 | 0 | 68k | 2.3 min |
 | 2026-11-12 | prior-art note: task management for humans and agents (#167) | Note | 1 | fact-check against the evidence records and clones; skill method, cold read and public content; end to end against the use cases | 48 | 48 | 8 | 0 | 270k | 4.8 min |
 | 2026-11-12 | subagent-notes (#160) | Edge audit | 1 | blind divergence probe (spec text only); compositional audit across NOTES and WRAP | 40 | 37 | 3 | 0 | 159k | 3.2 min |
+| 2026-11-12 | subagent-notes (#160) | Tests | 1 | spec fit, discrimination, fact-check, manual script; robustness, mechanics, cold read, house style | 27 | 26 | 1 | 0 | 160k | 3.3 min |
+| 2026-11-12 | subagent-notes (#160) | Code | 1 | correctness against specs, concurrency, fault paths, security, platform fit; arrow coherence, README, cold read of the hooks reference, public content | 23 | 22 | 1 | 0 | 167k | 2.7 min |
+| 2026-11-12 | subagent-notes (#160) | Code | 2 | re-check of the reworked script: every allowed event order, `.pending` races, publishing without hard links, wave 1's findings | 7 | 6 | 1 | 0 | 81k | 3.2 min |
+| 2026-11-12 | subagent-notes (#160) | Code | 3 | convergence check of run state, names, the hard-link fallback and their docs; converged (no high or medium) | 4 | 3 | 0 | 0 | 72k | 2.7 min |

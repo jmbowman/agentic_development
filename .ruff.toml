@@ -16,3 +16,4 @@ convention = "google"
 [lint.per-file-ignores]
 "**/tests/**" = ["S101", "PLR2004"]  # pytest asserts and literal comparisons
 "scripts/*.py" = ["INP001"]  # standalone scripts, fetched and run alone
+"skills/*/hooks/*.py" = ["INP001"]  # hook scripts Claude Code runs alone with python3 -I
