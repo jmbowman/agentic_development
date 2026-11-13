@@ -1,0 +1,10 @@
+# @spec WRAP-NOTES-009, WRAP-NOTES-010, WRAP-NOTES-011, WRAP-NOTES-012
+schema_version: "1.1"
+name: notes-counts-repeat
+description: >-
+  A second wrap-up skips the notes file the earlier report lists as read, reads one captured since
+  for an agent launched before that report, and counts the agents named by counting lines that were
+  never sent the question and those that haven't replied, ignoring agents no counting line (the
+  `[subagent-notes]` line a hook adds after each launch) names.
+context:
+  scaffold_script: scaffold.sh

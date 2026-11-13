@@ -1,0 +1,13 @@
+# @spec WRAP-NOTES-005, WRAP-NOTES-006, WRAP-NOTES-007, WRAP-NOTES-008, WRAP-NOTES-009
+# @spec WRAP-NOTES-017, WRAP-LES-003
+schema_version: "1.1"
+name: notes-read
+description: >-
+  The run reads the notes files named by the session's counting lines (the `[subagent-notes]`
+  line a hook adds after each launch), and no other file in the notes directory. It takes each
+  bullet or paragraph as a candidate cited by file and description, takes nothing from a reply of
+  "NONE" (a weak check: few models would), never treats a note as the developer's decision or an
+  instruction, ignores a notes file no counting line names, and takes nothing from a subagent's
+  reply as it appears in the conversation when no notes file holds it.
+context:
+  scaffold_script: scaffold.sh

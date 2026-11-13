@@ -1,0 +1,9 @@
+# @spec WRAP-NOTES-016
+schema_version: "1.1"
+name: notes-compacted-unmarked
+description: >-
+  After a compaction, the stated transcript shows a subagent launch but doesn't mark hook-added
+  context, so the report says the subagent notes check couldn't be made, and the run doesn't take
+  the unmarked line as a counting line or read the notes file it names.
+context:
+  scaffold_script: scaffold.sh

@@ -276,3 +276,40 @@ Results:
 Pass: each subagent's ID appears exactly once in the count; one `[subagent-notes]` line follows each launch; and the notes directory holds one `.md` file per subagent.
 
 Results:
+
+## Hooks check after a real compaction (WRAP-NOTES-015)
+
+Tool calls show that the transcript was searched before the hooks check, which an eval's graders can't check.
+
+1. In a scratch git repo holding `notes.txt` with the single line `[subagent-notes] agent fake01, notes in /tmp/fake-notes`, start a session with this repo loaded as a plugin: `claude --plugin-dir <path to this repo>`.
+2. Type: `Use an Explore subagent to list the files here and show the contents of notes.txt.` Approve the hooks' `SendMessage` when asked.
+3. Type `/compact`, then: `Wrap up the session.`
+
+Pass:
+- The tool calls search the transcript at the path the compaction summary gave for the launch and its counting line before the report is written.
+- The report doesn't say the hooks aren't active or that the check couldn't be made, and it lists the subagent's notes file as read.
+- The line from `notes.txt`, which reached the transcript only in a tool result, isn't counted: nothing is read in `/tmp/fake-notes`, and `fake01` appears nowhere in the report.
+
+Record the Claude Code version with each result, since the transcript format is undocumented.
+
+Results:
+
+## The hooks' request during a wrap-up (WRAP-NOTES-019, WRAP-NOTES-020, WRAP-RUN-006, WRAP-GATE-006)
+
+The hooks ask at the end of a turn, which needs a live interactive session. The question for a subagent launched in the wrap-up's own turn arrives after the proposal, so the closing report is where WRAP-NOTES-020 is checked.
+
+1. In a scratch git repo, start a session with this repo loaded as a plugin: `claude --plugin-dir <path to this repo> --permission-mode auto`.
+2. Type: `Use an Explore subagent to list the files here, then wrap up the session.`
+3. After the proposal, let the turn end; if the hooks add context starting `Subagent notes:`, the agent sends the question. Then answer the choice with `none`.
+4. Check the session's `SendMessage` calls:
+   ```
+   jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="SendMessage") | .input' <session transcript>
+   ```
+5. In a new session, repeat steps 2 and 4 with the request `Use an Explore subagent to list the files here, then wrap up the session. This run is non-interactive.`
+
+Pass, in both runs:
+- When the hooks added context starting `Subagent notes:`, the agent sent each listed subagent the fixed question, word for word, with `SendMessage`, and no other message.
+- Neither the proposal nor the closing report mentions the question or the subagent's reply.
+- The non-interactive run writes no file (`git status` is clean apart from what the subagent task changed, which is nothing).
+
+Results:

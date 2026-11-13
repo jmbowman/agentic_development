@@ -27,3 +27,11 @@
 - **Evidence:** in manual mode, the parent asked to resume the subagent found no ID and gave up. The ID is present in the PostToolUse hook's `tool_response.agentId`, and passing it on as `additionalContext` made the resume work.
 - **Suggested fix:** include the agent ID in the foreground result in every mode.
 - **Raised upstream:** no.
+
+### 4. A background launch's result has no agent type
+
+- **Where:** the `Agent` tool's result for a background launch (`status` `async_launched`), on 2.1.323 (Linux), 2026-11-13.
+- **What:** the result carries `agentId`, `description`, `status`, `isAsync`, `outputFile` and `resolvedModel`, but no `agentType`. A foreground result, and a background one in the 2.1.322 probe, carried `agentType`. A PostToolUse hook that needs to know what kind of agent was launched can't tell from the result, and has to fall back to the call's `tool_input.subagent_type`.
+- **Evidence:** three background launches (a `claude-code-guide` agent and two `general-purpose` agents) in one interactive session: the transcript's `toolUseResult` for each lacked `agentType`. The subagent notes hooks, which track a launch only when `tool_response` has both `agentId` and `agentType`, wrote no `.launched` file and no `[subagent-notes]` line for any of them, while their SubagentStart and SubagentStop hooks ran and recorded the same agent IDs. Whether the hook's `tool_response` is exactly the transcript's `toolUseResult` wasn't checked directly.
+- **Suggested fix:** include `agentType` in the background launch result, as the foreground result does, or document which fields each launch status carries.
+- **Raised upstream:** no.
