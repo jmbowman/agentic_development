@@ -128,7 +128,7 @@ Nothing read does it well:
 
 | # | Decision | Recommendation | Alternative |
 |---|---|---|---|
-| 1 | Which store to build on | Backlog.md: views, Markdown, maturity; custom pieces carry the governance | pm-cli: native human/agent queue split and per-change model provenance; no board, TOON files, one maintainer |
+| 1 | Which store to build on | Backlog.md: views, Markdown, maturity; custom pieces carry the governance. The developer's leaning (2026-11-14): Backlog.md. | pm-cli: native human/agent queue split and per-change model provenance; no board, TOON files, one maintainer |
 | 2 | Piece B's role while the developer makes every commit | A review aid now, enforcement once agents commit with a trailer | Enforce from the start with signed human commits or a human-only command for protected edits |
 | 3 | Where agent proposals show | The SessionStart brief and a generated `proposals.md` | A change to Backlog.md's web board (upstream or a fork) |
 | 4 | Claiming across worktrees | An upstream `task claim` under the shared lock, with a local claim file as fallback | Accept convention-only claims and rely on one agent per task by assignment |
