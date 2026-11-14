@@ -58,6 +58,7 @@ Behavior an eval can't reach (an interactive run, another live session, a real c
 ## Writing graders
 
 - A `tool_used` grader's `input_match` runs against the tool input as JSON, so a command's quotes are escaped (`\"`). Match command text with `(?:[^"\\]|\\.)*`, not `[^"]*`. In a grader that bans reading a path, end the stretch between the reader command and the path at command separators (`(?:[^"\\;&|]|\\.)*`), and anchor on the path's parent directory, so neither `cat a; ls dir` nor a `grep` for the directory's name matches.
+- The runner compiles a `regex` grader's `pattern` as a JavaScript regular expression, which rejects inline flags such as `(?i)` (the grader throws and fails). Set `flags: i` in the front matter instead; `tests/test_evals.py` checks this.
 - Anchor a home-directory check on paths that start at a home (`~/.claude`, `/home/<user>/.claude`), or a project's own `.claude/` will match too.
 - Before trusting a regex, test it against tool inputs from a real trace (`--keep-temp`), both a call it should catch and one it shouldn't.
 - Keep each `llm` grader to one or two checks. A long multi-clause grader gets noisy verdicts, especially under the Haiku judge; split it, or judge with `--judge-model claude-sonnet-5-5`.

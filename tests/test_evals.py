@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 import pytest
@@ -73,3 +74,41 @@ def test_eval_grader_frontmatter_is_valid(grader: Path) -> None:
     meta = frontmatter(grader)
     assert meta["type"] in GRADER_TYPES
     assert meta.get("arm", "with-only") in GRADER_ARMS
+
+
+REGEX_KEYS = ("pattern", "input_match")
+# Inline flag groups (`(?i)`, `(?-i)`, `(?i-m:`), not `(?:`, lookarounds or named groups.
+INLINE_FLAGS = re.compile(r"\(\?(?=-?[a-zA-Z])[a-zA-Z]*(?:-[a-zA-Z]+)?[):]")
+
+
+@pytest.mark.parametrize(
+    "grader",
+    [g for g in sorted(EVALS.glob("*/*/graders/*.md")) if set(REGEX_KEYS) & set(frontmatter(g))],
+    ids=lambda p: f"{p.parent.parent.name}/{p.stem}",
+)
+def test_eval_grader_regex_has_no_inline_flags(grader: Path) -> None:
+    """The runner compiles regexes as JavaScript, which rejects inline flags; use `flags:`."""
+    meta = frontmatter(grader)
+    assert not [key for key in REGEX_KEYS if INLINE_FLAGS.search(str(meta.get(key, "")))]
+
+
+@pytest.mark.parametrize(
+    ("regex", "flagged"),
+    [
+        ("(?i)crlf", True),
+        ("(?im)crlf", True),
+        ("(?-i)crlf", True),
+        ("(?i:crlf)", True),
+        ("(?i-m:crlf)", True),
+        ("(?-i:crlf)", True),
+        ("(?:crlf)", False),
+        ("(?=crlf)", False),
+        ("(?!crlf)", False),
+        ("(?<=crlf)", False),
+        ("(?<!crlf)", False),
+        ("(?<name>crlf)", False),
+    ],
+)
+def test_inline_flag_detector(regex: str, *, flagged: bool) -> None:
+    """The detector catches every inline-flag form and passes over other group syntax."""
+    assert bool(INLINE_FLAGS.search(regex)) is flagged
