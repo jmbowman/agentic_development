@@ -5,7 +5,7 @@ Bugs and proposed enhancements for [lid-tooling](https://github.com/EtaCassiopei
 None of the items below has been raised upstream. The repo has had no commits since 2026-06-10.
 
 **Suggested order:**
-1. File the two coverage bugs. They're small, they make this repo's gate weaker than it looks, and filing them tests whether upstream responds.
+1. File the two coverage bugs, with item 4 beside them. They're small, they make this repo's gate weaker than it looks (or, for item 4, need a workaround), and filing them tests whether upstream responds.
 2. Then propose (e) and (d), which are small and conflict with nothing in LID.
 3. Then (a), (b) and (c), which need new inputs.
 4. Hold (f).
@@ -30,7 +30,7 @@ None of the items below has been raised upstream. The repo has had no commits si
 ### 2. Citations in `.sh` and other script files are invisible
 
 - **Where:** `parse/source.rs:144-150`.
-- **What:** files whose extension isn't on the code list are classed Other. Their `@spec` citations escape both `reverse-orphan` and `coverage`. In this repo that covers the SessionStart hook script and the eval `case.yaml` files.
+- **What:** files whose extension isn't on the code list are classed Other. Their `@spec` citations escape both `reverse-orphan` and `coverage`. In this repo that covers the SessionStart hook script. (The eval `case.yaml` files are Other for a different reason; see item 4.)
 - **Suggested fix:** add shell and other script extensions to the code list, and make the list configurable.
 
 ### 3. Malformed IDs: one aborts the run, one is silently skipped
@@ -38,6 +38,20 @@ None of the items below has been raised upstream. The repo has had no commits si
 - **Where:** `parse/markdown.rs:38-41`.
 - **What:** a spec-shaped line whose ID has no digit aborts the whole run with exit 2. An ID containing lowercase letters is silently not a spec, with no finding.
 - **Suggested fix:** report both as findings from `spec-id-format`, rather than as a load error or nothing.
+
+### 4. Tests defined in data files can't be counted as tests
+
+- **Where:** `parse/source.rs:129-135`: a `.md`, `.yaml` or `.yml` file is Spec under `docs/.../specs` and Other everywhere else, before the path's test markers are looked at.
+- **What:** some test suites define their tests as data, not code. This repo's `claude plugin eval` cases are directories with a `case.yaml` (which lists the case's specs in `# @spec` comments), a `prompt.md` and grader files, and the runner, not pytest, runs them. lidc ignores those citations entirely, even as orphans. Checked with lidc 0.3.0: a `# @spec` line citing an undefined ID in a `case.yaml` gave no finding. So a spec checked only by an eval has no Test citation, and the repo works around it by repeating every eval-checked spec in a comment block in a pytest file (`tests/test_session_wrap_up_skill.py`), held complete by a test. That block says only that some case covers a spec, not which.
+- **Suggested fix:** a configurable list of path globs whose files count as Test whatever their extension (for example `evals/**/case.yaml`), read from the repo, perhaps beside `docs/arrows/index.yaml`. Fixing item 2's configurable code list the same way would cover both.
+- **Raised upstream:** no.
+
+### 5. Text inside string literals counts as a citation
+
+- **Where:** `parse/source.rs:94-112`: any line containing `@spec` is a citation, wherever on the line it appears.
+- **What:** a test whose fixture text holds an annotation (for example a string `"# @spec WRAP-RUN-008\n"` that a test writes into a synthetic repo) cites that ID as far as lidc knows. With a real ID, `coverage` counts a spec as tested that no test exercises; with a made-up one, `reverse-orphan` fails. Checked with lidc 0.3.0 on this repo's `tests/test_interactive_scenarios.py`, which now assembles its fixture annotations from `"# @" + "spec"` to avoid it.
+- **Suggested fix:** in source files, count `@spec` only in comments (after the language's comment marker, outside string literals), or at least only when the line starts with a comment.
+- **Raised upstream:** no.
 
 Minor: the Cargo workspace version is 0.2.1 at HEAD while the CHANGELOG says 0.3.0, and `Cargo.toml:10` names a different repository URL.
 

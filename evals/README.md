@@ -53,7 +53,11 @@ mise run eval -- --eval-dir evals/session-wrap-up --tag offline --scaffold --mod
   --allow-tools Bash Write Edit
 ```
 
-Behavior an eval can't reach (an interactive run, another live session, a real compaction, or the order of tool calls) is checked by hand from the scripts in `evals/session-wrap-up/manual.md`, which also hold the dated results. Its specs are marked *(manual)*.
+Behavior an eval can't reach (an interactive run, another live session, a real compaction, or the order of tool calls) is checked by hand from the scripts in `evals/session-wrap-up/manual.md`, which also hold the dated results. Its specs are marked *(manual)*. These scripts are to become interactive scenarios, pytest tests in `evals/<skill>/interactive/` that drive a real Claude Code session through the pytest-claude-code-evals plugin ([design](../docs/intent/interactive-evals/interactive-evals-design.md)). A scenario names the script it replaces with a `replaces` marker, the script then leaves `manual.md`, and the specs it checked become *(interactive)*, or *(eval, interactive)* when an eval case also checks them. `mise run check` imports every scenario without running one; `tests/test_interactive_scenarios.py` holds these rules.
+
+## Latest results
+
+Each skill's `latest-results.md` has one row per eval case (and per interactive scenario), giving its most recent triaged run: the date, Claude Code version, model, runs and failures, and the `docs/review-log.md` row that reported it (its Date, Component, Phase and Wave), or `never run`. Runs whose failure triage traced to the grader or the case, not the skill, are left out of both counts. After triaging a run, update the rows it covered in the same change as its review-log row. `tests/test_interactive_scenarios.py` fails when a case or scenario has no row, a row names something that doesn't exist, or a row is malformed.
 
 ## Writing graders
 

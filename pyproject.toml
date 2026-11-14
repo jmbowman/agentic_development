@@ -25,4 +25,5 @@ addopts = "--strict-markers"
 markers = [
     "network: needs network access beyond tools already installed",
     "renovate: runs the Renovate CLI pinned in mise.toml",
+    "replaces(heading): the manual.md script, by its heading, that this interactive scenario replaces",
 ]

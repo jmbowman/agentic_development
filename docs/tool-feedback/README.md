@@ -4,7 +4,7 @@ Proposed enhancements and bugs for the tools this repo uses or plans to adopt, k
 
 - [Claude Code](claude-code.md): a SubagentStop block replaces the report, or is ignored after a hand-back; no agent ID in a foreground result outside auto mode.
 - [LID](lid.md): suggestions for decision docs and their tooling; setup docs that overstate what the plugins enforce.
-- [lid-tooling (`lidc`)](lid-tooling.md): coverage that passes vacuously under a `test` directory; citations in script files ignored; six proposed checks.
+- [lid-tooling (`lidc`)](lid-tooling.md): coverage that passes vacuously under a `test` directory; citations in script files and in tests defined as data (eval cases) ignored; text in string literals counted as citations; six proposed checks.
 - [mdbook-lint](mdbook-lint.md): decision-record rules that misfire on LID's decision folders.
 - [kontext](kontext.md): the npm package isn't published.
 - [github-repo-meta-fetch](github-repo-meta-fetch.md): no releases; a generated `CLAUDE.md`.
@@ -15,4 +15,4 @@ Proposed enhancements and bugs for the tools this repo uses or plans to adopt, k
 - [Renovate](renovate.md): the `pep723` manager neither updates script lock files nor bumps git-pinned dependencies.
 - [delta](delta.md): no mode showing each changed line once; `--word-diff` output loses its styling for code; hunk headers show one level of scope.
 - [difftastic](difftastic.md): no function or class in hunk headers; no inline display mode; fixed colours; no Markdown parser.
-- [Backlog.md](backlog-md.md): a task file can run a shell command; cycles accepted on write; claims not atomic; ID generation fetches and prunes.
+- [Backlog.md](backlog-md.md): a task file can run a shell command; claims not atomic; ID generation fetches and prunes; `init --defaults` writes an always-run instruction into `AGENTS.md`; cycle checks in MCP edits unverified.
