@@ -1,6 +1,7 @@
 ---
 type: regex
 target: last_message
-pattern: '(?i)lineterminator|CRLF'
+pattern: 'lineterminator|CRLF'
+flags: i
 match: not_contains
 ---

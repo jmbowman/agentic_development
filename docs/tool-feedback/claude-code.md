@@ -10,7 +10,7 @@
 - **What:** the subagent answers the hook's `reason`, and that answer, not its report, reaches the parent. A hook can't ask a finishing subagent anything without corrupting what its caller receives.
 - **Evidence:** blocking the first stop in manual mode turned the parent's result from `{"entries": [...]}` into the reply to the hook's reason. This is [anthropics/claude-code#85917](https://github.com/anthropics/claude-code/issues/85917) (filed against 2.1.226, closed 2026-09-13) still reproducing.
 - **Suggested fix:** when a stop is blocked, return the message the agent was about to stop with as its result, or document that the last message wins so hooks can avoid blocking.
-- **Raised upstream:** #85917 covers it; not yet commented with the 2.1.322 result.
+- **Raised upstream:** no. #85917 is closed and locked, so raising it means a new issue that references it. A maintainer's comment there calls the replaced deliverable "how subagent results work today… a product decision rather than a bug", so a new issue asks for the change or for documentation, not a bug fix.
 
 ### 2. A SubagentStop block after a hand-back is silently ignored
 
@@ -30,8 +30,8 @@
 
 ### 4. A background launch's result has no agent type
 
-- **Where:** the `Agent` tool's result for a background launch (`status` `async_launched`), on 2.1.323 (Linux), 2026-11-13.
+- **Where:** the `Agent` tool's result for a background launch (`status` `async_launched`), on 2.1.323 and 2.1.325 (Linux), 2026-11-13.
 - **What:** the result carries `agentId`, `description`, `status`, `isAsync`, `outputFile` and `resolvedModel`, but no `agentType`. A foreground result, and a background one in the 2.1.322 probe, carried `agentType`. A PostToolUse hook that needs to know what kind of agent was launched can't tell from the result, and has to fall back to the call's `tool_input.subagent_type`.
-- **Evidence:** three background launches (a `claude-code-guide` agent and two `general-purpose` agents) in one interactive session: the transcript's `toolUseResult` for each lacked `agentType`. The subagent notes hooks, which then tracked a launch only when `tool_response` had both `agentId` and `agentType`, wrote no `.launched` file and no `[subagent-notes]` line for any of them, while their SubagentStart and SubagentStop hooks ran and recorded the same agent IDs. Whether the hook's `tool_response` is exactly the transcript's `toolUseResult` wasn't checked directly.
+- **Evidence:** three background launches (a `claude-code-guide` agent and two `general-purpose` agents) in one interactive session: the transcript's `toolUseResult` for each lacked `agentType`. The subagent notes hooks, which then tracked a launch only when `tool_response` had both `agentId` and `agentType`, wrote no `.launched` file and no `[subagent-notes]` line for any of them, while their SubagentStart and SubagentStop hooks ran and recorded the same agent IDs. A probe on 2.1.325 (a `claude -p` session with one plugin whose PostToolUse hook logged its input, launching one foreground and one background `general-purpose` agent) confirmed it in the hook itself: the background launch's `tool_response` had `agentId`, `canContinueAgent`, `canReadOutputFile`, `description`, `isAsync`, `outputFile`, `prompt`, `resolvedModel` and `status`, and no `agentType`, while the foreground one had `agentType`. In both launches, the hook's `tool_response` had the same keys as the transcript's `toolUseResult`.
 - **Suggested fix:** include `agentType` in the background launch result, as the foreground result does, or document which fields each launch status carries.
 - **Raised upstream:** no.
