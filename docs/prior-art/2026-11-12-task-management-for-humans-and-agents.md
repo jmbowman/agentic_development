@@ -61,6 +61,7 @@ The search ran five coordinated snowball rounds. Rounds 4 and 5 added nothing th
 3. **Piece B: a human-authority check** (medium), run in pre-commit and CI. No tool found protects a human-set priority in repo files (rounds 2-5, under Snowball rounds).
    - **Protected fields:** priority, the relative order of human-ordered tasks, performer, acceptance criteria, and decision records (decision 6). A field set by a human carries `set_by: human:<login>`; an agent-set value carries `set_by: agent` and a reason. These field names come from [ravenseat](https://github.com/vegardjorg/ravenseat)'s `priority_set_by` and [mem](https://github.com/nicsuzor/mem)'s linted `set_by`.
    - **The rule:** the check compares each commit with its base. A change to a protected value, or a write of `set_by: human`, by a commit carrying the agent trailer fails. The agent writes its proposal to `backlog/proposals.md` instead, as ravenseat starts agent-added tasks as proposed until the owner approves them (docs only). It protects relative order among human-ordered tasks, not raw `ordinal` values, because Backlog.md rewrites neighbouring ordinals on a reorder.
+   - **Precedents on servers:** [Redmine](https://www.redmine.org/projects/redmine/wiki/RedmineIssueTrackingSetup) makes a field read-only per role, tracker and status, enforced by the server (docs only). YouTrack's workflows can test whether a change came through its MCP server and act on it (docs only). Fossil separates the right to append a comment to a ticket from the right to edit it (docs only). Each makes the store, not the agent, decide who may change a field, which is what piece B approximates in files.
    - **What it is today:** while the developer makes every commit, B is a review aid that points at protected changes in the diff. It becomes enforcement once agents commit with a trailer (decision 2). Identity is self-declared in every tool read, so git review remains the backstop.
    - **Showing proposals:** the SessionStart brief and the generated `proposals.md` show pending proposals, rather than a change to Backlog.md's board (decision 3). [doctrine](https://github.com/davidlee/doctrine) can grade agent-only judgements as "AgentProposed" behind an opt-in setting that is off by default.
 4. **Piece C: a granularity and readiness lint** (medium). Nothing found statically flags a task that mixes human and agent work, or a parent with unsplit work (rounds 3-5).
@@ -80,6 +81,8 @@ The search ran five coordinated snowball rounds. Rounds 4 and 5 added nothing th
    - **Remote edits:** before each push, compare the issue with the state recorded at the last push. A field a collaborator changed is reported and not overwritten (decision 8). Status changes come back as a proposal in `proposals.md`. Comments stay on GitHub and are linked from the task.
    - Borrow [ADLC](https://github.com/voodootikigod/adlc) ticket-sync's failure design: an idempotent create key, refusing a listing that may be truncated, writing the stored base only after a successful store write, and refusing a conflict rather than guessing.
    - Borrow [gh-issue-sync](https://github.com/mitsuhiko/gh-issue-sync)'s random temporary IDs and native relationship mapping, but not its replacement of the whole remote link set.
+   - Borrow [clove](https://github.com/egeapak/clove)'s comment sync: comments are sidecar files paired with GitHub's by a base hash, and its comment watermark advances only when every comment write landed. Don't borrow its whole-issue conflict resolution (below).
+   - Borrow [Plane Compose](https://pypi.org/project/plane-compose/)'s refusal to push an item whose remote hash changed since the last sync, but make it fail closed: Plane Compose skips the check under `--force`, `--json`, `--no-conflict-check` or a hash-version mismatch.
    - Avoid the failure paths read in source (Limitations):
      - errors read as deletions ([gitpm](https://github.com/yevheniidehtiar/gitpm));
      - failed edits recorded as synced (gh-issue-sync);
@@ -112,8 +115,10 @@ It also stores items as TOON (a compact, YAML-like text format), which doesn't r
 ### Bidirectional sync, answered
 
 Nothing read does it well:
-- **ADLC ticket-sync** is the most careful design. It checks its structured fields three ways and fails closed, but title and body are remote-wins, comments aren't pulled, and it covers Issues only.
+- **clove** comes closest. It syncs issues and comments both ways with a stated policy (newer, local, remote or manual) and dry-run, and records an item as synced only after its write succeeds. But it resolves a conflict per issue, not per field, so under its default `newer` policy a collaborator's later edit to any field reverts a human's local priority, reported only as a conflict line. Its relationships and priority travel only in an HTML comment in the issue body (deleting that comment resets priority to 2), and a locally deleted item comes back on the next sync.
+- **ADLC ticket-sync** is the most careful failure design. It checks its structured fields three ways and fails closed, but title and body are remote-wins, comments aren't pulled, and it covers Issues only.
 - **gh-issue-sync** merges per field on push. But a failed edit is recorded as synced, the pull cursor can skip changes, and a push replaces the remote link set, removing links a collaborator added.
+- **Server-first trackers with local mirrors** don't close the gap. Plane Compose, the official CLI for self-hosted [Plane](https://plane.so/open-source), keeps work items with their relations as YAML in a git repo, but `pull` is a full refresh with no comments, it doesn't target GitHub or Jira, and its conflict check can be bypassed. Linear mirrors either keep comments without seeing deletions ([delineate](https://github.com/cjw296/delineate)) or live outside the repo. Generic data-pipeline tools never remove issues deleted at the source. [git-bug](https://github.com/git-bug/git-bug)'s bridges to GitHub, GitLab and Jira run incrementally both ways but carry no assignees or dependencies (docs only).
 - **Projects v2 field values:** no tool read in source syncs them. [issync](https://github.com/jasonmadigan/issync) claims to, at README depth, and its repository has no license file.
 - **Jira:** no tool documents deletions and comments in both directions. Jira's dynamic webhooks are for Connect and OAuth apps only and expire after 30 days, so a local tool must poll and can't see deletions (docs only).
 - **GitHub deletions:** the REST API returns 404 for an issue transferred to, or deleted from, a repo the caller can't read, so a polling sync can't tell deleted from moved (docs only).
@@ -166,6 +171,11 @@ For sync, [ADLC](https://github.com/voodootikigod/adlc) ticket-sync has the best
 | [beadhive](https://github.com/beadhive/beadhive) | borrow ideas | MIT (`LICENSE:1-21` at e264f72) | Capability tier per task, model chosen at dispatch; built on a Dolt database (fails H2); its merge command lands work on main by default |
 | [ADLC](https://github.com/voodootikigod/adlc) | borrow ideas | MIT (`LICENSE:1-21` at 0da571c) | Fail-closed ticket sync, deterministic model-tier rules, readiness gate; no priority or performer field; an `--authorize` flag any agent can pass |
 | [gh-issue-sync](https://github.com/mitsuhiko/gh-issue-sync) | borrow ideas | Apache-2.0 (`LICENSE:1-201` at 955fe4c) | Native relationships, per-field three-way push; failed edits recorded as synced; drops unknown keys |
+| [clove](https://github.com/egeapak/clove) | borrow ideas | AGPL-3.0-only plus a plugin exception (`Cargo.toml:30`, `LICENSE-PLUGIN-EXCEPTION:1-66` at d0b1333; the AGPL text checked by structure, not diffed) | The most complete two-way GitHub sync found, comments included; whole-issue conflicts; unknown frontmatter keys rejected; no claim |
+| [ticket (`tk`)](https://github.com/wedow/ticket) | borrow ideas | MIT (`LICENSE:1-21` at 194b71a) | One Markdown file per ticket, ready and blocked lists, unknown keys kept, no git writes; no board, claim, sync or cycle refusal |
+| [ccpm](https://github.com/automazeio/ccpm) | reject | MIT (`LICENSE:1-21` at 0bcfabb) | An agent skill whose merge step merges into a hard-coded `main` and pushes it; no priority field; GitHub state never comes back; its `conflicts_with` and `parallel` gating is worth borrowing |
+| [markplane](https://github.com/zerowand01/markplane) | borrow ideas | Apache-2.0 (`LICENSE:1-190` at e408c34, diffed) | Web UI, graph, cycle refusal, no git writes; drops unknown frontmatter keys, so every custom field needs a fork |
+| [Plane Compose](https://pypi.org/project/plane-compose/) | borrow ideas | AGPL-3.0 (`LICENSE.txt` in the 0.5.2 source package, read in full) | Self-hosted Plane's work items with relations as YAML in git; push refuses items changed remotely unless forced; full-refresh pull, no comments, Plane only |
 | [gitpm](https://github.com/yevheniidehtiar/gitpm) | reject | MIT (`LICENSE:1-21` at 00f6d1c) | Hash-format mismatch overwrites local fields on every sync; any API error cancels local tasks |
 | [git-task](https://github.com/jhspetersson/git-task) | reject | GPL-3.0-or-later (`LICENSE:1-674` at 41844a7) | Tasks live in a git ref (fails H2); last writer wins on sync |
 | [planr](https://github.com/instructa/planr) | borrow ideas | MIT (`LICENSE:1-21` at e27e913) | "Waiting on you" view, static HTML board; its CLI enforces no human-only rule, and only its optional board plugin checks approvals; `init` writes git hooks |
@@ -180,6 +190,13 @@ For sync, [ADLC](https://github.com/voodootikigod/adlc) ticket-sync has the best
 | [software-factory](https://github.com/musicofhel/software-factory) | borrow ideas | MIT (pointer only) | Ticket store written only from main, by a post-merge job or a human's PR |
 | [Linear](https://linear.app/docs/assigning-issues.md), hosted | borrow ideas | hosted | An agent delegate separate from the human assignee, who stays owner |
 | [GitHub Copilot approvals](https://docs.github.com/en/copilot/concepts/agents/cloud-agent/about-automation-rationale-and-approvals), hosted | borrow ideas | hosted | Agent changes below a confidence threshold held as suggestions with a rationale |
+| [Radicle](https://github.com/radicle-dev/heartwood) | borrow ideas | Apache-2.0 or MIT (pointer) | Issues as signed git objects replicated peer to peer (fails H2: not plain files); no dependencies, priority or parent; only maintainers may assign or label |
+| [TaskChampion](https://github.com/GothenburgBitFactory/taskchampion) | reject | MIT (pointer) | Taskwarrior 3's Rust core: native dependencies and custom fields, but a SQLite replica whose git-backed sync stores encrypted blobs (fails H2) |
+| [Fossil](https://fossil-scm.org) tickets | borrow ideas | BSD-2-Clause with a "views and conclusions" paragraph (`COPYRIGHT-BSD2.txt`, read in full) | Append-only ticket changes inside a second version-control system (fails H2 without an export); separate rights to append and to edit |
+| [Taiga](https://github.com/taigaio/taiga-back) | reject | MPL-2.0 backend, AGPL-3.0 frontend (`LICENSE` files at 6.10.2, read in full) | Still open source and self-hostable; no item-to-item dependencies (only a blocked flag); no official MCP server; a Postgres store |
+| [YouTrack](https://www.jetbrains.com/youtrack/) | reject | proprietary | Fails H1 and H2; an official MCP server, and workflows that can detect changes made through it |
+| [Redmine](https://www.redmine.org/projects/redmine/wiki/RedmineIssueTrackingSetup) | borrow ideas | GPL-2.0 (pointer) | Read-only fields per role, tracker and status, enforced by the server; only one-way mirrors found |
+| [delineate](https://github.com/cjw296/delineate) | borrow ideas | MIT (`LICENSE.txt` read) | Linear mirror with comments and an `updatedAt` watermark; never removes deleted or archived items |
 | [beads](https://github.com/gastownhall/beads) | reject | MIT (2026-11-06 note) | Dolt database store; an upgrade that forced Dolt broke one user's setup (docs only) |
 | [claude-task-master](https://github.com/eyaltoledano/claude-task-master) | reject | MIT plus Commons Clause (2026-11-06 note) | License |
 | [imdone-cli](https://www.npmjs.com/package/imdone-cli), [AgiFlow po](https://github.com/AgiFlow/po), [agent-kanban](https://github.com/saltbo/agent-kanban) | reject | Proprietary, BUSL-1.1, FSL-1.1 (registry or badge pointers) | License |
@@ -188,7 +205,9 @@ About 245 further candidate records were judged variants or not serious; one of 
 - [orbit](https://github.com/rcmendes/orbit): tasks on an orphan branch, pre-alpha;
 - [knots](https://github.com/acartine/knots): an event log plus a SQLite cache;
 - [tkt](https://github.com/smileynet/tkt): every write is a commit, and a push is the claim;
-- [crosslink](https://github.com/forecast-bio/crosslink), [kyosei](https://github.com/jbmv/kyosei) and [markplane](https://github.com/zerowand01/markplane): their mechanisms are covered by the finalists.
+- [crosslink](https://github.com/forecast-bio/crosslink) and [kyosei](https://github.com/jbmv/kyosei): their mechanisms are covered by the finalists.
+
+**Rust.** About 30 Rust trackers were seen, among them [clove](https://github.com/egeapak/clove), [git-task](https://github.com/jhspetersson/git-task), [tkt](https://github.com/smileynet/tkt), [crosslink](https://github.com/forecast-bio/crosslink), [markplane](https://github.com/zerowand01/markplane), [grite](https://github.com/neul-labs/grite) and [doctrine](https://github.com/davidlee/doctrine). None ranks near Backlog.md or pm-cli. The nearest, clove and markplane, both reject or drop unknown frontmatter keys, so pieces A and B would need a fork of either.
 
 **Matrix, stores.** Symbols: ✓ native, ◐ partial, ⊕ extensible, ✗ unsupported, ? unverified. H marks hard criteria. Cells rest on the source readings under Limitations, and "(snippet)" marks a reading at snippet depth.
 
@@ -212,16 +231,16 @@ R9 (cross-repo) is unsupported in all eight beyond reading another directory; th
 
 **Matrix, sync (U5):**
 
-| Criterion | [ADLC](https://github.com/voodootikigod/adlc) ticket-sync | [gh-issue-sync](https://github.com/mitsuhiko/gh-issue-sync) | [gitpm](https://github.com/yevheniidehtiar/gitpm) | [pm-github](https://github.com/unbraind/pm-github) | [pm-jira](https://github.com/unbraind/pm-jira) | [git-task](https://github.com/jhspetersson/git-task) |
-|---|---|---|---|---|---|---|
-| Direction | both (Issues) | both (GitHub) | both (5 trackers) | both: import updates title, body and assignee; `sync` pushes status only | Jira to pm create-only; push | both, last writer wins |
-| Conflict detection | ◐ three-way on structured fields; title and body remote-wins | ◐ per field on push; pull skips edited files | ✗ whole entity; `ask` discards the answers | ✗ | ✗ | ✗ |
-| Base advanced only on success | ✓ | ✗ failed edits recorded as synced | ◐ checkpoint file | n/a (no watermark) | n/a (no watermark) | n/a (no watermark) |
-| Errors vs deletions | ✓ refuses truncated listings | ✗ no 301/404/410 handling | ✗ any error cancels the task | ? | ✗ | ✗ |
-| Comments | ✗ | ◐ create-only, queued | ✗ | ◐ | ✗ | ◐ remote replaces the local list |
-| Native sub-issues and blocked-by | ✗ | ◐ push replaces the remote link set | ✗ | ✗ | ✗ | ◐ sub-issues |
-| Projects v2 fields | ✗ | ✗ membership only | ✗ stubs | ◐ status only | n/a | ✗ |
-| Rate limits | ✗ | ✗ | ◐ only when a successful response shows zero remaining | ✓ | ✗ | ✗ |
+| Criterion | [clove](https://github.com/egeapak/clove) | [ADLC](https://github.com/voodootikigod/adlc) ticket-sync | [gh-issue-sync](https://github.com/mitsuhiko/gh-issue-sync) | [gitpm](https://github.com/yevheniidehtiar/gitpm) | [pm-github](https://github.com/unbraind/pm-github) | [pm-jira](https://github.com/unbraind/pm-jira) | [git-task](https://github.com/jhspetersson/git-task) |
+|---|---|---|---|---|---|---|---|
+| Direction | both (GitHub) | both (Issues) | both (GitHub) | both (5 trackers) | both: import updates title, body and assignee; `sync` pushes status only | Jira to pm create-only; push | both, last writer wins |
+| Conflict detection | ◐ per issue; the default `newer` policy overwrites the whole losing side | ◐ three-way on structured fields; title and body remote-wins | ◐ per field on push; pull skips edited files | ✗ whole entity; `ask` discards the answers | ✗ | ✗ | ✗ |
+| Base advanced only on success | ✓ per item; the base file is gitignored | ✓ | ✗ failed edits recorded as synced | ◐ checkpoint file | n/a (no watermark) | n/a (no watermark) | n/a (no watermark) |
+| Errors vs deletions | ◐ a missing issue is reported, never acted on; no 301/404/410 handling; a local delete is undone by the next sync | ✓ refuses truncated listings | ✗ no 301/404/410 handling | ✗ any error cancels the task | ? | ✗ | ✗ |
+| Comments | ✓ both ways, including edits and deletions | ✗ | ◐ create-only, queued | ✗ | ◐ | ✗ | ◐ remote replaces the local list |
+| Native sub-issues and blocked-by | ✗ carried in an HTML comment in the body | ✗ | ◐ push replaces the remote link set | ✗ | ✗ | ✗ | ◐ sub-issues |
+| Projects v2 fields | ✗ | ✗ | ✗ membership only | ✗ stubs | ◐ status only | n/a | ✗ |
+| Rate limits | ◐ retries on 429 and 5xx, ignores Retry-After; the full listing isn't retried | ✗ | ✗ | ◐ only when a successful response shows zero remaining | ✓ | ✗ | ✗ |
 
 **Blends considered:**
 
@@ -355,6 +374,21 @@ Readings are from shallow clones at the commits named; nothing was installed, bu
 - Demoting agent evidence in pairwise comparisons is off by default. When it is on, agent rows still move bounds, placement and the question queue. *Verified in source* (`src/priority/config.rs:185-204,286`, `src/priority/surface.rs:730-846`).
 - `install` writes `.gitignore`, CLAUDE.md, AGENTS.md, `.claude/` skills, SessionStart hooks in `.claude/settings.json`, `.mcp.json`, and Codex and pi config. After asking, it registers an MCP server in `~/.codex/config.toml`. *Read at snippet depth* (`src/install.rs:520-523,2955-2966,7947-7962`, `src/codex_mcp.rs:1-17`).
 
+**[clove](https://github.com/egeapak/clove)** (at d0b1333):
+- Items and their comments are committed Markdown files under `.clove/issues/`; the SQLite index and the sync base are gitignored. Frontmatter has `deny_unknown_fields`, with no extras map. *Verified in source* (`model.rs:170-216`, `model.rs:181`).
+- An item's sync fingerprint is recorded only after its write succeeds; 401, 403, 408, 429, 5xx and network errors abort the run. The comment watermark advances only when every comment write landed. *Verified in source* (`sync_net.rs:146-205,352-378,1213-1220`).
+- Conflicts are detected per issue, and the winning side's whole payload overwrites the other. A pull sets priority from the body's metadata comment and defaults it to 2 when the comment is missing. *Verified in source* (`sync.rs:1464-1628`, `sync_net.rs:477-487`, `github.rs:279-282`).
+- `clove delete` removes the file with no tombstone, and the next sync re-creates the item from GitHub. *Verified in source* (`store.rs:371-410`, `sync.rs:1446-1457`).
+- `clove setup` merges entries into `.mcp.json` and `.claude/settings.json`, writes `.claude/CLOVE.md` and appends an import to `.claude/CLAUDE.md`; `--global` does the same under `~/.claude/`. `init --merge-driver` appends a stanza to `.git/config`. *Verified in source* (`setup.rs:176-232,380-450`, `init.rs:99-128`).
+
+**[ticket (`tk`)](https://github.com/wedow/ticket)** (at 194b71a): its only git call reads `user.name` for the default assignee, and each update rewrites one key with sed, so unknown keys survive. `dep` adds a cycle without refusing it, and `ready` still lists in-progress tickets. *Verified in source* (`ticket:142-234,490-741`).
+
+**[ccpm](https://github.com/automazeio/ccpm)** (at 0bcfabb): it is an agent skill, so these are the instructions agents are given, not code that enforces them. "Merge the epic" checks out `main`, merges the epic branch and pushes `main`. Nothing pulls GitHub's state back into the task files, and no task schema has a priority field. *Verified in source* (`sync.md:112-116,215-254`, `conventions.md:57-98`).
+
+**[markplane](https://github.com/zerowand01/markplane)** (at e408c34): items are parsed into typed structs and written back from them, so unknown frontmatter keys are dropped on every rewrite. Its MCP `markplane_update` and `markplane_move` change priority and position with no guard, and `start` takes no lock. It runs no git. *Verified in source* (`frontmatter.rs:56-84`, `mcp/tools.rs:732-871`, `crates/markplane-cli/src/commands/start.rs:1-41`).
+
+**[Plane Compose](https://pypi.org/project/plane-compose/)** (0.5.2 source package): `pull` is a full refresh of every work item with its relations and no comments. Push compares each item's remote hash with the last-synced hash and prompts, but skips the check on a hash-version mismatch, with `--no-conflict-check`, or under `--force` or `--json`. The code that would turn a local deletion into a remote one has no caller. *Verified in source* (`pull.py:37-695`, `sync/planner.py:212-340`, `cli/push.py:124-126,437-449`).
+
 **Native features** (docs only):
 - **Claude Code:** task tools store lists under `~/.claude/tasks/`, support dependencies and have no owner field. SessionStart hook output is capped at 10,000 characters. A subagent's model can be set per invocation.
 - **GitHub:** sub-issues (100 per parent, 8 levels), blocked-by dependencies, issue types and typed issue fields, including Priority. `gh` gained flags for these in 2.94.0. Projects v2 has no dependency-graph view.
@@ -426,7 +460,8 @@ No paper found studies an LLM prioritizing a backlog under human authority.
 | Codeberg search | unavailable | Rate limit: HTTP 429 with no Retry-After in rounds 1, 2 and 5, after a retry each time |
 | npm | searched | About 25 searches and 45 package documents, e.g. "task tracker agents", "backlog markdown", "jira sync", "agent task claim" |
 | PyPI | searched | Through libraries.io (the search page returns a JavaScript challenge), plus 15 package lookups |
-| crates.io | searched | About 15 keyword and crate lookups, e.g. "issue tracker", "jira sync", "task dependency graph agent" |
+| crates.io | searched | About 15 keyword and crate lookups, e.g. "issue tracker", "jira sync", "task dependency graph agent"; then a Rust sweep of the keywords issue-tracker, kanban, gtd, project-management, todo, tasks and task, plus GitHub `language:rust` searches |
+| lib.rs | unavailable | It answers even its robots.txt with a Cloudflare challenge, which wasn't worked around; crates.io keywords and libraries.io's Cargo search covered the same crates |
 | Language registries | searched | Go: pkg.go.dev searches and module-proxy version lists for 9 modules. RubyGems: 7 queries, e.g. "issue tracker", "kanban", "backlog" |
 | libraries.io | searched | About 35 searches across PyPI, npm, Cargo and Go, sorted by latest release, e.g. "humans agents tasks", "two-way sync issues", "definition of ready"; its dependents endpoint is disabled |
 | Homebrew formulae | searched | The formula list grepped for task, todo, kanban, backlog, issue, ticket, jira and tracker |
@@ -438,7 +473,7 @@ No paper found studies an LLM prioritizing a backlog under human authority.
 | Awesome lists | searched | awesome-cli-coding-agents, awesome-claude-code, awesome-software-factories (about 110 orchestrators), awesome-mcp-servers (empty response) |
 | alternativeto.net | unavailable | It answers automated clients with a Cloudflare challenge; "alternatives to" web searches substituted |
 | General web search | searched | About 75 queries, e.g. "two-way sync markdown files GitHub issues conflict", "Show HN git-based issue tracker for AI coding agents", "task tracker suggests which LLM model per task" |
-| Hosted services | searched | Linear, Jira with Rovo, GitHub Copilot assignment and approvals, Plane, Unito, ONES (vendor docs; limitations docs only) |
+| Hosted services | searched | Linear, Jira with Rovo, GitHub Copilot assignment and approvals, Plane, Unito, ONES (vendor docs; limitations docs only). Then server-first and self-hosted trackers judged by their local copies: Plane and Plane Compose, Redmine, Taiga, YouTrack, OpenProject, Vikunja, Huly, Forgejo and Gitea, GitLab, Fossil, Radicle, TaskChampion, local-first CRDT trackers, and Linear and Jira mirrors and data-pipeline tools (Airbyte, dlt, Steampipe) |
 | Skill directories | searched | skills.sh: 26 searches and 59 detail pages, e.g. "backlog", "ready queue", "claim task" |
 | Claude Code plugin marketplaces | searched | The official marketplace file (317 plugins) grepped; only hosted-tracker connectors matched |
 | MCP Registry | searched | 21 one-word queries, e.g. tasks, kanban, planner, orchestrator, claim |
@@ -465,6 +500,8 @@ No paper found studies an LLM prioritizing a backlog under human authority.
 3. **Round 3** (seeded from round 2's novel finds only): added [beadhive](https://github.com/beadhive/beadhive), [hve-core](https://github.com/microsoft/hve-core)'s backlog skills and [software-factory](https://github.com/musicofhel/software-factory). It found nothing for a human-owned priority stored in repo files, or for a granularity check.
 4. **Round 4** (seeded from round 3's novel finds): added [doctrine](https://github.com/davidlee/doctrine) (shortlist; read in source afterwards), [mem](https://github.com/nicsuzor/mem) and [bmad-loop](https://github.com/bmad-code-org/bmad-loop).
 5. **Round 5** (seeded from round 4's finds, plus one route not searched before): added [agent-preflight](https://github.com/jawnty/agent-preflight) and [lattice](https://github.com/salahmyn/lattice) as sources of ideas. It confirmed that nothing found protects a human-set priority in repo files, or statically flags mixed human and agent work.
+
+6. **Follow-up checks (2026-11-13),** after the developer asked about Rust trackers and server-first trackers with local caches: a Rust sweep, server and self-hosted trackers with their mirrors, decentralized trackers (Radicle, TaskChampion, Fossil, git-bug), Taiga and YouTrack, and a README read of every candidate that had been tagged from a search listing alone. They added [clove](https://github.com/egeapak/clove) (read in source: the most complete two-way sync found, which round 1 had tagged from a listing alone), [Plane Compose](https://pypi.org/project/plane-compose/), Redmine's role-based read-only fields, and two candidates with real adoption that had been missed, [ticket (`tk`)](https://github.com/wedow/ticket) and [ccpm](https://github.com/automazeio/ccpm), both read in source. None changed the verdict.
 
 The search stopped after round 5, short of the 10-round cap. Round 5 added no candidate that could change the shortlist, but it still added candidates worth borrowing ideas from, so the skill's own stop rule (a round with no new serious candidate) wasn't met. This stop follows the rule proposed in #159 instead. Open leads:
 - [issync](https://github.com/jasonmadigan/issync) (claims Projects v2 field sync with conflict detection; no license file) and [gh-md](https://github.com/jackchuka/gh-md) (pushes edited comments, won't push over a newer remote), at README depth;
