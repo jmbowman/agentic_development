@@ -50,6 +50,11 @@ run = "uv run --locked pytest"
 [tasks.eval]
 run = "uv run --locked scripts/run_evals.py"
 
+# Imports every interactive scenario without running one: scenarios are paid model runs.
+[tasks.collect-scenarios]
+depends = ["sync"]
+run = "uv run --locked python scripts/collect_scenarios.py"
+
 [tasks.lid]
 run = "lidc check --only reverse-orphan,coverage,spec-id-format --fail-on warning"
 
@@ -71,4 +76,4 @@ run = ["ruff check --fix", "ruff format"]
 run = "prek run -c .config/prek.toml --all-files"
 
 [tasks.check]
-depends = ["lint", "typecheck", "test", "lid", "conflicts"]
+depends = ["lint", "typecheck", "test", "collect-scenarios", "lid", "conflicts"]

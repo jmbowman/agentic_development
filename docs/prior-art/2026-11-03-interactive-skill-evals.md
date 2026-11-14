@@ -130,6 +130,48 @@ Could not verify:
 
 Round 3 added no candidate that passes the hard criteria and handles the question tool, so the search stopped there.
 
+## Refresh, 2026-11-13: test-framework plugins
+
+- **Effort:** quick pass. The question was whether a pytest plugin (or a plugin for another language's test framework) now does this job, which the first search didn't target. It bears on whether the harness should be published as its own package.
+- **Already known:** the developer knew of no such plugin and expected none to exist.
+
+**Verdict: the blend above stands.** No test-framework plugin found drives Claude Code through several turns *and* answers its question dialogs. The closest one, [pytest-skillcheck](https://github.com/wiltaylor/pytest-skillcheck), does multi-turn runs by resuming `claude -p` with a plain-text reply at each hand-back. It is a source of ideas and a possible upstream home, not a base.
+
+| Candidate | Class | License (file:line at commit) | Reason |
+|---|---|---|---|
+| [pytest-skillcheck](https://github.com/wiltaylor/pytest-skillcheck) | borrow ideas | MIT (`LICENSE:1` at 4f9be1b) | A pytest plugin that runs real agent CLIs (Claude Code, Codex, opencode, Droid) on a throwaway workspace, with `answers=` given as a list, a mapping or a callable. Each answer is a new `claude -p … --resume <session>` turn, run with `--dangerously-skip-permissions` (`src/skillcheck/harnesses.py:730-777`, `:792-813`). So it answers plain-text hand-backs, not dialogs, and it can't gate tools. `src/` mentions neither `AskUserQuestion` nor `--plugin-dir` (grep over `src/`); skills are copied into `.claude/skills`. Worth borrowing: per-turn workspace snapshots, fake `gh` and `curl` binaries that log calls, cassette replay, a linter, PEP 723 test files, and credentials symlinked into a throwaway `CLAUDE_CONFIG_DIR` (`:531-544`, `:787-789`). One author, last push 2026-09-03. Harnesses plug in by subclassing `Harness` |
+| [pytest-copilot](https://github.com/sbroenne/pytest-skill-engineering) (repository `pytest-skill-engineering`) | borrow ideas | MIT (`LICENSE:1` at d853cfc) | Drives the GitHub Copilot SDK (`pyproject.toml:33`). Its `ClaudeCodePersona` only adds a system message and `CLAUDE.md` to a Copilot session (`src/pytest_copilot/copilot/personas.py:202-226`), so Claude Code itself never runs. Worth borrowing: a `session` marker that chains tests into one conversation (`src/pytest_copilot/plugin.py:116-117`), a JSON evidence file, and a pricing table |
+| [pytest-claude-agent-sdk](https://github.com/amyodov/pytest-claude-agent-sdk) | reject | MIT (`LICENSE:1` at 0cce412) | A spy around the one-shot `query()` (`pytest_claude_agent_sdk/spy.py:84-112`): no `ClaudeSDKClient`, no `can_use_tool` (grep over the package) |
+| [pytest-agent-eval](https://github.com/datarootsio/pytest-agent-eval) | reject | MIT (`LICENSE:1` at 528d737) | Multi-turn transcripts of fixed user turns against an async callable (`src/pytest_agent_eval/models.py:144`). It has no adapter for Claude Code and no channel for answering the agent's questions |
+| [Harbor](https://github.com/harbor-framework/harbor) simulated users | reject | Apache-2.0 (`LICENSE:1` at 3cb6273) | Runs Claude Code over ACP in containers, with an LLM user. Permission requests are answered by `acpx`'s fixed policy while the user agent waits, so they can't be scripted per request (`src/harbor/agents/installed/acp_runner.py:329-355`; `rfcs/0002-simulated-users-patch.md:85-100`) |
+
+**Seen, not classified:**
+- [pytest-conversational](https://github.com/golikovichev/pytest-conversational): rule-based dialogue tests through a bot adapter.
+- [pytest-agentprobe](https://github.com/ashutosh-rath02/agentprobe): record and replay of Anthropic API calls.
+- [skillprobe](https://github.com/Anyesh/skillprobe): YAML scenarios that run Claude Code and Cursor as subprocesses; last push 2026-04-12.
+- [skilled](https://github.com/DeadHead04/skillEd): a TypeScript CLI and MCP server for skill evals.
+- [Agent-EvalKit](https://github.com/awslabs/Agent-EvalKit): plans and runs agent evaluations from a coding assistant.
+
+**Anthropic's own tools:**
+- [The plugin-evals docs](https://code.claude.com/docs/en/plugin-evals) say each run is a fresh, non-interactive session that "never stop[s] to ask for permission". `AskUserQuestion` can be allowed, but nothing scripts its answers. `context.history_file` still gives only one new turn.
+- [The Agent SDK's user-input docs](https://code.claude.com/docs/en/agent-sdk/user-input) document `can_use_tool` for `AskUserQuestion`, but no testing helper.
+
+**Ledger for this refresh:**
+
+| Route | State | Queries or reason |
+|---|---|---|
+| PyPI | searched | The simple index filtered to `pytest*` names containing `claude`, `agent`, `llm`, `eval`, `copilot`, `skill`, `conversation`, `anthropic` or `mcp` (54 packages), and each one's summary read through the JSON API |
+| GitHub repository search | searched | "pytest claude"; "pytest agent eval"; "pytest claude-agent-sdk"; "claude code skill test"; "skill eval multi-turn"; "AskUserQuestion"; snowball from pytest-skillcheck: "test skills real coding agent cli pytest"; "skill test harness claude codex opencode"; "agent skill regression test resume session answers" |
+| GitHub topics | searched | `skill-testing`; `agent-skills-testing`; `claude-code-testing` (the last two empty) |
+| npm and other test frameworks | searched | Web search for vitest or jest plugins that test Claude Code skills with `canUseTool`: only skills that help write unit tests |
+| General web search | searched | "pytest plugin Claude Code agent SDK testing"; "pytest plugin evaluate coding agent multi-turn simulated user"; "`can_use_tool` AskUserQuestion test harness scripted answers"; "test Claude Code skills interactive evals harness multi-turn 2026"; "`ClaudeSDKClient` pytest fixture multi-turn `can_use_tool`" |
+| The stack itself | searched | `claude plugin eval --help` on 2.1.325; the plugin-evals docs; the Agent SDK user-input docs |
+| aitoolnet.com | unavailable | Its search URL returned 404. Through curl the home page answered 200, but WebFetch got 403, so its listings couldn't be read. A site-restricted web search found no aitoolnet pages |
+| alternativeto.net | unavailable | HTTP 403 on fetch, again after a 15-second retry. A site-restricted web search returned only the Claude Code alternatives list, which holds coding assistants, not test tools |
+| Literature | excluded | Quick pass. Multi-turn benchmarks for coding agents (SWE-DIVE, EvoCode-Bench, MTAC-IFBench) turned up in web search, but they evaluate models, not a skill's dialog handling |
+
+Snowball: round 1 found pytest-skillcheck; round 2 used its vocabulary and topics, and added skillprobe and skilled as seen but no new serious candidate.
+
 ## Refresh trigger
 
 When `claude plugin eval` gains multi-turn cases or question-tool answers, or the Python Agent SDK gains a documented preview option.
