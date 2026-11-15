@@ -24,8 +24,9 @@ lifecycle into one system a single developer can drive, and to build only what's
   template renders the baseline into each repo. When the template, workflow or preset changes,
   [Renovate](https://docs.renovatebot.com) opens an update pull request, which merges by itself
   once CI passes. Raising the bar means changing one repo, not every repo. The exception is a
-  new LID version: its update fails `check` until someone runs LID's `/update-lid` on the
-  update's branch, because the design docs need walking to the new version.
+  new LID minor or major version: its update fails `check` until someone runs LID's
+  `/update-lid` on the update's branch, because the design docs need walking to the new
+  version. A LID patch release asks nothing of a project, so it merges like any other update.
 - **Strict by default, with exceptions you can count.** Checks start as strict as each tool
   allows (for Python, every ruff rule and every ty rule as an error). Each relaxation is a named
   exception that a task lists, so a repo's divergence is visible and can be paid down.

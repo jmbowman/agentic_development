@@ -23,9 +23,10 @@
   ],
   "packageRules": [
     {
-      "description": "LID plugin pins need a manual /update-lid walk on the update's branch before merging.",
+      "description": "LID minor and major bumps need a manual /update-lid walk on the update's branch before merging; patches ask nothing of a project.",
       "matchManagers": ["apm"],
       "matchPackageNames": ["jszmajda/lid"],
+      "matchUpdateTypes": ["minor", "major"],
       "automerge": false
     },
     {

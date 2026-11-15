@@ -1,6 +1,6 @@
 # LID feedback
 
-Suggestions for [LID](https://github.com/jszmajda/lid) (in use at v1.4.0), mostly about decision docs. The evidence is in [the decision-records note](../prior-art/2026-11-06-decision-records-and-lid.md). Related open upstream threads:
+Suggestions for [LID](https://github.com/jszmajda/lid) (in use at v1.4.5; the evidence below was gathered at v1.4.0), mostly about decision docs. The evidence is in [the decision-records note](../prior-art/2026-11-06-decision-records-and-lid.md). Related open upstream threads:
 - [#39](https://github.com/jszmajda/lid/issues/39): tenets in the instruction file.
 - [#79](https://github.com/jszmajda/lid/issues/79): an eval for offering decision docs.
 - [#90](https://github.com/jszmajda/lid/issues/90): a table of pending decisions at each stop.

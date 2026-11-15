@@ -430,8 +430,6 @@ def lid_version_problems(agents_md: str, lock: dict[str, Any]) -> list[str]:
     if len(entries) != 1:
         return [f"apm.lock.yaml has {len(entries)} LID entries, not exactly one"]
     locked = entries[0].get("version")
-    if not isinstance(locked, str):
-        return [f"apm.lock.yaml's LID version {locked!r} isn't a string"]
     lines = agents_md.splitlines()
     starts = [i for i, line in enumerate(lines) if line == "## LID"]
     if len(starts) != 1:
@@ -446,17 +444,57 @@ def lid_version_problems(agents_md: str, lock: dict[str, Any]) -> list[str]:
     ]
     if len(versions) != 1:
         return [f"AGENTS.md's `## LID` block has {len(versions)} `- Version:` bullets, not one"]
-    if versions[0] != locked:
+    recorded = versions[0]
+    problems = unreadable_versions(recorded, locked)
+    if problems or not isinstance(locked, str):
+        return problems
+    if major_minor(recorded) != major_minor(locked):
         return [
             (
-                f"AGENTS.md records LID {versions[0]}, but apm.lock.yaml pins LID {locked}: "
-                f"run /update-lid to walk the docs to {locked}"
+                f"AGENTS.md records LID {recorded}, but apm.lock.yaml pins LID {locked}: "
+                "run /update-lid"
             )
         ]
     return []
 
 
-# @spec SETUP-GATE-001, SETUP-GATE-002, SETUP-GATE-003, SETUP-GATE-004
+def unreadable_versions(recorded: str, locked: object) -> list[str]:
+    """Return one message for each of the two LID versions that has no major.minor.
+
+    Args:
+        recorded: The `- Version:` bullet in `AGENTS.md`.
+        locked: The `version` of LID's lock entry, as YAML parsed it.
+
+    Returns:
+        One message per unreadable version; empty when both are readable.
+    """
+    problems = []
+    if major_minor(recorded) is None:
+        problems.append(f"AGENTS.md's LID version {recorded!r} has no major.minor")
+    if not isinstance(locked, str):
+        problems.append(f"apm.lock.yaml's LID version {locked!r} isn't a string")
+    elif major_minor(locked) is None:
+        problems.append(f"apm.lock.yaml's LID version {locked!r} has no major.minor")
+    return problems
+
+
+MAJOR_MINOR = re.compile(r"([0-9]+)\.([0-9]+)(?:\.|\Z)")
+
+
+def major_minor(version: str) -> str | None:
+    """Return a version's first two dot-separated parts, as text, or None if it has none.
+
+    Args:
+        version: A version as written, such as `1.4.0`, `1.4` or `1.5.0-rc.1`.
+
+    Returns:
+        The major and minor parts (`1.4` for `1.4.0`); None for `v1.4.0`, `1` or `1.4-rc`.
+    """
+    match = MAJOR_MINOR.match(version)
+    return f"{match[1]}.{match[2]}" if match else None
+
+
+# @spec SETUP-GATE-001, SETUP-GATE-002, SETUP-GATE-003, SETUP-GATE-004, SETUP-GATE-005
 def test_lid_version_matches_the_lock() -> None:
     """The docs conform to the LID release whose skills are installed."""
     problems = lid_version_problems(AGENTS_MD.read_text(), _lock())
@@ -481,18 +519,68 @@ def test_gate_passes_matching_versions() -> None:
 
 
 # @spec SETUP-GATE-001
-def test_gate_names_both_versions_and_the_walk() -> None:
-    """A LID bump without its walk fails, saying what to run."""
-    (problem,) = lid_version_problems(GOOD_AGENTS_MD, _lid_lock("1.5.0"))
-    assert "1.4.0" in problem
-    assert "1.5.0" in problem
-    assert "/update-lid" in problem
+@pytest.mark.parametrize(
+    ("recorded", "locked"),
+    [("1.4.0", "1.4.5"), ("1.4", "1.4.5"), ("1.4.5", "1.4.0"), ("1.5.2", "1.5.0-rc.1")],
+    ids=["patch-bump", "no-patch-part", "older-patch", "pre-release"],
+)
+def test_gate_passes_a_patch_difference(recorded: str, locked: str) -> None:
+    """LID treats a patch difference as current, and so does the gate."""
+    agents_md = GOOD_AGENTS_MD.replace("1.4.0", recorded)
+    assert lid_version_problems(agents_md, _lid_lock(locked)) == []
 
 
 # @spec SETUP-GATE-001
-def test_gate_compares_versions_as_written() -> None:
-    """A version YAML reads as a number can't pass by coincidence."""
-    assert lid_version_problems(GOOD_AGENTS_MD.replace("1.4.0", "1.4"), _lid_lock(1.4))
+@pytest.mark.parametrize(
+    ("recorded", "locked"),
+    [
+        ("1.4.0", "1.5.0"),
+        ("1.4.0", "2.4.0"),
+        ("1.4.0", "1.3.9"),
+        ("1.4.0", "1.5.0-rc.1"),
+        ("01.4.0", "1.4.1"),
+        ("1.4.0", "1.40.0"),
+    ],
+    ids=["minor-bump", "major-bump", "bullet-newer", "pre-release", "as-text", "not-a-prefix"],
+)
+def test_gate_names_both_versions_and_the_walk(recorded: str, locked: str) -> None:
+    """A minor or major difference fails, naming both versions as written and what to run."""
+    agents_md = GOOD_AGENTS_MD.replace("1.4.0", recorded)
+    (problem,) = lid_version_problems(agents_md, _lid_lock(locked))
+    assert recorded in problem
+    assert locked in problem
+    assert "/update-lid" in problem
+
+
+# @spec SETUP-GATE-005
+@pytest.mark.parametrize("version", ["v1.4.0", "1", "1.4-rc", "1.x"], ids=str)
+def test_gate_rejects_a_version_without_a_major_minor(version: str) -> None:
+    """Two equal but unreadable versions still fail, naming the version."""
+    agents_md = GOOD_AGENTS_MD.replace("1.4.0", version)
+    problems = lid_version_problems(agents_md, _lid_lock(version))
+    assert problems
+    assert version in "\n".join(problems)
+
+
+# @spec SETUP-GATE-005
+def test_gate_names_each_unreadable_version() -> None:
+    """One run shows every version that needs fixing."""
+    agents_md = GOOD_AGENTS_MD.replace("1.4.0", "v1.4.0")
+    report = "\n".join(lid_version_problems(agents_md, _lid_lock("x1.4")))
+    assert "v1.4.0" in report
+    assert "x1.4" in report
+
+
+# @spec SETUP-GATE-005
+@pytest.mark.parametrize(
+    "locked", [1.4, None, "1.4\n"], ids=["yaml-number", "missing", "trailing-newline"]
+)
+def test_gate_needs_a_readable_lock_version(locked: float | str | None) -> None:
+    """A lock version YAML reads as a number, or with a newline, can't pass by coincidence."""
+    agents_md = GOOD_AGENTS_MD.replace("1.4.0", "1.4")
+    (problem,) = lid_version_problems(agents_md, _lid_lock(locked))
+    assert problem.startswith("apm.lock.yaml")
+    assert repr(locked) in problem
 
 
 # @spec SETUP-GATE-002
