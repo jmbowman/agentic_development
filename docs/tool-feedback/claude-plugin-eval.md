@@ -34,3 +34,15 @@ Claude Code's plugin eval runner (`claude plugin eval`), which this repo uses fo
 - **Evidence:** `claude plugin eval --help`, Claude Code 2.1.319.
 - **Suggested fix:** a `--results-dir <path>` option.
 - **Raised upstream:** no.
+
+## The sandboxed shell can't write anywhere when the run's temp directory is under /tmp
+
+- **Where:** the sandbox settings the runner writes for each run (`<run temp>/config/settings.json`), Claude Code 2.1.325.
+- **What:** the runner makes each run's home and temp directories under `/tmp/claude-eval-*/` and lists them in `sandbox.filesystem.allowWrite`. It also lists `//tmp` in `denyWrite`, and the deny wins. So every Bash write fails with `Read-only file system`: the run's home, its temp directory, the case's workspace, and even Claude Code's own cwd-tracking file. Only the Write and Edit tools, which run outside the shell sandbox, can write. Any skill that needs a scratch file from the shell (a cache, a download, a run directory) can't work in an eval run.
+- **Evidence:** two `harvester-literature` runs on 2026-11-15 (`/tmp/claude-eval-YSJNnV`, `/tmp/claude-eval-qxyojJ`).
+  - In each, `mkdir` failed with `Read-only file system`: under `home/.cache`, under the run's temp directory, and under `tmp/` in the workspace, its current directory.
+  - The second run's `config/settings.json` has `allowWrite: ["//tmp/claude-eval-qxyojJ/home", "//tmp/claude-eval-qxyojJ/tmp"]` and `denyWrite` starting `["//tmp", "//var/tmp", "//dev/shm", …]`.
+  - The Write tool saved the note in the workspace both times.
+- **Suggested fix:** leave the run's own directories out of the `/tmp` deny (deny `/tmp` except the run directory), or create the run directory outside `/tmp`, and say in `--help` which paths a case's shell can write.
+- **Workaround:** run the runner with `TMPDIR` pointing outside `/tmp`. It builds the run directory from `os.tmpdir()`, so the run then lands outside the `//tmp` deny, and the shell can write in it. This worked on 2026-11-15 (`TMPDIR=~/.cache/agentic-development/eval-tmp`, run `claude-eval-JGSmlT`).
+- **Raised upstream:** no.

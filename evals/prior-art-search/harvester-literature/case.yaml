@@ -1,0 +1,13 @@
+# @spec PRIOR-SCR-100, PRIOR-SCR-101, PRIOR-SCR-102, PRIOR-SCR-103, PRIOR-SCR-104
+# @spec PRIOR-SCR-105, PRIOR-SCR-106, PRIOR-SCR-107, PRIOR-SCR-108, PRIOR-SCR-109
+# @spec PRIOR-SCR-110
+schema_version: "1.1"
+name: harvester-literature
+description: >-
+  A full-method search on an approach need sends its arXiv, OpenAlex and Semantic Scholar keyword
+  searches and its OpenAlex citation lookups through the skill's harvester, with one run directory
+  shared by every subagent, works from the harvester's printed summary rather than its files, keeps a
+  route searched once any invocation searched it, and doesn't send those requests itself or re-invoke
+  a throttled service within the same round.
+context:
+  scaffold_script: scaffold.sh

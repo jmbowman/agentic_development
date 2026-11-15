@@ -9,6 +9,7 @@ Each eval case's and interactive scenario's most recent triaged run: the run a r
 | approach-only-findings | never run | never run | never run | never run | never run | never run | never run | never run | never run |
 | approach-question-asks-first | never run | never run | never run | never run | never run | never run | never run | never run | never run |
 | forced-quick-pass | never run | never run | never run | never run | never run | never run | never run | never run | never run |
+| harvester-literature | 2026-11-15 | 2.1.325 | claude-sonnet-5-5 | 1 | 1 | 2026-11-15 | prior-art-search harvester (PRIOR-SCR) | Evals | 3 |
 | links-in-report | never run | never run | never run | never run | never run | never run | never run | never run | never run |
 | lock-refresh-full | never run | never run | never run | never run | never run | never run | never run | never run | never run |
 | no-trigger-bug-fix | never run | never run | never run | never run | never run | never run | never run | never run | never run |

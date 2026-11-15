@@ -169,8 +169,12 @@ def test_reference_file_exists(name: str) -> None:
 
 # @spec PRIOR-PKG-007
 def test_skill_text_has_no_spec_annotations() -> None:
-    """Annotations in skill text would load into the agent's context on every run."""
-    annotated = [p for p in SKILL.rglob("*") if p.is_file() and "@spec" in p.read_text()]
+    """Annotations in skill text would load into the agent's context on every run.
+
+    Scripts the skill runs aren't loaded as text, so they carry `@spec` like other code.
+    """
+    text = [SKILL_MD, *(p for p in REFERENCES.rglob("*") if p.is_file())]
+    annotated = [p for p in text if "@spec" in p.read_text()]
     assert not annotated, annotated
 
 
