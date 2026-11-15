@@ -38,7 +38,7 @@ Runner details worth knowing:
 - `--case` takes one name; given more than once, only the last applies. Loop over names to run several.
 - Each run gets its own sandboxed home and config directories, and its system prompt states a memory directory inside that sandbox. A case can't make a run with no memory location. The sandbox home is itself a git repo, so a case can't run outside git either.
 - `--keep-temp` keeps each run's directory; its `out/trace.jsonl` lists every tool call. The rest is sealed (mode 000); don't run git inside it.
-- `results/` folders are named by UTC time, so sort them by name, not by a date prefix.
+- `results/` folders are named by UTC time, so sort them by name, not by a date prefix; `docs/review-log.md` dates are local. Each runner invocation writes its own folder, and one folder can hold several runs (`.cases[].arms.with[]`), so total a wave by adding up its folders for each case, matched to the wave by run-time gaps and the row's text, not by date.
 - Without `--no-publish`, the report is published to claude.ai (private to you).
 - The default judge is Haiku; `--judge-model` changes it. `--model` sets the model under test.
 - A `tool_used` grader's "called Nx" counts only calls that match its `input_match`, so 0x doesn't show that the tool went unused or that the sandbox failed.
@@ -67,5 +67,6 @@ Each skill's `latest-results.md` has one row per eval case (and per interactive 
 - Before trusting a regex, test it against tool inputs from a real trace (`--keep-temp`), both a call it should catch and one it shouldn't.
 - Keep each `llm` grader to one or two checks. A long multi-clause grader gets noisy verdicts, especially under the Haiku judge; split it, or judge with `--judge-model claude-sonnet-5-5`.
 - Write the grader to accept every reading the spec allows, not just the one you expected.
+- Before calling a failing grader wrong, read the case's scaffold and any transcript or notes file it seeds, not only `prompt.md`: the session record can continue there (in `notes-compacted-transcript`, the developer's decline is a line in the scaffold's JSONL).
 - A scaffold must hold what its session record says was done, and what any notes file or transcript it seeds claims. The agent checks the repo, so a change the record claims and the scaffold lacks becomes a loose end, and it changes the report.
 - A prompt can't name an absolute path: the runner substitutes nothing in it, and a scaffold can't edit it. A case that needs a directory outside the repo seeds it in a gitignored folder of the workspace and names it relative to the workspace.
