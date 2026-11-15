@@ -38,12 +38,13 @@ SETUP-IGNORE-001 to SETUP-IGNORE-003 are verified with `git check-ignore` on the
 
 ## LID version gate
 
-"The `## LID` block" runs from a line that is exactly `## LID` to the next line starting with `#`. Versions are compared as strings, exactly as written.
+"The `## LID` block" runs from a line that is exactly `## LID` to the next line starting with `#`. A version's major.minor is its first two dot-separated parts, when each is one or more ASCII digits and the second is followed by a dot or the end of the version; the parts are compared as text. So `1.4.0`, `1.4` and `1.5.0-rc.1` have the major.minors `1.4`, `1.4` and `1.5`, while `v1.4.0`, `1` and `1.4-rc` have none.
 
-- [x] **SETUP-GATE-001**: While the `- Version:` bullet in the `## LID` block of this repo's `AGENTS.md` differs from the `version` of LID's lock entry, the LID version test shall fail with a message naming both versions and `/update-lid`.
+- [x] **SETUP-GATE-001**: While the major.minor of the `- Version:` bullet in the `## LID` block of this repo's `AGENTS.md` differs from the major.minor of the `version` of LID's lock entry, the LID version test shall fail with a message naming both versions as written and `/update-lid`.
 - [x] **SETUP-GATE-002**: If this repo's `apm.lock.yaml` has no LID's lock entry, or more than one, then the LID version test shall fail.
 - [x] **SETUP-GATE-003**: If this repo's `AGENTS.md` has no `## LID` block, or that block has no `- Version:` bullet, then the LID version test shall fail.
 - [x] **SETUP-GATE-004**: If this repo's `AGENTS.md` has more than one `## LID` block, or more than one `- Version:` bullet in that block, then the LID version test shall fail.
+- [x] **SETUP-GATE-005**: If the `version` of LID's lock entry in this repo's `apm.lock.yaml` isn't a string, or it or the `- Version:` bullet in the `## LID` block of this repo's `AGENTS.md` has no major.minor, then the LID version test shall fail with a message naming each unreadable version.
 
 ## Cloud-session hook
 

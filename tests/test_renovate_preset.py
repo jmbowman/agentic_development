@@ -70,8 +70,22 @@ UPDATE_TYPES = (
 
 
 def _is_lid_rule(rule: dict[str, Any]) -> bool:
-    return set(rule) - RULE_METADATA == {*LID, "automerge"} and all(
+    """Whether `rule` is the preset's LID automerge rule, whatever update types it names."""
+    return set(rule) - RULE_METADATA - {"matchUpdateTypes"} == {*LID, "automerge"} and all(
         rule[key] == value for key, value in LID.items()
+    )
+
+
+def _could_hold_a_lid_patch(rule: dict[str, Any]) -> bool:
+    """Whether `rule` disables automerge and its matchers admit a patch update of LID's pin."""
+    return (
+        rule.get("automerge") is False
+        and "apm" in rule.get("matchManagers", ["apm"])
+        and any(
+            _matches_package_name(pattern, "jszmajda/lid")
+            for pattern in rule.get("matchPackageNames", ["jszmajda/lid"])
+        )
+        and "patch" in rule.get("matchUpdateTypes", ["patch"])
     )
 
 
@@ -146,12 +160,28 @@ def test_resolved_config_automerges_everything_but_lid(resolved_config: dict[str
 
 @pytest.mark.renovate
 # @spec PRESET-AUTO-003
-def test_lid_pins_never_automerge(resolved_config: dict[str, Any]) -> None:
-    """The rule for LID plugin pins disables automerge."""
+def test_lid_minor_and_major_bumps_never_automerge(resolved_config: dict[str, Any]) -> None:
+    """The rule for LID plugin pins disables automerge for minor and major updates only."""
     assert any(
-        _is_lid_rule(rule) and rule["automerge"] is False
+        _is_lid_rule(rule)
+        and rule["automerge"] is False
+        and sorted(rule.get("matchUpdateTypes", [])) == ["major", "minor"]
         for rule in resolved_config["packageRules"]
     )
+
+
+@pytest.mark.renovate
+# @spec PRESET-AUTO-004
+def test_lid_patch_bumps_automerge(resolved_config: dict[str, Any]) -> None:
+    """No rule in the resolved config holds a patch update of LID's pin."""
+    assert resolved_config["automerge"] is True
+    assert resolved_config.get("patch", {}).get("automerge") is not False
+    assert resolved_config.get("apm", {}).get("automerge") is not False
+    for rule in _rules_setting(resolved_config, "automerge"):
+        patterns = [*rule.get("matchManagers", []), *rule.get("matchPackageNames", [])]
+        assert rule["automerge"] or not any(p.startswith(("!", "/")) for p in patterns), rule
+    holding = [rule for rule in resolved_config["packageRules"] if _could_hold_a_lid_patch(rule)]
+    assert holding == []
 
 
 @pytest.mark.renovate

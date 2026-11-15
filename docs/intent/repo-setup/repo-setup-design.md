@@ -43,12 +43,13 @@ Renovate's apm manager bumps the LID pin in `apm.yml` and, because the lock file
 
 ## LID version gate
 
-A test reads the `## LID` block of `AGENTS.md` (which `CLAUDE.md` links to) and the `apm.lock.yaml` entry whose `repo_url` is `jszmajda/lid` and whose `virtual_path` is `plugins/linked-intent-dev`. It fails:
-- while the block's `- Version:` differs from the entry's `version`, with a message naming both versions and `/update-lid`;
+A test reads the `## LID` block of `AGENTS.md` (which `CLAUDE.md` links to) and the `apm.lock.yaml` entry whose `repo_url` is `jszmajda/lid` and whose `virtual_path` is `plugins/linked-intent-dev`. It compares the two versions by major.minor, as LID does: the first two dot-separated parts, each a run of digits. It fails:
+- while the block's `- Version:` and the entry's `version` differ in major.minor, with a message naming both versions and `/update-lid`;
+- when either version doesn't start with a major.minor (such as `v1.4.0` or `1`), or the entry's `version` isn't a string, with a message naming each unreadable version;
 - when there's no such entry, no `## LID` block, or no `- Version:` bullet;
 - when there's more than one `## LID` block, or more than one `- Version:` bullet in it.
 
-The test runs in `check`. The shared preset holds Renovate's LID PR for a person to merge, and the gate keeps it failing until someone runs `/update-lid` on its branch and pushes the walk. The gate catches a forgotten walk, not an unfinished one: it passes as soon as the bullet names the new version.
+The test runs in `check`. A minor or major LID bump fails it until someone runs `/update-lid` on the PR's branch and pushes the walk, and the shared preset holds that PR for a person to merge. The gate catches a forgotten walk, not an unfinished one: it passes as soon as the bullet names the new major.minor. A patch bump passes with the bullet unchanged, as `/update-lid` leaves it: LID treats a patch difference as current, and rewrites `- Version:` only when it applies a convention update. A bullet whose major.minor is newer than the lock's fails too; `/update-lid` then tells the person to update their LID plugins.
 
 A LID release that adds or removes a skill also needs its `.agents/skills/` link added or removed by hand, on the same PR. The layout test fails until the links match, naming each missing or extra link.
 
@@ -106,6 +107,9 @@ The hook's run in a real cloud session is checked by hand: a cloud session on a 
 | LID's skills for other agents | A committed `.agents/skills/` link per LID skill | No links, so only Claude Code sees LID | `AGENTS.md` tells every agent to consult the skill; the links cost one edit when a LID release adds or removes a skill, which the layout test flags |
 | Where the version gate runs | A pytest test, run by `check` | A step in the `lid` task | Matches how this repo's other structural checks run, and pyyaml is already a test dependency; the `lid` task stays one `lidc` call |
 | The version the gate compares | The lock entry's `version` | Its `resolved_ref` without the `v` | `version` is the package's own declared version, which LID treats as its conventions version; a ref could be a commit |
+| How the gate compares versions | By major.minor | The exact version as written | LID treats a patch difference as current, so `/update-lid` leaves the bullet alone on a patch bump. An exact match would fail every patch PR until someone edited the bullet by hand, and would block the automerge the HLD gives patch bumps |
+| A bullet newer than the lock only in its patch | The gate passes | Failing, as `/update-lid` stops on any newer bullet | The lock pins the plugin every clone installs, so such a bullet comes only from a hand edit or a reverted pin, and the docs follow the same conventions either way. Failing would bring back an exact comparison in one direction |
+| A version without a readable major.minor | The gate fails | Reading it leniently, as `/update-lid` reads `v1.3` | The bullet and the lock are both written by tools; an unreadable one is a mistake to fix, not a form to accept |
 | When `check` installs skills | `test` depends on `skills` | A separate dependency of `check` | The tests are the only part of `check` that reads installed skills |
 | Cloud setup | A committed SessionStart hook | The cloud environment's setup script | The hook is reviewed, versioned and updated by Renovate with the repo; a setup script is cached but lives outside the repo |
 | Hook sources | No matcher: every source | `startup` only | A resumed or cleared session in a reused container costs about a second, and one that lost its tools gets them back |
