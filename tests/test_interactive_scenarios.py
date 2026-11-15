@@ -221,7 +221,8 @@ def test_pytest_collects_only_tests_by_default() -> None:
 def test_type_check_covers_the_evals_tree() -> None:
     """The type checker's config, wherever it lives, doesn't narrow it away from `evals/`."""
     assert mise_toml()["env"]["TY_CONFIG_FILE"] == "{{config_root}}/.config/ty.toml"
-    assert mise_toml()["tasks"]["typecheck"]["run"] == "ty check"
+    # Naming the environment selects site-packages (for PEP 723 scripts too); it names no path.
+    assert mise_toml()["tasks"]["typecheck"]["run"] in {"ty check", "ty check --python .venv"}
     configs = [tomllib.loads(TY_CONFIG.read_text())]
     configs.append(pyproject().get("tool", {}).get("ty", {}))
     for config in configs:

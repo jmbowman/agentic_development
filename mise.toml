@@ -38,9 +38,12 @@ actionlint .github/workflows/*.yml || status=1
 exit $status
 """
 
+# ty checks a PEP 723 script against its own environment, the system Python when there's none, so
+# point it at the project venv. That works while each script's dependencies are also in the lock
+# (the prior-art harvester's fork is a dev dependency).
 [tasks.typecheck]
 depends = ["sync"]
-run = "ty check"
+run = "ty check --python .venv"
 
 [tasks.test]
 depends = ["sync", "skills"]

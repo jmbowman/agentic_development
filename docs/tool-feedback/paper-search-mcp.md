@@ -1,6 +1,6 @@
 # paper-search-mcp
 
-[paper-search-mcp](https://github.com/openags/paper-search-mcp) is the planned connector library behind the prior-art search skill's harvester ([the harvest pipeline note](../prior-art/2026-11-07-search-harvest-pipeline.md)). Items below are from reading commit `cab1b5c` (2026-10-02) and the project's issues and pull requests as of 2026-11-07. None has been raised upstream yet: the plan is one issue proposing a shared HTTP layer, filed after more use of the library, with the smaller items attached or filed beside it.
+[paper-search-mcp](https://github.com/openags/paper-search-mcp) is the connector library behind the prior-art search skill's harvester ([the harvest pipeline note](../prior-art/2026-11-07-search-harvest-pipeline.md)), used from a fork, [jmbowman/paper-search-mcp](https://github.com/jmbowman/paper-search-mcp), whose `integration` branch merges one branch per upstream proposal. Items below are from reading commit `cab1b5c` (2026-10-02) and the project's issues and pull requests as of 2026-11-07. None has been raised upstream yet. The shared HTTP layer is built on the fork's `shared-http-layer` branch, with its decision record in the fork's `fork-notes/shared-http-layer.md`; its pull request is to be filed once the harvester works end to end, with the smaller items attached or filed beside it.
 
 ## Upstream context for the proposal
 
@@ -32,11 +32,11 @@ On 2026-11-08, 147 forks pushed since July 2026 were checked against upstream; 4
 - **Evidence:** read in source at `cab1b5c`; a search for `Retry-After` across `paper_search_mcp/` finds it in four files only.
 - **Suggested fix:**
   - A shared `make_session()` that every connector calls in place of `requests.Session()`.
-  - On that session, a transport adapter whose `send()` takes a [PyrateLimiter](https://github.com/vutran1710/PyrateLimiter) slot for the request's service before each attempt. The bucket is in memory by default, with an opt-in SQLite bucket and file lock (set through an environment variable) for several processes.
-  - One retry loop in the adapter, using urllib3's `Retry.parse_retry_after` for both header forms.
-  - Each service's limits in one table.
+  - On that session, a transport adapter whose `send()` reserves a slot for the request's service before each request. The slots are kept with the standard library's SQLite under `BEGIN IMMEDIATE`, in memory by default, or shared across processes through a directory named by an environment variable. That gives atomic reservation with no new dependency; [PyrateLimiter](https://github.com/vutran1710/PyrateLimiter) needs `filelock` for the same.
+  - The adapter paces but never retries, which keeps upstream's fail-fast direction; retries stay in each connector, and a consumer can add its own by subclassing the adapter.
+  - Each service's limits in one table keyed by host.
 
-  This removes the per-connector sleeps, locks and parsers. urllib3's built-in `Retry` can't stand in for the loop: its retries run below the adapter and would skip the limiter.
+  This removes the per-connector sleeps and locks. The fork's `shared-http-layer` branch implements it; its decision record gives the alternatives rejected. `Retry-After` in both forms for Semantic Scholar and IEEE is a separate, smaller proposal.
 - **Raised upstream:** no.
 
 ## Semantic Scholar has no keyed pacing

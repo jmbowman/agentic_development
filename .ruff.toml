@@ -17,3 +17,5 @@ convention = "google"
 "**/tests/**" = ["S101", "PLR2004"]  # pytest asserts and literal comparisons
 "scripts/*.py" = ["INP001"]  # standalone scripts, fetched and run alone
 "skills/*/hooks/*.py" = ["INP001"]  # hook scripts Claude Code runs alone with python3 -I
+# Scripts uv runs alone; a PEP 723 git pin can't be wrapped, and comments can't carry a noqa there.
+"skills/*/scripts/*.py" = ["INP001", "E501"]

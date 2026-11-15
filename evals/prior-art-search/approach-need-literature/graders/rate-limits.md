@@ -3,6 +3,8 @@ type: llm
 focus: trace
 ---
 
+The skill's harvester (`scripts/harvest.py`) paces, retries and identifies its own requests, so judge only requests sent outside it, and whether they overlapped the harvester's requests to the same service.
+
 PASS if all hold across the whole run, counting the assistant's requests and its subagents' requests together:
 - no service got requests faster than the rate limit that `references/sources.md` gives for it, counting every route that uses the service (for example arXiv's API and listing pages together no more than one request every three seconds, over a single connection), or faster than one request every 3 seconds where it gives none;
 - no service got two requests at once unless `references/sources.md` states a concurrency allowance for it;

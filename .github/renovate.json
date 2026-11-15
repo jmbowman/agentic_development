@@ -9,6 +9,21 @@
       "matchStrings": ["(?:^|\\n)MISE_VERSION=(?<currentValue>\\S+)\\n"],
       "depNameTemplate": "jdx/mise",
       "datasourceTemplate": "github-release-attachments"
+    },
+    {
+      "description": "The paper-search-mcp fork the prior-art-search harvester runs, pinned by commit in its PEP 723 header and in the dev dependencies, so one PR bumps both. The pep723 manager can't bump a git pin; refresh harvest.py.lock (uv lock --script) and uv.lock on the PR.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^skills/prior-art-search/scripts/harvest\\.py$/",
+        "/^pyproject\\.toml$/"
+      ],
+      "matchStrings": [
+        "paper-search-mcp @ git\\+https://github\\.com/jmbowman/paper-search-mcp@(?<currentDigest>[0-9a-f]{40})"
+      ],
+      "depNameTemplate": "jmbowman/paper-search-mcp",
+      "packageNameTemplate": "https://github.com/jmbowman/paper-search-mcp",
+      "datasourceTemplate": "git-refs",
+      "currentValueTemplate": "integration"
     }
   ]
 }
