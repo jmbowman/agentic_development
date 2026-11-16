@@ -16,7 +16,7 @@ Shared tooling for an agentic development process: the pieces each project **ref
 - **Tool feedback:** proposed enhancements and bugs for tools this repo uses or plans to adopt go in `docs/tool-feedback/<tool>.md` (where, what, evidence, suggested fix, whether raised upstream) until they're raised upstream.
 - **Supplied papers:** the developer drops lawfully obtained papers in `inbox/` (gitignored). Read them there, record the read state in the relevant note, and never stage them.
 - **Public content only:** this repo is public. Don't reference private repositories or files in them, and don't name or assume a particular user. Cite public sources, or restate what's needed here.
-- **Subagents** for LID probes and review waves are authorized. Never use the built-in Explore or Plan agents for implementation or review work, because they don't load project rules.
+- **Subagents** for LID probes and review waves are authorized. Never use the built-in Explore or Plan agents for implementation or review work, because they don't load project rules. A subagent still loads this repo's `AGENTS.md` and git status, so a blind divergence probe isn't blind to the repo: its brief asks it to list separately any reading it drew from outside the spec text.
 - **Script tests:** a test that runs a script as a subprocess asserts its exit status and runs it with `cwd` in the test's temporary directory, so a crash or a missing script can't pass a "nothing was written" test, and a relative path can't write into the repo.
 
 ## LID
