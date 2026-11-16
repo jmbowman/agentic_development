@@ -39,8 +39,8 @@ mailto = ""
 [semanticscholar]
 # optional. A key gives your requests their own limit of 1 a second across all endpoints together,
 # instead of a share of the pool every anonymous client uses (https://www.semanticscholar.org/product/api/tutorial,
-# read 2026-11-07); it travels in the `x-api-key` header. The skill prefers OpenAlex for citations and
-# references, and uses Semantic Scholar for recommendations and as OpenAlex's substitute.
+# read 2026-11-07); it travels in the `x-api-key` header. The skill uses OpenAlex for keyword search,
+# citations and references, and Semantic Scholar only for recommendations and exact-title lookups.
 # Request one at https://www.semanticscholar.org/product/api to register. Terms read 2026-11-05
 # (https://www.semanticscholar.org/product/api/license, last updated 2023-05-17): a terminable, non-transferable license; credit
 # "Semantic Scholar" in published materials; don't redistribute the API or share the key outside your

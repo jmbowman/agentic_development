@@ -10,16 +10,18 @@ import ast
 import contextlib
 import email.utils
 import fcntl
+import inspect
 import itertools
 import json
 import os
 import re
 import socket
 import subprocess
+import textwrap
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, override
 
 import pytest
 import requests
@@ -38,24 +40,32 @@ from tests.harvester_support import (
     load_harvest,
     openalex_page,
     openalex_work,
-    s2_bulk,
+    s2_no_match,
+    s2_paper,
+    s2_recommendations,
+    s2_sparse_paper,
+    s2_title_match,
 )
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
     from types import ModuleType
 
+    from tests.harvester_support import Sent
+
 OA = "api.openalex.org"
 S2 = "api.semanticscholar.org"
 AX = "export.arxiv.org"
-S2_BULK = "/graph/v1/paper/search/bulk"
+S2_MATCH = "/graph/v1/paper/search/match"
+S2_RECOMMEND = "/recommendations/v1/papers/forpaper/"
+TITLE = "Attention Is All You Need"
+SEED = "10.1145/3368089.3409741"
 FORK_VARS = ["OPENALEX_API_KEY", "OPENALEX_EMAIL", "SEMANTIC_SCHOLAR_API_KEY", "RATE_LIMIT_DIR"]
-SET_BY_HARVESTER = [
-    "PAPER_SEARCH_MCP_RATE_LIMIT_DIR",
-    "PAPER_SEARCH_MCP_ENV_FILE",
-    "PAPER_SEARCH_MCP_SEMANTIC_SCHOLAR_API_KEY",
-]
+SET_BY_HARVESTER = ["PAPER_SEARCH_MCP_RATE_LIMIT_DIR", "PAPER_SEARCH_MCP_ENV_FILE"]
 CANARY = "canary-key-7f3a9c"
+# Maps ASCII digits to Arabic-Indic ones, which a regex `\d` also matches.
+ARABIC_INDIC_DIGITS = str.maketrans("0123456789", "".join(chr(0x0660 + i) for i in range(10)))
+S2_KEY = f'[semanticscholar]\napi_key = "{CANARY}"\n'
 OPTIONS = {"--service", "--round", "--run-dir", "--max-results", "--show", "--help"}
 
 
@@ -93,9 +103,9 @@ class Harness:
         """Run the harvester in-process.
 
         Args:
-            action: `search`, `citations` or `references`.
+            action: `search`, `citations`, `references`, `recommend` or `lookup`.
             service: The service.
-            *queries: The queries or paper IDs.
+            *queries: The queries, paper IDs or titles.
             rnd: The round number.
             extra: More options, placed before the queries.
 
@@ -179,10 +189,50 @@ def _reset_fork() -> None:
     config._ENV_LOADED = False  # noqa: SLF001
 
 
+def _no_jitter(a: float, b: float) -> float:  # noqa: ARG001 - random.uniform's signature
+    return a
+
+
 def _patched(module: ModuleType, clock: FakeClock) -> ModuleType:
-    # The harvester's own clock seams, used for its Retry-After waits.
-    vars(module).update(_sleep=clock.sleep, _monotonic=clock.monotonic, _wall=clock.time)
+    # The harvester's own clock seams, used for its Retry-After waits, and its random source for
+    # Semantic Scholar's backoff jitter, fixed at no jitter unless a test replaces it.
+    seams = {
+        "_sleep": clock.sleep,
+        "_monotonic": clock.monotonic,
+        "_wall": clock.time,
+        "_uniform": _no_jitter,
+    }
+    # A renamed seam would leave the real clock or random source in place: fail loudly instead.
+    missing = sorted(name for name in seams if name not in vars(module))
+    assert not missing, f"the harvester has no seam named {missing}"
+    vars(module).update(seams)
     return module
+
+
+def _gaps(sent: list[Sent]) -> list[float]:
+    """The fake-clock seconds between consecutive sends."""
+    return [b.wall - a.wall for a, b in itertools.pairwise(sent)]
+
+
+def _backoff(retries: int, jitter: float) -> float:
+    """Semantic Scholar's wait before a retry, as PRIOR-SCR-111 gives it."""
+    return min(15.0, 1.5 * 1.6**retries + jitter)
+
+
+def _anonymous_sends() -> int:
+    """How many sends an always-failing anonymous S2 request gets, with no jitter.
+
+    Each retry goes at the later of its backoff and the next 8-second slot (PRIOR-SCR-111), and
+    none goes more than 60 seconds after the first response (PRIOR-SCR-112); the attempt limit is
+    7 (PRIOR-SCR-050).
+    """
+    elapsed, sends = 0.0, 1
+    for retries in range(6):
+        elapsed += max(8.0, _backoff(retries, 0.0))
+        if elapsed > 60:
+            break
+        sends += 1
+    return sends
 
 
 @pytest.fixture
@@ -300,11 +350,32 @@ def test_maximum_fetch_depth_is_accepted(h: Harness, action: str, depth: str) ->
     assert h.run(action, "openalex", paper, extra=("--max-results", depth)).code == 0
 
 
+# @spec PRIOR-SCR-010, PRIOR-SCR-114
+@pytest.mark.parametrize(("extra", "limit"), [((), "100"), (("--max-results", "500"), "500")])
+def test_recommend_fetch_depth(h: Harness, extra: tuple[str, ...], limit: str) -> None:
+    """Recommendations fetch 100 results when no depth is given, and up to 500."""
+    h.server.route(S2, S2_RECOMMEND, Reply(200, s2_recommendations(2)))
+    assert h.run("recommend", "semanticscholar", SEED, extra=extra).code == 0
+    assert h.server.sent[0].query["limit"] == [limit]
+
+
+# @spec PRIOR-SCR-010
+def test_lookup_takes_a_depth_of_1(h: Harness) -> None:
+    """A lookup returns its one best match, so a depth of 1 is accepted."""
+    h.server.route(S2, S2_MATCH, Reply(200, s2_title_match()))
+    assert h.run("lookup", "semanticscholar", TITLE, extra=("--max-results", "1")).code == 0
+    assert len(h.server.sent) == 1
+
+
 def _argv(*parts: str) -> list[str]:
     return list(parts)
 
 
-# @spec PRIOR-SCR-011
+def _s2_argv(action: str, *rest: str, service: str = "semanticscholar") -> list[str]:
+    return [action, "--service", service, "--round", "1", "--run-dir", "R", *rest]
+
+
+# @spec PRIOR-SCR-010, PRIOR-SCR-011
 @pytest.mark.parametrize(
     "argv",
     [
@@ -365,6 +436,20 @@ def _argv(*parts: str) -> list[str]:
             "R",
             "q",
         ),
+        _s2_argv("search", "q"),
+        _s2_argv("citations", "W1"),
+        _s2_argv("references", "W1"),
+        _s2_argv("recommend", SEED, service="openalex"),
+        _s2_argv("recommend", SEED, service="arxiv"),
+        _s2_argv("lookup", TITLE, service="openalex"),
+        _s2_argv("lookup", TITLE, service="arxiv"),
+        _s2_argv("lookup", "   "),
+        _s2_argv("lookup", "\t\n"),
+        _s2_argv("lookup", "--max-results", "2", TITLE),
+        _s2_argv("lookup", "--max-results", "0", TITLE),
+        _s2_argv("recommend", "--max-results", "501", SEED),
+        _s2_argv("recommend", "--max-results", "0", SEED),
+        _s2_argv("recommend", ""),
     ],
 )
 def test_invalid_command_line_exits_4_and_sends_nothing(h: Harness, argv: list[str]) -> None:
@@ -417,9 +502,10 @@ def test_fork_settings_from_the_environment_are_ignored(
         monkeypatch.setenv(name, value)
     monkeypatch.setenv("PAPER_SEARCH_MCP_ENV_FILE", str(fork_env))
     h.server.route(OA, "/works", Reply(200, openalex_page(1)))
-    h.server.route(S2, S2_BULK, Reply(200, s2_bulk(1)))
+    h.server.route(S2, S2_MATCH, Reply(200, s2_title_match()))
     h.run("search", "openalex", "q")
-    h.run("search", "semanticscholar", "q")
+    h.run("lookup", "semanticscholar", TITLE)
+    assert {s.host for s in h.server.sent} == {OA, S2}
     for sent in h.server.sent:
         assert CANARY not in json.dumps(sent.headers) + sent.url
     for name in canaries:
@@ -604,21 +690,41 @@ def test_value_is_trimmed(h: Harness) -> None:
     assert h.server.sent[0].headers.get("Authorization") == f"Bearer {CANARY}"
 
 
-# @spec PRIOR-SCR-027, PRIOR-SCR-028
-def test_each_key_goes_only_to_its_own_service(h: Harness) -> None:
-    """The Semantic Scholar key goes in x-api-key, and no other key rides along."""
+# @spec PRIOR-SCR-020, PRIOR-SCR-027, PRIOR-SCR-028
+@pytest.mark.parametrize(
+    ("action", "path", "reply", "query"),
+    [
+        ("lookup", S2_MATCH, Reply(200, s2_title_match()), TITLE),
+        ("recommend", S2_RECOMMEND, Reply(200, s2_recommendations(1)), SEED),
+    ],
+)
+def test_each_key_goes_only_to_its_own_service(
+    h: Harness, action: str, path: str, reply: Reply, query: str
+) -> None:
+    """The harvester puts the Semantic Scholar key in x-api-key itself; no other key rides along."""
     h.settings(f'[openalex]\napi_key = "oa-{CANARY}"\n[semanticscholar]\napi_key = "{CANARY}"\n')
-    h.server.route(S2, S2_BULK, Reply(200, s2_bulk(1)))
-    assert h.run("search", "semanticscholar", "q").code == 0
-    assert h.server.sent[0].headers.get("x-api-key") == CANARY
-    assert "Authorization" not in h.server.sent[0].headers
+    h.server.route(S2, path, reply)
+    assert h.run(action, "semanticscholar", query).code == 0
+    (sent,) = h.server.sent
+    assert sent.headers.get("x-api-key") == CANARY
+    assert "Authorization" not in sent.headers
+    assert "PAPER_SEARCH_MCP_SEMANTIC_SCHOLAR_API_KEY" not in os.environ
+
+
+# @spec PRIOR-SCR-028
+def test_no_key_set_sends_no_key_header(h: Harness) -> None:
+    """Without a Semantic Scholar key, its requests carry no x-api-key header."""
+    h.server.route(S2, S2_MATCH, Reply(200, s2_title_match()))
+    assert h.run("lookup", "semanticscholar", TITLE).code == 0
+    assert "x-api-key" not in h.server.sent[0].headers
 
 
 # @spec PRIOR-SCR-029
 def test_no_option_takes_a_setting_value(h: Harness) -> None:
     """Every action's options are the documented ones, none of which takes a setting value."""
     seen: set[str] = set()
-    for argv in (["--help"], *([a, "--help"] for a in ("search", "citations", "references"))):
+    actions = ("search", "citations", "references", "recommend", "lookup")
+    for argv in (["--help"], *([a, "--help"] for a in actions)):
         with contextlib.suppress(SystemExit):
             h.module.main(argv)
         out = h.capsys.readouterr().out
@@ -705,19 +811,27 @@ def test_unreadable_settings_file_exits_4(h: Harness) -> None:
 
 # @spec PRIOR-SCR-040, PRIOR-SCR-046
 @pytest.mark.parametrize(
-    ("service", "host", "path", "reply"),
+    ("action", "service", "host", "path", "reply", "query"),
     [
-        ("openalex", OA, "/works", Reply(200, openalex_page(1))),
-        ("arxiv", AX, "/api/query", Reply(200, arxiv_feed(1))),
-        ("semanticscholar", S2, S2_BULK, Reply(200, s2_bulk(1))),
+        ("search", "openalex", OA, "/works", Reply(200, openalex_page(1)), "q"),
+        ("search", "arxiv", AX, "/api/query", Reply(200, arxiv_feed(1)), "q"),
+        ("lookup", "semanticscholar", S2, S2_MATCH, Reply(200, s2_title_match()), TITLE),
+        (
+            "recommend",
+            "semanticscholar",
+            S2,
+            S2_RECOMMEND,
+            Reply(200, s2_recommendations(1)),
+            SEED,
+        ),
     ],
 )
-def test_every_request_carries_the_skill_user_agent(
-    h: Harness, service: str, host: str, path: str, reply: Reply
+def test_every_request_carries_the_skill_user_agent(  # noqa: PLR0913, PLR0917
+    h: Harness, action: str, service: str, host: str, path: str, reply: Reply, query: str
 ) -> None:
     """The adapter replaces each connector's user agent with the skill's."""
     h.server.route(host, path, reply)
-    assert h.run("search", service, "q").code == 0
+    assert h.run(action, service, query).code == 0
     assert h.server.sent
     assert all(s.headers.get("User-Agent") == UA for s in h.server.sent)
 
@@ -788,24 +902,27 @@ def test_credential_headers_go_only_to_their_service(
 def test_keyed_service_refuses_a_request_without_its_key(
     h: Harness, monkeypatch: pytest.MonkeyPatch, sent_key: str | None
 ) -> None:
-    """With a key set, a request lacking that exact key is refused unsent."""
-    h.settings(f'[semanticscholar]\napi_key = "{CANARY}"\n')
-    monkeypatch.setattr(semantic.SemanticSearcher, "get_api_key", staticmethod(lambda: sent_key))
-    h.server.route(S2, S2_BULK, Reply(200, s2_bulk(1)))
-    assert h.run("search", "semanticscholar", "q").code == 3
+    """With a key set, a request to its service lacking that exact key is refused unsent."""
+    h.settings(S2_KEY)
+    headers = {} if sent_key is None else {"x-api-key": sent_key}
+    stray = _stray_search(f"https://{S2}{S2_MATCH}?query=q", headers=headers)
+    monkeypatch.setattr(openalex.OpenAlexSearcher, "search", stray)
+    assert h.run("search", "openalex", "q").code == 3
     assert h.server.sent == []
     (logged,) = h.queries()
     assert (logged["outcome"], logged["reason"]) == ("refused", "missing key")
 
 
-# @spec PRIOR-SCR-048
-def test_connector_anonymous_retry_never_goes_out(h: Harness) -> None:
-    """Semantic Scholar's connector retries without its key after a 403; that retry is refused."""
-    h.settings(f'[semanticscholar]\napi_key = "{CANARY}"\n')
-    h.server.route(S2, S2_BULK, Reply(403, {"message": "Forbidden"}))
-    assert h.run("search", "semanticscholar", "q").code == 3
-    assert len(h.server.sent) == 1
-    assert h.server.sent[0].headers.get("x-api-key") == CANARY
+# @spec PRIOR-SCR-028, PRIOR-SCR-061, PRIOR-SCR-067, PRIOR-SCR-072
+def test_semantic_scholar_auth_failure_is_sent_once_with_the_key(h: Harness) -> None:
+    """A keyed lookup's 403 isn't retried, with the key or without it, and rejects the key."""
+    h.settings(S2_KEY)
+    h.server.route(S2, S2_MATCH, Reply(403, {"message": "Forbidden"}))
+    assert h.run("lookup", "semanticscholar", TITLE).code == 3
+    (sent,) = h.server.sent
+    assert sent.headers.get("x-api-key") == CANARY
+    assert h.outcomes() == ["authentication"]
+    assert "semanticscholar" in (h.run_dir / "state.json").read_text()
 
 
 # @spec PRIOR-SCR-049, PRIOR-SCR-072
@@ -852,8 +969,10 @@ def test_limiter_wait_is_capped_at_60_seconds(h: Harness, monkeypatch: pytest.Mo
 # @spec PRIOR-SCR-041, PRIOR-SCR-042
 def test_semantic_scholar_anonymous_requests_are_8_seconds_apart(h: Harness) -> None:
     """Without a key, Semantic Scholar gets one request every 8 seconds."""
-    h.server.route(S2, S2_BULK, Reply(200, s2_bulk(1)))
-    assert h.run("search", "semanticscholar", "a", "b", "c").code == 0
+    h.server.route(S2, S2_MATCH, Reply(200, s2_title_match()))
+    h.server.route(S2, S2_RECOMMEND, Reply(200, s2_recommendations(1)))
+    assert h.run("lookup", "semanticscholar", "a", "b").code == 0
+    assert h.run("recommend", "semanticscholar", SEED).code == 0
     times = [s.wall for s in h.server.sent]
     assert len(times) == 3
     assert all(b - a >= 8 for a, b in itertools.pairwise(times))
@@ -862,9 +981,9 @@ def test_semantic_scholar_anonymous_requests_are_8_seconds_apart(h: Harness) -> 
 # @spec PRIOR-SCR-042
 def test_semantic_scholar_keyed_requests_are_1_second_apart(h: Harness) -> None:
     """With a key, Semantic Scholar gets one request a second."""
-    h.settings(f'[semanticscholar]\napi_key = "{CANARY}"\n')
-    h.server.route(S2, S2_BULK, Reply(200, s2_bulk(1)))
-    assert h.run("search", "semanticscholar", "a", "b").code == 0
+    h.settings(S2_KEY)
+    h.server.route(S2, S2_MATCH, Reply(200, s2_title_match()))
+    assert h.run("lookup", "semanticscholar", "a", "b").code == 0
     gap = h.server.sent[1].wall - h.server.sent[0].wall
     assert 1 <= gap < 8
 
@@ -884,6 +1003,12 @@ LIMITS = [
     (S2, 1, 8.0, None, None, False, r"space them 8 seconds apart"),
     (S2, 1, 1.0, 1, "x-api-key", True, r"their own limit of 1 a second"),
 ]
+# An invocation of each host's own service: (action, service, path, reply, query).
+INVOCATIONS = {
+    AX: ("search", "arxiv", "/api/query", Reply(200, arxiv_feed(1)), "q"),
+    OA: ("search", "openalex", "/works", Reply(200, openalex_page(1)), "q"),
+    S2: ("lookup", "semanticscholar", S2_MATCH, Reply(200, s2_title_match()), TITLE),
+}
 
 
 # @spec PRIOR-SCR-042, PRIOR-SCR-043
@@ -907,9 +1032,10 @@ def test_registered_limits_match_sources(  # noqa: PLR0913, PLR0917
     rate_limits = sources.read_text().split("## Rate limits", 1)[1].split("\n## ", 1)[0]
     assert re.search(phrase, rate_limits), phrase
     if keyed:
-        h.settings(f'[semanticscholar]\napi_key = "{CANARY}"\n')
-    h.server.route(S2, S2_BULK, Reply(200, s2_bulk(1)))
-    h.run("search", "semanticscholar", "q")
+        h.settings(S2_KEY)
+    action, service, path, reply, query = INVOCATIONS[host]
+    h.server.route(host, path, reply)
+    assert h.run(action, service, query).code == 0
     limit = http_limits.SERVICE_LIMITS[host]
     assert (limit.seconds, limit.credential) == (seconds, cred)
     if keyed:
@@ -1036,12 +1162,452 @@ def test_5xx_with_long_retry_after_gets_no_retry(h: Harness) -> None:
     assert h.outcomes() == ["network"]
 
 
-# @spec PRIOR-SCR-056
-def test_semantic_scholar_uses_bulk_search(h: Harness) -> None:
-    """Semantic Scholar searches go to the bulk endpoint."""
-    h.server.route(S2, S2_BULK, Reply(200, s2_bulk(3)))
-    assert h.run("search", "semanticscholar", "q").code == 0
-    assert h.server.sent[0].path == S2_BULK
+# @spec PRIOR-SCR-050, PRIOR-SCR-113
+@pytest.mark.parametrize(
+    ("action", "service", "host", "path", "query", "sends"),
+    [
+        ("search", "arxiv", AX, "/api/query", "q", 2),
+        ("search", "openalex", OA, "/works", "q", 2),
+        ("lookup", "semanticscholar", S2, S2_MATCH, TITLE, 7),
+        ("recommend", "semanticscholar", S2, S2_RECOMMEND, SEED, 7),
+    ],
+)
+def test_attempts_per_request_by_service(  # noqa: PLR0913, PLR0917
+    h: Harness, action: str, service: str, host: str, path: str, query: str, sends: int
+) -> None:
+    """A request that keeps failing is sent twice on arXiv and OpenAlex, 7 times on S2."""
+    h.settings(S2_KEY)  # S2's 1-second slots, so the 60-second cap can't cut the attempts short
+    h.server.route(host, path, Reply(500, {}))
+    assert h.run(action, service, query).code == 3
+    assert len(h.server.sent) == sends
+    assert h.outcomes() == ["network"]
+
+
+# Jitter drawn for each retry in turn: a distinct value per call, each within 0 to 0.75.
+JITTERS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+
+
+# @spec PRIOR-SCR-111, PRIOR-SCR-050, PRIOR-SCR-053, PRIOR-SCR-113
+@pytest.mark.parametrize(
+    ("reply", "outcome"),
+    [
+        (Reply(500, {}), "network"),
+        (Reply(429, {}), "rate limit"),
+        (Reply(error=requests.ConnectionError("reset")), "network"),
+        (Reply(500, {}, latency=2.0), "network"),
+    ],
+    ids=["500", "429", "connection-error", "500-after-2-seconds"],
+)
+def test_semantic_scholar_backoff_grows_and_is_capped_after_jitter(
+    h: Harness, monkeypatch: pytest.MonkeyPatch, reply: Reply, outcome: str
+) -> None:
+    """Each retry waits min(15, 1.5 x 1.6^r + j) after the failed response arrived."""
+    drawn: list[tuple[float, float]] = []
+
+    def uniform(a: float, b: float) -> float:
+        drawn.append((a, b))
+        return JITTERS[len(drawn) - 1]
+
+    monkeypatch.setattr(h.module, "_uniform", uniform)
+    h.settings(S2_KEY)  # 1 request a second, so the limiter never decides a retry's time
+    h.server.route(S2, S2_MATCH, reply)
+    h.run("lookup", "semanticscholar", TITLE)
+    assert len(h.server.sent) == 7
+    assert drawn == [(0, 0.75)] * 6
+    # Send to send is the response's latency plus the backoff timed from its arrival. The last
+    # retry's base, 1.5 x 1.6^5 = 15.73, is over the cap, so its jitter is capped away too.
+    expected = [reply.latency + _backoff(r, j) for r, j in enumerate(JITTERS)]
+    assert expected[-1] == reply.latency + 15.0
+    assert _gaps(h.server.sent) == pytest.approx(expected, abs=0.01)
+    assert h.outcomes() == [outcome]
+
+
+# @spec PRIOR-SCR-111, PRIOR-SCR-041
+def test_semantic_scholar_backoff_overlaps_the_limiter_slot(h: Harness) -> None:
+    """Without a key, a retry goes at the later of its backoff and the next 8-second slot."""
+    h.server.route(S2, S2_MATCH, Reply(500, {}))
+    h.run("lookup", "semanticscholar", TITLE)
+    expected = [max(8.0, _backoff(r, 0.0)) for r in range(6)]
+    assert expected[:4] == [8.0] * 4
+    assert _gaps(h.server.sent) == pytest.approx(expected, abs=0.01)
+
+
+# @spec PRIOR-SCR-111, PRIOR-SCR-052
+def test_semantic_scholar_later_retry_after_wins(h: Harness) -> None:
+    """A Retry-After ending after the backoff governs; one ending before it doesn't."""
+    h.settings(S2_KEY)
+    h.server.route(
+        S2,
+        S2_MATCH,
+        Reply(429, {}, {"Retry-After": "5"}),
+        Reply(500, {}),
+        Reply(429, {}, {"Retry-After": "1"}),
+        Reply(200, s2_title_match()),
+    )
+    assert h.run("lookup", "semanticscholar", TITLE).code == 0
+    assert _gaps(h.server.sent) == pytest.approx([5.0, 2.4, 3.84], abs=0.01)
+    assert h.outcomes() == ["ok"]
+
+
+# @spec PRIOR-SCR-112, PRIOR-SCR-055, PRIOR-SCR-066, PRIOR-SCR-070
+@pytest.mark.parametrize(
+    ("limiter", "replies", "sends", "outcome"),
+    [
+        (
+            "keyed",
+            [
+                Reply(429, {}, {"Retry-After": "50"}),
+                Reply(429, {}, {"Retry-After": "20"}),
+                Reply(200, s2_title_match()),
+            ],
+            2,
+            "rate limit",
+        ),
+        ("keyed", [Reply(500, {}, {"Retry-After": "25"})], 3, "network"),
+        (
+            "keyed",
+            [
+                Reply(429, {}, {"Retry-After": "30"}),
+                Reply(429, {}, {"Retry-After": "30"}),
+                Reply(200, s2_title_match()),
+            ],
+            3,
+            "ok",
+        ),
+        # The first response arrives 2 s after its send; the third send, at 61 s, is 59 s after
+        # that arrival, so it goes.
+        (
+            "keyed",
+            [
+                Reply(429, {}, {"Retry-After": "30"}, latency=2.0),
+                Reply(429, {}, {"Retry-After": "27"}, latency=2.0),
+                Reply(200, s2_title_match(), latency=2.0),
+            ],
+            3,
+            "ok",
+        ),
+        # The second wait ends at 59 s, but the next 8-second slot is at 63 s.
+        (
+            "anonymous",
+            [
+                Reply(429, {}, {"Retry-After": "55"}),
+                Reply(429, {}, {"Retry-After": "4"}),
+                Reply(200, s2_title_match()),
+            ],
+            2,
+            "rate limit",
+        ),
+    ],
+    ids=[
+        "retry-after-50-then-20",
+        "slow-500s",
+        "exactly-60-seconds",
+        "measured-from-arrival",
+        "crossed-by-limiter-slot",
+    ],
+)
+def test_semantic_scholar_sends_no_retry_after_60_seconds(
+    h: Harness, limiter: str, replies: list[Reply], sends: int, outcome: str
+) -> None:
+    """No retry goes more than 60 seconds after the first response; the failure decides."""
+    if limiter == "keyed":
+        h.settings(S2_KEY)
+    h.server.route(S2, S2_MATCH, *replies)
+    h.run("lookup", "semanticscholar", TITLE)
+    assert len(h.server.sent) == sends
+    first_arrival = h.server.sent[0].wall + replies[0].latency
+    assert all(s.wall - first_arrival <= 60 for s in h.server.sent)
+    assert h.outcomes() == [outcome]
+
+
+# @spec PRIOR-SCR-054, PRIOR-SCR-066, PRIOR-SCR-071, PRIOR-SCR-113
+def test_semantic_scholar_long_retry_after_means_no_retry(h: Harness) -> None:
+    """A Retry-After over 60 seconds on a lookup ends it as rate limit and skips the rest."""
+    h.server.route(S2, S2_MATCH, Reply(429, {}, {"Retry-After": "61"}))
+    assert h.run("lookup", "semanticscholar", "a", "b").code == 3
+    assert len(h.server.sent) == 1
+    assert h.outcomes() == ["rate limit", "skipped: service throttled"]
+
+
+# @spec PRIOR-SCR-113, PRIOR-SCR-082, PRIOR-SCR-084
+def test_recommend_retry_is_logged_like_a_connector_request(h: Harness) -> None:
+    """The harvester's own resend is logged, timed and saved like any other attempt."""
+    h.settings(S2_KEY)
+    h.server.route(
+        S2, S2_RECOMMEND, Reply(500, {"error": "busy"}), Reply(200, s2_recommendations(1))
+    )
+    assert h.run("recommend", "semanticscholar", SEED).code == 0
+    (logged,) = h.queries()
+    assert (logged["service"], logged["route"], logged["action"], logged["outcome"]) == (
+        "semanticscholar",
+        "Semantic Scholar",
+        "recommend",
+        "ok",
+    )
+    first, second = logged["attempts"]
+    assert (first["status"], second["status"]) == (500, 200)
+    assert all(S2_RECOMMEND in a["url"] for a in (first, second))
+    assert second["wait"] == pytest.approx(1.5, abs=0.01)
+    qid = logged["id"]
+    names = sorted(p.name for p in (h.run_dir / "raw").iterdir())
+    assert names == [f"{qid}-1-1.json", f"{qid}-1-2.json"]
+
+
+# @spec PRIOR-SCR-114
+@pytest.mark.parametrize(
+    ("seed", "sent_as"),
+    [
+        (SEED, f"DOI:{SEED}"),
+        (f"doi:{SEED}", f"DOI:{SEED}"),
+        (f"DOI:{SEED}", f"DOI:{SEED}"),
+        (f"Doi:{SEED}", f"DOI:{SEED}"),
+        (f"https://doi.org/{SEED}", f"DOI:{SEED}"),
+        (f"https://dx.doi.org/{SEED}", f"DOI:{SEED}"),
+        (f"http://doi.org/{SEED}", f"DOI:{SEED}"),
+        (f"http://dx.doi.org/{SEED}", f"DOI:{SEED}"),
+        (
+            "10.1002/(SICI)1097-4571(199806)49:8<693::AID-ASI4>3.0.CO;2-0",
+            "DOI:10.1002/%28SICI%291097-4571%28199806%2949:8%3C693::AID-ASI4%3E3.0.CO%3B2-0",
+        ),
+        ("2401.12345", "arXiv:2401.12345"),
+        ("2401.12345v2", "arXiv:2401.12345"),
+        ("0704.0001", "arXiv:0704.0001"),
+        ("arXiv:2401.12345v2", "arXiv:2401.12345"),
+        ("ARXIV:2401.12345", "arXiv:2401.12345"),
+        ("arxiv:0704.0001v12", "arXiv:0704.0001"),
+        ("arXiv:2401.12345V3", "arXiv:2401.12345"),
+        (" 2401.12345 ", "arXiv:2401.12345"),
+        ("\tdoi:10.1234/abc\n", "DOI:10.1234/abc"),
+        (
+            "649def34f8be52c8b66281af98ae884c09aef38b",
+            "649def34f8be52c8b66281af98ae884c09aef38b",
+        ),
+        (
+            "649DEF34F8BE52C8B66281AF98AE884C09AEF38B",
+            "649def34f8be52c8b66281af98ae884c09aef38b",
+        ),
+    ],
+)
+def test_recommend_seed_forms(h: Harness, seed: str, sent_as: str) -> None:
+    """Each seed form goes to its forpaper path, percent-encoded except for : and /."""
+    h.server.route(S2, S2_RECOMMEND, Reply(200, s2_recommendations(2)))
+    assert h.run("recommend", "semanticscholar", seed).code == 0
+    (sent,) = h.server.sent
+    path = re.sub(r"%[0-9a-fA-F]{2}", lambda m: m[0].upper(), sent.path)
+    assert path == S2_RECOMMEND + sent_as
+    assert sent.query["from"] == ["all-cs"]
+    assert sent.query["limit"] == ["100"]
+
+
+# @spec PRIOR-SCR-114, PRIOR-SCR-083
+def test_recommendations_become_harvest_records(h: Harness) -> None:
+    """Each recommended paper becomes a harvest record, a sparse one included."""
+    body = {"recommendedPapers": [s2_paper(1), s2_paper(2), s2_paper(3), s2_sparse_paper(4)]}
+    h.server.route(S2, S2_RECOMMEND, Reply(200, body))
+    assert h.run("recommend", "semanticscholar", SEED).code == 0
+    records = jsonl(h.run_dir / "records.jsonl")
+    assert [r["service_id"] for r in records] == ["s2paper1", "s2paper2", "s2paper3", "s2paper4"]
+    assert [r["rank"] for r in records] == [1, 2, 3, 4]
+    assert (records[0]["title"], records[0]["doi"], records[0]["citations"]) == (
+        "Semantic Scholar paper 1",
+        "10.5555/s21",
+        49,
+    )
+    sparse = records[3]
+    assert sparse["title"] == "Semantic Scholar paper 4"
+    for name in ("abstract", "year", "doi"):
+        assert not sparse.get(name), name
+    assert h.outcomes() == ["ok"]
+
+
+# @spec PRIOR-SCR-114, PRIOR-SCR-116
+@pytest.mark.parametrize(
+    ("action", "path", "reply", "query", "papers"),
+    [
+        ("recommend", S2_RECOMMEND, Reply(200, s2_recommendations(3)), SEED, 3),
+        ("lookup", S2_MATCH, Reply(200, s2_title_match()), TITLE, 1),
+    ],
+)
+def test_papers_are_parsed_by_the_connectors_parser(  # noqa: PLR0913, PLR0917
+    h: Harness,
+    monkeypatch: pytest.MonkeyPatch,
+    action: str,
+    path: str,
+    reply: Reply,
+    query: str,
+    papers: int,
+) -> None:
+    """Each paper goes through the Semantic Scholar connector's own parser, once."""
+    real = semantic.SemanticSearcher._parse_paper  # noqa: SLF001
+    parsed: list[object] = []
+
+    def spy(self: semantic.SemanticSearcher, item: Any) -> object:  # noqa: ANN401
+        parsed.append(item.get("paperId"))
+        return real(self, item)
+
+    monkeypatch.setattr(semantic.SemanticSearcher, "_parse_paper", spy)
+    h.server.route(S2, path, reply)
+    assert h.run(action, "semanticscholar", query).code == 0
+    assert len(parsed) == papers
+    assert len(jsonl(h.run_dir / "records.jsonl")) == papers
+
+
+# @spec PRIOR-SCR-114, PRIOR-SCR-115
+@pytest.mark.parametrize(
+    "seed",
+    [
+        "Attention is all you need",
+        "W2741809807",
+        "hep-th/9901001",
+        "arXiv:hep-th/9901001",
+        "ARXIV:hep-th/9901001",
+        "2401.123456",
+        "12345",
+        "arXiv:",
+        "https://arxiv.org/abs/2401.12345",
+        "https://example.org/10.1145/3368089.3409741",
+        "649def34f8be52c8b66281af98ae884c09aef38",
+        "649def34f8be52c8b66281af98ae884c09aef38bb",
+        "649def34f8be52c8b66281af98ae884c09aef3zz",
+        # DOI URLs with a query string or fragment, which the citations lookup refuses too.
+        "https://doi.org/10.1234/abc?utm=x",
+        "https://doi.org/10.1234/abc#section",
+        # Dot segments, which requests would resolve into another endpoint's path.
+        "10.1234/../../../graph/v1/paper/search",
+        "doi:10.1234/a/./b",
+        "https://doi.org/10.1234/..",
+        # Digits outside ASCII, which a bare `\d` would accept.
+        "2021.00001".translate(ARABIC_INDIC_DIGITS),
+        "10." + "1234".translate(ARABIC_INDIC_DIGITS) + "/x",
+    ],
+)
+def test_invalid_seed_is_invalid_input(h: Harness, seed: str) -> None:
+    """A seed in none of the accepted forms is invalid input and sends nothing."""
+    h.server.route(S2, S2_RECOMMEND, Reply(200, s2_recommendations(1)))
+    assert h.run("recommend", "semanticscholar", seed).code == 3
+    assert h.outcomes() == ["invalid input"]
+    assert h.server.sent == []
+
+
+class _KeyRecorder(dict[str, Any]):
+    """A paper that records every key read from it."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        super().__init__(data)
+        self.read: set[str] = set()
+
+    @override
+    def __getitem__(self, key: str) -> Any:
+        self.read.add(key)
+        return super().__getitem__(key)
+
+    @override
+    def get(self, key: str, default: Any = None, /) -> Any:  # ty: ignore[incompatible-method-override] - dict.get's overloads
+        self.read.add(key)
+        return super().get(key, default)
+
+    @override
+    def __contains__(self, key: object) -> bool:
+        self.read.add(str(key))
+        return super().__contains__(key)
+
+
+def _parser_fields() -> set[str]:
+    """The keys of a paper that the Semantic Scholar connector's `_parse_paper` reads.
+
+    The keys it names in its source, found by walking its syntax tree, together with the keys it
+    reads at run time from a fully populated paper.
+    """
+    parse = semantic.SemanticSearcher._parse_paper  # noqa: SLF001
+    tree = ast.parse(textwrap.dedent(inspect.getsource(parse)))
+    function = tree.body[0]
+    assert isinstance(function, ast.FunctionDef)
+    item = function.args.args[1].arg  # the parameter after self
+    fields: set[str] = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == item
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+        ):
+            fields.add(str(node.args[0].value))
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == item
+            and isinstance(node.slice, ast.Constant)
+        ):
+            fields.add(str(node.slice.value))
+    full = {
+        **s2_paper(1),
+        "venue": "ICSE",
+        "fieldsOfStudy": ["Computer Science"],
+        "openAccessPdf": {"url": "https://example.org/p.pdf", "disclaimer": "Open access."},
+    }
+    probe = _KeyRecorder(full)
+    assert parse(object.__new__(semantic.SemanticSearcher), probe) is not None
+    return fields | probe.read
+
+
+# @spec PRIOR-SCR-122
+@pytest.mark.parametrize(
+    ("action", "path", "reply", "query"),
+    [
+        ("lookup", S2_MATCH, Reply(200, s2_title_match()), TITLE),
+        ("recommend", S2_RECOMMEND, Reply(200, s2_recommendations(1)), SEED),
+    ],
+)
+def test_requests_ask_for_every_field_the_parser_reads(
+    h: Harness, action: str, path: str, reply: Reply, query: str
+) -> None:
+    """Both requests ask for each field the connector's parser reads."""
+    needed = _parser_fields()
+    assert {"title", "authors", "externalIds", "citationCount"} <= needed
+    h.server.route(S2, path, reply)
+    assert h.run(action, "semanticscholar", query).code == 0
+    (sent,) = h.server.sent
+    (fields,) = sent.query["fields"]
+    assert needed <= set(fields.split(","))
+
+
+# @spec PRIOR-SCR-116, PRIOR-SCR-083
+def test_lookup_sends_the_trimmed_title_and_records_the_match(h: Harness) -> None:
+    """A lookup sends its trimmed title, and its record carries the matched title and score."""
+    h.server.route(S2, S2_MATCH, Reply(200, s2_title_match(4, score=161.8)))
+    assert h.run("lookup", "semanticscholar", f"  {TITLE} \t").code == 0
+    (sent,) = h.server.sent
+    assert sent.path == S2_MATCH
+    assert sent.query["query"] == [TITLE]
+    (record,) = jsonl(h.run_dir / "records.jsonl")
+    assert (record["title"], record["service_id"]) == ("Semantic Scholar paper 4", "s2paper4")
+    assert record["match_score"] == 161.8
+    assert h.outcomes() == ["ok"]
+
+
+# @spec PRIOR-SCR-062, PRIOR-SCR-074, PRIOR-SCR-116
+@pytest.mark.parametrize(
+    ("body", "outcome", "code"),
+    [
+        (s2_no_match(), "empty", 0),
+        (
+            {"error": "Paper with id 649def34f8be52c8b66281af98ae884c09aef38b not found"},
+            "client error",
+            3,
+        ),
+        (b"", "client error", 3),
+    ],
+    ids=["no-match", "other-404", "empty-404"],
+)
+def test_lookup_404s(h: Harness, body: bytes | dict[str, object], outcome: str, code: int) -> None:
+    """The no-match 404 ran and found nothing; any other lookup 404 is a client error."""
+    h.server.route(S2, S2_MATCH, Reply(404, body))
+    assert h.run("lookup", "semanticscholar", TITLE).code == code
+    assert len(h.server.sent) == 1
+    assert h.outcomes() == [outcome]
 
 
 # @spec PRIOR-SCR-057
@@ -1223,6 +1789,242 @@ def test_missing_paper_is_not_found(h: Harness) -> None:
     h.server.route(OA, "/works/", Reply(404, {"error": "no such work"}))
     assert h.run("citations", "openalex", "10.9999/none").code == 3
     assert h.outcomes() == ["not found"]
+
+
+# @spec PRIOR-SCR-065, PRIOR-SCR-087
+def test_unknown_recommend_seed_is_not_found(h: Harness) -> None:
+    """A 404 for a recommend seed is not found, sent once, and faults no route."""
+    missing = {"error": "Paper with id DOI:10.9999/none not found"}
+    h.server.route(S2, S2_RECOMMEND, Reply(404, missing))
+    assert h.run("recommend", "semanticscholar", "10.9999/none").code == 3
+    assert len(h.server.sent) == 1
+    assert h.outcomes() == ["not found"]
+    assert h.ledger() == []
+
+
+# @spec PRIOR-SCR-063, PRIOR-SCR-113
+@pytest.mark.parametrize(
+    ("replies", "outcome"),
+    [
+        (
+            [
+                Reply(429, {}),
+                Reply(500, {}),
+                Reply(429, {}),
+                Reply(504, {}, {"Retry-After": "300"}),
+            ],
+            "network",
+        ),
+        (
+            [
+                Reply(500, {}),
+                Reply(429, {}),
+                Reply(504, {}),
+                Reply(429, {}, {"Retry-After": "120"}),
+            ],
+            "rate limit",
+        ),
+    ],
+    ids=["ends-504", "ends-429"],
+)
+def test_last_attempt_decides_mixed_failures(
+    h: Harness, replies: list[Reply], outcome: str
+) -> None:
+    """A request whose attempts failed in different ways is judged by its last attempt."""
+    h.server.route(S2, S2_MATCH, *replies)
+    assert h.run("lookup", "semanticscholar", TITLE).code == 3
+    assert len(h.server.sent) == 4
+    assert h.outcomes() == [outcome]
+
+
+# @spec PRIOR-SCR-119, PRIOR-SCR-088
+@pytest.mark.parametrize("status", [500, 502, 504])
+def test_semantic_scholar_5xx_stops_the_service(h: Harness, status: int) -> None:
+    """A lookup that ends network on a 5xx skips S2's later queries, diagnosed as network."""
+    h.server.route(S2, S2_MATCH, Reply(status, {}))
+    assert h.run("lookup", "semanticscholar", "a", "b", "c").code == 3
+    # Anonymous, so the send count is what the 8-second slots leave under the 60-second cap.
+    assert len(h.server.sent) == _anonymous_sends()
+    assert h.outcomes() == [
+        "network",
+        "skipped: service throttled",
+        "skipped: service throttled",
+    ]
+    (record,) = h.ledger()
+    assert (record["state"], record["reason"]) == ("unavailable", "network")
+
+
+# @spec PRIOR-SCR-119, PRIOR-SCR-060, PRIOR-SCR-071, PRIOR-SCR-088
+def test_semantic_scholar_503_follows_the_rate_limit_path(h: Harness) -> None:
+    """A 503 on every attempt is a rate limit, not the network stop."""
+    h.server.route(S2, S2_MATCH, Reply(503, {}))
+    assert h.run("lookup", "semanticscholar", "a", "b").code == 3
+    # Anonymous, so the send count is what the 8-second slots leave under the 60-second cap.
+    assert len(h.server.sent) == _anonymous_sends()
+    assert h.outcomes() == ["rate limit", "skipped: service throttled"]
+    (record,) = h.ledger()
+    assert record["reason"] == "rate limit, no key set"
+
+
+# @spec PRIOR-SCR-119
+def test_semantic_scholar_connection_errors_do_not_stop_the_service(h: Harness) -> None:
+    """Only a 5xx on the last attempt stops the service; a connection error doesn't."""
+    reset = Reply(error=requests.ConnectionError("reset"))
+    h.settings(S2_KEY)
+    h.server.route(S2, S2_MATCH, *[reset] * 7, Reply(200, s2_title_match()))
+    assert h.run("lookup", "semanticscholar", "a", "b").code == 3
+    assert len(h.server.sent) == 8
+    assert h.outcomes() == ["network", "ok"]
+
+
+# @spec PRIOR-SCR-119
+def test_semantic_scholar_5xx_before_the_last_attempt_does_not_stop_the_service(
+    h: Harness,
+) -> None:
+    """A query whose 5xx attempts end in a connection error doesn't stop the service."""
+    h.settings(S2_KEY)
+    reset = Reply(error=requests.ConnectionError("reset"))
+    h.server.route(S2, S2_MATCH, *[Reply(500, {})] * 6, reset, Reply(200, s2_title_match()))
+    assert h.run("lookup", "semanticscholar", "a", "b").code == 3
+    assert [s.query["query"][0] for s in h.server.sent] == ["a"] * 7 + ["b"]
+    assert h.outcomes() == ["network", "ok"]
+
+
+TEXT_BODY = {"Content-Type": "text/plain"}
+BUDGET_REPLIES = [
+    Reply(429, {"error": "Insufficient budget for this request"}),
+    Reply(429, {"error": "Daily BUDGET exhausted"}),
+    Reply(429, {"error": "Please consider a plan upgrade"}),
+    Reply(429, {"error": "PLAN UPGRADE required"}),
+    Reply(429, {"message": "Insufficient budget for this request"}),
+    Reply(429, {"message": "Plan Upgrade required"}),
+    Reply(429, "Daily budget exhausted; consider a plan upgrade.", TEXT_BODY),
+]
+
+
+# @spec PRIOR-SCR-117, PRIOR-SCR-118, PRIOR-SCR-055, PRIOR-SCR-066, PRIOR-SCR-071
+# @spec PRIOR-SCR-082, PRIOR-SCR-088
+@pytest.mark.parametrize(
+    "reply",
+    BUDGET_REPLIES,
+    ids=[
+        "error-budget",
+        "error-budget-caps",
+        "error-plan-upgrade",
+        "error-plan-upgrade-caps",
+        "message-budget",
+        "message-plan-upgrade",
+        "plain-text",
+    ],
+)
+def test_openalex_budget_response_ends_openalex_without_a_retry(h: Harness, reply: Reply) -> None:
+    """An OpenAlex budget 429 isn't retried, ends rate limit for its budget, and skips the rest."""
+    h.server.route(OA, "/works", reply)
+    assert h.run("search", "openalex", "a", "b").code == 3
+    assert len(h.server.sent) == 1
+    first, second = h.queries()
+    assert (first["outcome"], first["reason"]) == ("rate limit", "daily budget")
+    assert second["outcome"] == "skipped: service throttled"
+    (record,) = h.ledger()
+    assert (record["state"], record["reason"]) == ("unavailable", "rate limit (daily budget)")
+
+
+# @spec PRIOR-SCR-118, PRIOR-SCR-070, PRIOR-SCR-088
+def test_spent_budget_refuses_openalex_in_later_invocations(h: Harness) -> None:
+    """A later process on the same run directory refuses every OpenAlex request unsent."""
+    h.server.route(OA, "/works", Reply(429, {"error": "Insufficient budget"}))
+    h.run("search", "openalex", "a")
+    # A lone budget rate limit decides the diagnosis too, with no skipped query after it.
+    first = h.ledger()[-1]
+    assert (first["state"], first["reason"]) == ("unavailable", "rate limit (daily budget)")
+    h.reload()
+    assert h.run("search", "openalex", "b").code == 3
+    assert h.ledger()[-1]["reason"] == "rate limit (daily budget)"
+    assert h.run("citations", "openalex", "W7").code == 3
+    assert len(h.server.sent) == 1
+    for later in h.queries()[1:]:
+        assert (later["outcome"], later["reason"]) == ("refused", "daily budget")
+
+
+# @spec PRIOR-SCR-118
+def test_spent_budget_record_survives_a_key_rejection(h: Harness) -> None:
+    """Recording a rejected key later never removes the budget record."""
+    h.settings(S2_KEY)
+    h.server.route(OA, "/works", Reply(429, {"error": "Insufficient budget"}))
+    h.server.route(S2, S2_MATCH, Reply(401, {"message": "invalid key"}))
+    h.run("search", "openalex", "a")
+    h.reload()
+    assert h.run("lookup", "semanticscholar", TITLE).code == 3
+    assert h.outcomes()[-1] == "authentication"
+    h.reload()
+    h.run("search", "openalex", "b")
+    assert len(h.server.to(OA)) == 1
+    last = h.queries()[-1]
+    assert (last["outcome"], last["reason"]) == ("refused", "daily budget")
+
+
+# @spec PRIOR-SCR-070
+def test_rejected_key_outranks_spent_budget(h: Harness) -> None:
+    """With OpenAlex's key rejected and its budget spent, the refusal names the key."""
+    h.settings('[openalex]\napi_key = "oa-key"\n')
+    h.server.route(OA, "/works", Reply(429, {"error": "Insufficient budget"}))
+    h.run("search", "openalex", "a")
+    # Once the budget is spent no OpenAlex request is sent, so no 401 can record the rejection;
+    # record it the way the harvester does, through its run directory.
+    h.module.RunDir(h.run_dir, h.module.Redactor({})).reject("openalex")
+    h.reload()
+    assert h.run("search", "openalex", "b").code == 3
+    last = h.queries()[-1]
+    assert (last["outcome"], last["reason"]) == ("refused", "key rejected")
+
+
+# @spec PRIOR-SCR-062, PRIOR-SCR-055, PRIOR-SCR-113
+@pytest.mark.parametrize(
+    ("action", "path", "query", "body"),
+    [
+        ("recommend", S2_RECOMMEND + "arXiv:2401.12345", "2401.12345", {}),
+        ("recommend", S2_RECOMMEND + "arXiv:2401.12345", "2401.12345", {"data": []}),
+        ("lookup", S2_MATCH, TITLE, {"recommendedPapers": []}),
+        ("lookup", S2_MATCH, TITLE, [1, 2]),
+    ],
+)
+def test_semantic_scholar_body_without_its_list_is_unparsable(
+    h: Harness, action: str, path: str, query: str, body: dict[str, Any] | list[Any]
+) -> None:
+    """A 200 without the action's list of papers is retried like any unparsable body."""
+    h.settings(S2_KEY)
+    h.server.route(S2, path, Reply(200, body), Reply(200, body), Reply(200, body), Reply(200, {}))
+    assert h.run(action, "semanticscholar", query).code == 3
+    assert h.outcomes() == ["network"]
+    assert len(h.server.to(S2)) == 7
+
+
+# @spec PRIOR-SCR-117, PRIOR-SCR-060
+@pytest.mark.parametrize(
+    "reply",
+    [Reply(429, {"error": "Too many requests"}), Reply(503, {"error": "Insufficient budget"})],
+    ids=["429-without-budget-words", "503-with-budget-words"],
+)
+def test_other_openalex_rate_limits_are_retried_once(h: Harness, reply: Reply) -> None:
+    """Only a 429 that names the budget is a budget response; others get their one retry."""
+    h.server.route(OA, "/works", reply, reply, Reply(200, openalex_page(1)))
+    assert h.run("search", "openalex", "q").code == 3
+    assert len(h.server.sent) == 2
+    (logged,) = h.queries()
+    assert (logged["outcome"], logged["reason"]) == ("rate limit", None)
+    h.reload()
+    assert h.run("search", "openalex", "r").code == 0
+
+
+# @spec PRIOR-SCR-117
+def test_semantic_scholar_budget_words_are_an_ordinary_rate_limit(h: Harness) -> None:
+    """The budget response is OpenAlex's; a Semantic Scholar 429 naming a budget is retried."""
+    h.server.route(
+        S2, S2_MATCH, Reply(429, {"error": "budget exceeded"}), Reply(200, s2_title_match())
+    )
+    assert h.run("lookup", "semanticscholar", TITLE).code == 0
+    assert len(h.server.sent) == 2
+    assert h.outcomes() == ["ok"]
 
 
 # @spec PRIOR-SCR-068
@@ -1622,14 +2424,19 @@ def test_invalid_input_makes_exit_3(h: Harness) -> None:
 # Connector quirks and odd inputs ------------------------------------------------------------
 
 
+# The arXiv connector's sleep before its first retry of a 429: `(attempt + 1) * 1.5` in
+# `ArxivSearcher._request_with_retries` (paper_search_mcp/academic_platforms/arxiv.py).
+ARXIV_CONNECTOR_RETRY_SLEEP = 1.5
+
+
 # @spec PRIOR-SCR-054, PRIOR-SCR-077
 def test_connector_never_sleeps_for_a_huge_retry_after(h: Harness) -> None:
-    """A keyed Semantic Scholar 429 asking for a day ends at once as rate limit."""
-    h.settings(f'[semanticscholar]\napi_key = "{CANARY}"\n')
-    h.server.route(S2, S2_BULK, Reply(429, {}, {"Retry-After": "86400"}))
-    assert h.run("search", "semanticscholar", "q").code == 3
+    """An arXiv 429 asking for a day ends at once as rate limit, with no connector sleep."""
+    h.server.route(AX, "/api/query", Reply(429, {}, {"Retry-After": "86400"}))
+    assert h.run("search", "arxiv", "q").code == 3
     assert len(h.server.sent) == 1
     assert max(h.clock.slept, default=0) <= 60
+    assert ARXIV_CONNECTOR_RETRY_SLEEP not in h.clock.slept
     assert h.outcomes() == ["rate limit"]
 
 

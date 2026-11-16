@@ -82,18 +82,30 @@ class FakeClock:
         """
         if seconds > 0:
             self.slept.append(seconds)
-            self.wall += seconds
-            self.mono += seconds
+            self.advance(seconds)
+
+    def advance(self, seconds: float) -> None:
+        """Advance both clocks without recording a sleep, as time spent waiting on a response.
+
+        Args:
+            seconds: How far to advance.
+        """
+        self.wall += seconds
+        self.mono += seconds
 
 
 @dataclass
 class Reply:
-    """One scripted reply: a status, a body and headers, or an exception to raise."""
+    """One scripted reply: a status, a body and headers, or an exception to raise.
+
+    `latency` is how many fake seconds pass between the request's send and the reply's arrival.
+    """
 
     status: int = 200
     body: bytes | str | Json = b""
     headers: dict[str, str] = field(default_factory=dict)
     error: Exception | None = None
+    latency: float = 0.0
 
 
 @dataclass
@@ -207,6 +219,7 @@ class FakeServer:
             reply = route.replies[0] if route.replies else Reply(404)
             if len(route.replies) > 1:
                 route.replies.pop(0)
+            self.clock.advance(reply.latency)
             if reply.error is not None:
                 raise reply.error
             return _response(request, reply)
@@ -321,8 +334,55 @@ def arxiv_feed(count: int, *, start: int = 1) -> str:
     )
 
 
-def s2_bulk(count: int, *, start: int = 1) -> dict[str, object]:
-    """A Semantic Scholar bulk search response.
+def s2_paper(i: int) -> dict[str, object]:
+    """A Semantic Scholar paper with ID `s2paper<i>`.
+
+    Args:
+        i: The paper's number.
+
+    Returns:
+        The paper, as Semantic Scholar's API returns it.
+    """
+    return {
+        "paperId": f"s2paper{i}",
+        "title": f"Semantic Scholar paper {i}",
+        "abstract": "An abstract.",
+        "year": 2022,
+        "citationCount": 50 - i,
+        "authors": [{"name": "Ada Author"}],
+        "url": f"https://www.semanticscholar.org/paper/s2paper{i}",
+        "publicationDate": "2022-05-06",
+        "externalIds": {"DOI": f"10.5555/s2{i}"},
+    }
+
+
+def s2_sparse_paper(i: int) -> dict[str, object]:
+    """A Semantic Scholar paper with ID `s2paper<i>` whose optional fields are null or missing.
+
+    It has no abstract, date or year, no DOI among its external IDs, and an open-access entry with
+    only a disclaimer.
+
+    Args:
+        i: The paper's number.
+
+    Returns:
+        The paper, as Semantic Scholar's API returns it.
+    """
+    return {
+        **s2_paper(i),
+        "abstract": None,
+        "publicationDate": None,
+        "year": None,
+        "externalIds": {"CorpusId": 1000 + i},
+        "openAccessPdf": {
+            "url": "",
+            "disclaimer": f"Notice: the paper is at https://arxiv.org/abs/2401.{i:05d}.",
+        },
+    }
+
+
+def s2_recommendations(count: int, *, start: int = 1) -> dict[str, object]:
+    """A Semantic Scholar recommendations response.
 
     Args:
         count: How many papers.
@@ -331,21 +391,29 @@ def s2_bulk(count: int, *, start: int = 1) -> dict[str, object]:
     Returns:
         The response body.
     """
-    data = [
-        {
-            "paperId": f"s2paper{i}",
-            "title": f"Semantic Scholar paper {i}",
-            "abstract": "An abstract.",
-            "year": 2022,
-            "citationCount": 50 - i,
-            "authors": [{"name": "Ada Author"}],
-            "url": f"https://www.semanticscholar.org/paper/s2paper{i}",
-            "publicationDate": "2022-05-06",
-            "externalIds": {"DOI": f"10.5555/s2{i}"},
-        }
-        for i in range(start, start + count)
-    ]
-    return {"total": count, "token": None, "data": data}
+    return {"recommendedPapers": [s2_paper(i) for i in range(start, start + count)]}
+
+
+def s2_title_match(i: int = 1, *, score: float = 161.8) -> dict[str, object]:
+    """A Semantic Scholar title-match response, holding one paper and its match score.
+
+    Args:
+        i: The matched paper's number.
+        score: The match score.
+
+    Returns:
+        The response body.
+    """
+    return {"data": [{**s2_paper(i), "matchScore": score}]}
+
+
+def s2_no_match() -> dict[str, object]:
+    """The body of Semantic Scholar's 404 for a title that matches no paper.
+
+    Returns:
+        The response body.
+    """
+    return {"error": "Title match not found"}
 
 
 def jsonl(path: Path) -> list[dict[str, Any]]:
