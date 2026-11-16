@@ -19,6 +19,7 @@ Lessons about this repo's development process, drawn from building its skills, f
 - **State each value once.** A value written in two places drifts: a re-check found OpenAIRE's rate limit given as 7,000 in a route table and 7,200 in the same file's rate-limit section, a day after both were written. Keep it in one place and point to it.
 - **Replay the event orders a probe recorded.** Hook tests built from the order the design assumed passed (124 of 124) while a foreground subagent was never asked and no notes were captured: Claude Code fires those hooks in another order, which the probe's logs already showed. When code reacts to platform events, record the observed order as a fact in the LLD, and test whole flows in that order.
 - **Check a hook fix live.** Claude Code re-reads a hook script registered from the repo on every event, so the next launch in the session that found the bug exercises the fix. On 2.1.323, a background launch made right after the agent-type fallback landed got its counting line and its notes, which the pytest replays couldn't show.
+- **Brief reviewers with what they can't see.** Blind divergence readers flagged gaps the design's Terms section already closed, because their brief held only the specs file's header: give them a glossary of the terms the specs use. Tell a code or doc reviewer which state it reviews (HEAD, the index or the worktree), to leave lock files out of diffs, and where a dependency's installed source is.
 
 ## Approval steps
 
@@ -31,3 +32,4 @@ These apply to session-wrap-up's approval gate in slice 3b.
 ## Research and sources
 
 - **Check a source's terms and live behavior before recommending it.** Read the service's terms and robots.txt, and probe it, before a route goes into a skill. A first probe recommended Arch's package search, which its robots.txt disallows, and rated OpenAlex the primary paper route a day before its anonymous search was paused under load.
+- **Measure a script against a capable baseline.** In the harvester's paired run, the by-hand arm wrote its own paced `curl` script, so the harvester saved 29% of subagent tokens, not the 50–65% estimated against one call per query. Brief the baseline arm to work as agents actually do, and say which baseline a saving is against.
