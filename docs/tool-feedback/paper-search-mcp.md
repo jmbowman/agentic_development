@@ -118,3 +118,11 @@ On 2026-11-08, 147 forks pushed since July 2026 were checked against upstream; 4
 - **Evidence:** the file at `cab1b5c`; the pull requests, read 2026-11-07.
 - **Suggested fix:** none proposed upstream; this is a policy difference, recorded so the harvester's block list stays deliberate.
 - **Raised upstream:** not applicable.
+
+## A Semantic Scholar paper with null authors is dropped
+
+- **Where:** `semantic.py:100-153` (`_parse_paper`).
+- **What:** the parser reads `item.get("authors", [])`, which returns `None` when the key is present with a null value, so iterating it raises `TypeError`. The parser's broad `except` logs a warning and returns `None`, and the paper silently disappears from the results, shifting the ranks of the rest. Other nullable fields (`abstract`, `citationCount`) pass through as `None` without harm.
+- **Evidence:** `semantic.py:103` and `:150-153` read at the fork's `155f360`, found by the harvester's 2026-11-15 code review. Whether Semantic Scholar ever returns `"authors": null` hasn't been observed; the guard costs nothing either way.
+- **Suggested fix:** `item.get("authors") or []`, and the same guard for any other list field the parser iterates.
+- **Raised upstream:** no.

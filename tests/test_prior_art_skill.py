@@ -224,6 +224,23 @@ def test_literature_routes_exist_and_each_names_a_different_substitute() -> None
         assert own not in row["substitute"].lower(), f"{row['route']} names itself"
 
 
+# @spec PRIOR-PKG-023
+def test_openalex_and_semantic_scholar_substitutes_and_tactics() -> None:
+    """OpenAlex falls back to OpenAIRE, and Semantic Scholar only recommends and looks up titles."""
+    rows = {row["route"].lower(): row for row in route_table()}
+    openalex = rows["openalex"]["substitute"].lower()
+    assert "openaire" in openalex
+    assert "semantic scholar" not in openalex
+    s2 = rows["semantic scholar"]
+    assert "openalex" in s2["substitute"].lower()
+    tactics = s2["tactics"].lower()
+    assert "recommend" in tactics
+    assert re.search(r"exact[- ]title|search/match", tactics)
+    assert not re.search(r"paper/search(?!/match)", tactics), "keyword search is not a tactic"
+    for other in ("/citations", "/references"):
+        assert other not in tactics, f"{other} is not a tactic"
+
+
 # @spec PRIOR-PKG-015
 def test_skill_carries_its_license() -> None:
     """A copy of the skill in another repo keeps the license text Apache-2.0 requires."""
@@ -421,6 +438,9 @@ def test_eval_citations_name_eval_specs() -> None:
 # @spec PRIOR-SAVE-001, PRIOR-SAVE-002, PRIOR-SAVE-003, PRIOR-SAVE-004
 # @spec PRIOR-SAVE-005, PRIOR-SAVE-006, PRIOR-SAVE-007, PRIOR-SAVE-008, PRIOR-SAVE-009
 # @spec PRIOR-PRIV-001, PRIOR-PRIV-002, PRIOR-PRIV-003, PRIOR-PRIV-004
+# @spec PRIOR-SCR-100, PRIOR-SCR-101, PRIOR-SCR-102, PRIOR-SCR-103, PRIOR-SCR-104
+# @spec PRIOR-SCR-105, PRIOR-SCR-106, PRIOR-SCR-107, PRIOR-SCR-108, PRIOR-SCR-109
+# @spec PRIOR-SCR-110, PRIOR-SCR-120, PRIOR-SCR-121
 @pytest.mark.parametrize("spec", eval_spec_ids())
 def test_eval_spec_is_exercised_by_an_eval_case(spec: str) -> None:
     """Every eval-verified spec has at least one eval case that exercises it."""

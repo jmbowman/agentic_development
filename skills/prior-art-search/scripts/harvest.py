@@ -26,6 +26,7 @@ import fcntl
 import json
 import logging
 import os
+import random
 import re
 import secrets
 import subprocess
@@ -66,10 +67,12 @@ else:  # Python 3.11, which the header allows, has no typing.override.
         return method
 
 
-# Clock seams, so tests can run the waits on a fake clock.
+# Clock seams, so tests can run the waits on a fake clock, and the random source of Semantic
+# Scholar's backoff jitter, so tests can fix it.
 _sleep = time.sleep
 _monotonic = time.monotonic
 _wall = time.time
+_uniform = random.uniform
 
 USER_AGENT = "prior-art-search agent skill (+https://github.com/jmbowman/agentic_development)"
 MAX_WAIT_SECONDS = 60.0  # longest wait for a limiter slot, and longest Retry-After honored
@@ -83,22 +86,60 @@ HOSTS = {"export.arxiv.org": ARXIV, "api.openalex.org": OPENALEX, "api.semantics
 ROUTES = {ARXIV: "arXiv", OPENALEX: "OpenAlex", S2: "Semantic Scholar"}
 KEY_SETTINGS = {OPENALEX: "openalex.api_key", S2: "semanticscholar.api_key"}
 KEY_HEADERS = {OPENALEX: "Authorization", S2: "x-api-key"}
-FETCH_DEPTH = {"search": (50, 100), "citations": (100, 500), "references": (100, 500)}
+# Results to fetch per query (default, maximum), and the services each action takes.
+FETCH_DEPTH = {
+    "search": (50, 100),
+    "citations": (100, 500),
+    "references": (100, 500),
+    "recommend": (100, 500),
+    "lookup": (1, 1),
+}
+ACTION_SERVICES = {
+    "search": (ARXIV, OPENALEX),
+    "citations": (OPENALEX,),
+    "references": (OPENALEX,),
+    "recommend": (S2,),
+    "lookup": (S2,),
+}
+NOT_FOUND_ACTIONS = {"citations", "references", "recommend"}  # a 404 means the paper ID is unknown
 FORK_VARIABLES = [
     "OPENALEX_API_KEY",
     "OPENALEX_EMAIL",
     "SEMANTIC_SCHOLAR_API_KEY",
     "RATE_LIMIT_DIR",
 ]
-S2_FIELDS = "title,abstract,year,citationCount,authors,url,publicationDate,externalIds,venue"
 ATOM_FEED = "{http://www.w3.org/2005/Atom}feed"
 RATE_LIMIT_PHRASES = ("rate limit", "too many requests", "quota")
+BUDGET_PHRASES = ("budget", "plan upgrade")
 REMAINING_HEADERS = ("x-ratelimit-remaining", "x-rate-limit-remaining")
 
+# Semantic Scholar requests, which the harvester builds itself. The fields are those the
+# connector's paper parser reads; Semantic Scholar otherwise returns little more than the title.
+S2_API = "https://api.semanticscholar.org"
+S2_FIELDS = (
+    "paperId,title,abstract,url,publicationDate,externalIds,citationCount,authors,"
+    "openAccessPdf,fieldsOfStudy"
+)
+S2_TIMEOUT = 30
+S2_NO_MATCH = "Title match not found"
+# The key under which each Semantic Scholar action's response lists its papers.
+S2_LISTS = {"recommend": "recommendedPapers", "lookup": "data"}
+# ASCII digits only: `\d` would also accept other scripts' digits.
+DOI = r"10\.[0-9]{4,9}/\S+"
+DOI_SEED = re.compile(rf"(?:(?i:doi:)|(?i:https?://(?:dx\.)?doi\.org/))?({DOI})")
+ARXIV_SEED = re.compile(r"(?i:arxiv:)?([0-9]{4}\.[0-9]{4,5})(?:[vV][0-9]+)?")
+S2_PAPER_SEED = re.compile(r"[0-9a-fA-F]{40}")
+
+# Attempts per distinct request within a query, and Semantic Scholar's backoff between them:
+# min(cap, base x growth^retries + jitter), with the jitter drawn from 0 to S2_JITTER.
+ATTEMPTS = {ARXIV: 2, OPENALEX: 2, S2: 7}
+S2_BACKOFF_BASE, S2_BACKOFF_GROWTH, S2_BACKOFF_CAP, S2_JITTER = 1.5, 1.6, 15.0, 0.75
+
 # Kinds of response or failure the adapter records for a request.
-USABLE, RATE, AUTH, NOT_FOUND, CLIENT, SERVER, PARSE, ARXIV_406, NETWORK = (
+USABLE, RATE, BUDGET, AUTH, NOT_FOUND, CLIENT, SERVER, PARSE, ARXIV_406, NETWORK = (
     "usable",
     "rate limit",
+    "openalex budget",
     "authentication",
     "not found",
     "client error",
@@ -108,6 +149,7 @@ USABLE, RATE, AUTH, NOT_FOUND, CLIENT, SERVER, PARSE, ARXIV_406, NETWORK = (
     "network",
 )
 RETRYABLE = {RATE, SERVER, PARSE, ARXIV_406, NETWORK}
+DAILY_BUDGET = "daily budget"
 RAN = {"ok", "empty"}
 # Outcomes that fault the query rather than the service, so they don't count for its route.
 QUERY_FAULTS = {"invalid input", "client error", "not found"}
@@ -168,7 +210,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-dir", action=_Once, required=True)
     parser.add_argument("--max-results", action=_Once, type=int, help="results to fetch per query")
     parser.add_argument("--show", action=_Once, type=int, default=10, help="results to print")
-    parser.add_argument("queries", nargs="+", help="queries, or paper IDs for citations")
+    parser.add_argument("queries", nargs="+", help="queries, paper IDs, seeds or titles")
     return parser
 
 
@@ -199,8 +241,9 @@ def parse_args(argv: list[str]) -> Args:
         UsageError: An argument is missing, repeated, empty or out of range.
     """
     ns = build_parser().parse_args(argv)
-    if ns.action != "search" and ns.service != OPENALEX:
-        msg = f"{ns.action} needs --service {OPENALEX}"
+    services = ACTION_SERVICES[ns.action]
+    if ns.service not in services:
+        msg = f"{ns.action} needs --service {' or '.join(services)}"
         raise UsageError(msg)
     default, maximum = FETCH_DEPTH[ns.action]
     depth = default if ns.max_results is None else ns.max_results
@@ -358,13 +401,12 @@ def _cache_home() -> Path:
     return Path(xdg) if xdg and Path(xdg).is_absolute() else Path.home() / ".cache"
 
 
-# @spec PRIOR-SCR-020, PRIOR-SCR-021, PRIOR-SCR-022, PRIOR-SCR-028
-def _prepare_environment(settings: dict[str, str], service: str) -> Path:
+# @spec PRIOR-SCR-020, PRIOR-SCR-021, PRIOR-SCR-022
+def _prepare_environment() -> Path:
     """Clear the fork's own settings from the environment, then set the harvester's.
 
-    Args:
-        settings: The settings values.
-        service: The service this invocation queries.
+    No key goes into the environment: the OpenAlex key goes to its connector's constructor, and
+    the harvester puts the Semantic Scholar key in the requests it builds.
 
     Returns:
         The shared rate-limit directory.
@@ -376,9 +418,6 @@ def _prepare_environment(settings: dict[str, str], service: str) -> Path:
     os.environ["PAPER_SEARCH_MCP_RATE_LIMIT_DIR"] = str(limits)
     missing = Path(tempfile.gettempdir()) / f"prior-art-search-no-env-{secrets.token_hex(8)}"
     os.environ["PAPER_SEARCH_MCP_ENV_FILE"] = str(missing)
-    key = settings.get(KEY_SETTINGS[S2])
-    if service == S2 and key is not None:
-        os.environ["PAPER_SEARCH_MCP_SEMANTIC_SCHOLAR_API_KEY"] = key
     return limits
 
 
@@ -479,21 +518,21 @@ class RunDir:
         """
         self._write_line(name, dumps(self.redact.record(record)))
 
-    def rejected(self) -> dict[str, str]:
-        """The services whose key was rejected, with the setting's name.
+    def state(self) -> State:
+        """What `state.json` records for the run.
 
         Returns:
-            Setting names by service.
+            The state; an empty one when there's no file yet.
 
         Raises:
             RuntimeError: `state.json` isn't the harvester's.
         """
         path = self.root / "state.json"
         if not path.exists():
-            return {}
+            return State()
         with _locked(path, "r", shared=True) as handle:
             text = handle.read()
-        return _rejected_keys(text)
+        return _state(text)
 
     # @spec PRIOR-SCR-072
     def reject(self, service: str) -> None:
@@ -502,13 +541,24 @@ class RunDir:
         Args:
             service: The service.
         """
+        self._update_state(
+            lambda state: state.rejected_keys.update({service: KEY_SETTINGS[service]})
+        )
+
+    # @spec PRIOR-SCR-118
+    def spend_budget(self) -> None:
+        """Record that OpenAlex reported its daily budget spent; nothing ever removes the record."""
+        self._update_state(lambda state: setattr(state, "openalex_budget_spent", True))
+
+    def _update_state(self, change: Callable[[State], object]) -> None:
+        """Rewrite `state.json` under its lock, keeping every record but the one changed."""
         with _locked(self.root / "state.json", "a+") as handle:
             handle.seek(0)
-            rejected = _rejected_keys(handle.read())
-            rejected[service] = KEY_SETTINGS[service]
+            state = _state(handle.read())
+            change(state)
             handle.seek(0)
             handle.truncate()
-            handle.write(json.dumps({"rejected_keys": rejected}, indent=2) + "\n")
+            handle.write(json.dumps(vars(state), indent=2) + "\n")
 
     # @spec PRIOR-SCR-084
     def save_raw(self, stem: str, content_type: str, body: bytes) -> None:
@@ -537,9 +587,17 @@ def dumps(record: object) -> str:
     return json.dumps(record, ensure_ascii=False, default=str)
 
 
+@dataclass
+class State:
+    """The run directory's `state.json`: rejected keys, and whether OpenAlex's budget is spent."""
+
+    rejected_keys: dict[str, str] = field(default_factory=dict)
+    openalex_budget_spent: bool = False
+
+
 # @spec PRIOR-SCR-079
-def _rejected_keys(text: str) -> dict[str, str]:
-    """The rejected keys in `state.json`'s text.
+def _state(text: str) -> State:
+    """The state in `state.json`'s text.
 
     Raises:
         RuntimeError: The text isn't a state file the harvester wrote.
@@ -549,10 +607,12 @@ def _rejected_keys(text: str) -> dict[str, str]:
     except ValueError:
         data = None
     rejected = data.get("rejected_keys", {}) if isinstance(data, dict) else None
-    if not isinstance(rejected, dict):
+    spent = data.get("openalex_budget_spent", False) if isinstance(data, dict) else None
+    if not isinstance(rejected, dict) or not isinstance(spent, bool):
         msg = "state.json in the run directory isn't one the harvester wrote"
         raise RuntimeError(msg)  # noqa: TRY004 - a corrupt file, not a caller's type error
-    return {str(service): str(setting) for service, setting in rejected.items()}
+    keys = {str(service): str(setting) for service, setting in rejected.items()}
+    return State(keys, spent)
 
 
 class _LogHandler(logging.Handler):
@@ -604,39 +664,67 @@ def _is_rate_limit(response: requests.Response, service: str | None) -> bool:
     return any(phrase in text for phrase in RATE_LIMIT_PHRASES)
 
 
-def _parses(response: requests.Response, service: str | None) -> bool:
+def _parses(response: requests.Response, service: str | None, listed: str | None = None) -> bool:
     try:
         if service == ARXIV:
             return ET.fromstring(response.content).tag == ATOM_FEED  # noqa: S314
-        json.loads(response.content)
+        body = json.loads(response.content)
     except (ET.ParseError, ValueError):
         return False
-    return True
+    return listed is None or (isinstance(body, dict) and isinstance(body.get(listed), list))
 
 
-# @spec PRIOR-SCR-060, PRIOR-SCR-061, PRIOR-SCR-062
-def classify(response: requests.Response, service: str | None, arxiv_406: Arxiv406) -> str:
+def _is_budget(response: requests.Response, service: str | None) -> bool:
+    """Whether a response is OpenAlex's report of a spent daily budget."""
+    if service != OPENALEX or response.status_code != 429:  # noqa: PLR2004
+        return False
+    text = (response.content or b"").decode("utf-8", errors="replace").lower()
+    return any(phrase in text for phrase in BUDGET_PHRASES)
+
+
+def _is_no_title_match(response: requests.Response) -> bool:
+    """Whether a 404 is Semantic Scholar's answer that no paper matches a title."""
+    try:
+        body = json.loads(response.content)
+    except ValueError:
+        return False
+    return isinstance(body, dict) and bool(body.get("error") == S2_NO_MATCH)
+
+
+# @spec PRIOR-SCR-060, PRIOR-SCR-061, PRIOR-SCR-062, PRIOR-SCR-117
+def classify(
+    response: requests.Response,
+    service: str | None,
+    arxiv_406: Arxiv406,
+    *,
+    title_match: bool = False,
+    listed: str | None = None,
+) -> str:
     """The kind of a response, for retries and outcomes.
 
     Args:
         response: The response.
         service: The service it came from.
         arxiv_406: The arXiv connector's own check of a 406 feed.
+        title_match: Whether it answers a `lookup`, whose no-match 404 is usable.
+        listed: For a `recommend` or `lookup`, the key under which a 2xx body must hold its
+            list of papers to parse.
 
     Returns:
         One of the response kinds.
     """
     status = response.status_code
     if _is_rate_limit(response, service):
-        return RATE
+        return BUDGET if _is_budget(response, service) else RATE
     if 200 <= status < 400:  # noqa: PLR2004
-        return USABLE if status >= 300 or _parses(response, service) else PARSE  # noqa: PLR2004
+        parses = _parses(response, service, listed)
+        return USABLE if status >= 300 or parses else PARSE  # noqa: PLR2004
     if service == ARXIV and status == 406:  # noqa: PLR2004
         return USABLE if arxiv_406(response) else ARXIV_406
     if status in {401, 403}:
         return AUTH
     if status == 404:  # noqa: PLR2004
-        return NOT_FOUND
+        return USABLE if title_match and _is_no_title_match(response) else NOT_FOUND
     return CLIENT if status < 500 else SERVER  # noqa: PLR2004
 
 
@@ -658,25 +746,57 @@ class RequestLog:
     """What the adapter has seen of one distinct request (its method and URL) in a query."""
 
     number: int
+    service: str | None = None
     sends: int = 0
     kind: str | None = None
     retry_after: float | None = None
-    failed_at: float = 0.0
+    failed_at: float = 0.0  # when the last failure arrived
+    first_arrival: float | None = None  # when the first response or failure arrived
+    delay: float = 0.0  # how long after the last failure the retry must wait
+    withheld: bool = False  # a retry was withheld, so the last failure stands
     refusal: str | None = None
     limiter: bool = False
     memory: tuple[int, dict[str, str], bytes, str] | None = None
 
     @property
-    def may_retry(self) -> bool:
-        """Whether one more send is allowed after the first failed."""
+    def retry_allowed(self) -> bool:
+        """Whether the last failure allows another send, before any time limit."""
         too_long = self.retry_after is not None and self.retry_after > MAX_WAIT_SECONDS
-        return self.sends == 1 and self.kind in RETRYABLE and not too_long
+        attempts = ATTEMPTS.get(self.service or "", 1)
+        return (
+            1 <= self.sends < attempts
+            and self.kind in RETRYABLE
+            and not too_long
+            and not self.withheld
+        )
 
-    def delay(self) -> float:
-        """How long after the failure the retry must wait."""
-        if self.retry_after is not None:
-            return self.retry_after
-        return RATE_LIMIT_DEFAULT_WAIT if self.kind == RATE else 0.0
+    @property
+    def may_retry(self) -> bool:
+        """Whether one more send is allowed after the last failed."""
+        if not self.retry_allowed:
+            return False
+        if self.service == S2:
+            return self.failed_at + self.delay - (self.first_arrival or 0.0) <= MAX_WAIT_SECONDS
+        return True
+
+    # @spec PRIOR-SCR-052, PRIOR-SCR-053, PRIOR-SCR-111
+    def plan_retry(self) -> None:
+        """Set how long after this failure the retry must wait.
+
+        On Semantic Scholar, the backoff's jitter is drawn only for a retry the failure allows.
+        """
+        if self.service != S2:
+            if self.retry_after is not None:
+                self.delay = self.retry_after
+            else:
+                self.delay = RATE_LIMIT_DEFAULT_WAIT if self.kind == RATE else 0.0
+            return
+        if not self.retry_allowed:
+            self.delay = 0.0
+            return
+        growth = S2_BACKOFF_GROWTH ** (self.sends - 1)
+        backoff = min(S2_BACKOFF_CAP, S2_BACKOFF_BASE * growth + _uniform(0, S2_JITTER))
+        self.delay = max(backoff, self.retry_after or 0.0)
 
 
 @dataclass
@@ -697,7 +817,8 @@ class QueryState:
             Its log.
         """
         if key not in self.requests:
-            self.requests[key] = RequestLog(len(self.requests) + 1)
+            service = HOSTS.get((urlsplit(key[1]).hostname or "").lower())
+            self.requests[key] = RequestLog(len(self.requests) + 1, service)
         return self.requests[key]
 
 
@@ -705,7 +826,13 @@ class Transport:
     """The checks, pacing, retries and records around every connector request."""
 
     def __init__(
-        self, fork: ModuleType, run: RunDir, keys: dict[str, str], arxiv_406: Arxiv406
+        self,
+        fork: ModuleType,
+        run: RunDir,
+        keys: dict[str, str],
+        arxiv_406: Arxiv406,
+        *,
+        action: str,
     ) -> None:
         """Remember what the adapter needs.
 
@@ -714,11 +841,15 @@ class Transport:
             run: The run directory.
             keys: The API key values by service.
             arxiv_406: The arXiv connector's own check of a 406 feed.
+            action: The invocation's action. A `lookup`'s no-match 404 is usable, and a
+                `recommend` or `lookup` body parses only with its list of papers.
         """
         self.fork = fork
         self.run = run
         self.keys = keys
         self.arxiv_406 = arxiv_406
+        self.title_match = action == "lookup"
+        self.listed = S2_LISTS.get(action)
         self.query: QueryState | None = None
         self.sends = 0
         self.internal: tuple[Exception, str] | None = None
@@ -767,8 +898,11 @@ class Transport:
             return "host"
         if not kwargs.get("verify", True):  # requests turns verification off for any false value
             return "tls"
-        if service in self.run.rejected():
+        state = self.run.state()
+        if service in state.rejected_keys:
             return "key rejected"
+        if service == OPENALEX and state.openalex_budget_spent:
+            return DAILY_BUDGET
         key = self.keys.get(service)
         if key is not None:
             expected = f"Bearer {key}" if service == OPENALEX else key
@@ -778,7 +912,7 @@ class Transport:
 
     # @spec PRIOR-SCR-040, PRIOR-SCR-044, PRIOR-SCR-045, PRIOR-SCR-046, PRIOR-SCR-047
     # @spec PRIOR-SCR-048, PRIOR-SCR-049, PRIOR-SCR-050, PRIOR-SCR-051, PRIOR-SCR-052
-    # @spec PRIOR-SCR-053, PRIOR-SCR-054
+    # @spec PRIOR-SCR-053, PRIOR-SCR-054, PRIOR-SCR-111, PRIOR-SCR-118
     def _checked_send(
         self,
         adapter: HTTPAdapter,
@@ -820,14 +954,38 @@ class Transport:
         if log.memory is not None:
             attempt.from_memory = True
             return _replay(request, log.memory)
-        if log.sends >= 2 or (log.sends == 1 and not log.may_retry):  # noqa: PLR2004
+        if log.sends >= 1 and not log.may_retry:
             attempt.refused = "retry not allowed"
             msg = "retry not allowed"
             raise requests.RequestException(msg)
-        if log.sends == 1:
-            attempt.wait = max(0.0, log.failed_at + log.delay() - _monotonic())
+        if log.sends >= 1:
+            # The wait runs before the limiter's slot is asked for, so the two overlap.
+            attempt.wait = max(0.0, log.failed_at + log.delay - _monotonic())
             _sleep(attempt.wait)
         return self._send(adapter, request, kwargs, query, log, attempt)
+
+    # @spec PRIOR-SCR-041, PRIOR-SCR-112
+    def _pace(
+        self, adapter: HTTPAdapter, request: requests.PreparedRequest, log: RequestLog
+    ) -> None:
+        """Wait for the limiter's slot, then withhold a Semantic Scholar retry that is too late.
+
+        Raises:
+            RateLimited: The slot is further away than the adapter's `max_wait`.
+            requests.RequestException: The retry would go more than 60 seconds after the
+                request's first response arrived.
+        """
+        import requests  # noqa: PLC0415 - imported with the fork, after the environment is set
+
+        limit = cast("Any", adapter).limit_for(request.url or "")
+        if limit is not None:
+            credentialed = self.fork._carries_credential(limit, request)  # noqa: SLF001
+            self.fork.acquire(limit, cast("Any", adapter).max_wait, credentialed)
+        late = log.first_arrival is not None and _monotonic() - log.first_arrival > MAX_WAIT_SECONDS
+        if log.service == S2 and log.sends >= 1 and late:
+            log.withheld = True
+            msg = "retry not allowed: more than 60 seconds after the first response"
+            raise requests.RequestException(msg)
 
     def _send(  # noqa: PLR0913, PLR0917
         self,
@@ -838,22 +996,28 @@ class Transport:
         log: RequestLog,
         attempt: Attempt,
     ) -> requests.Response:
-        import requests  # noqa: PLC0415 - imported with the fork, after the environment is set
+        import requests.adapters  # noqa: PLC0415 - imported with the fork, after the environment
 
         try:
-            response = cast(
-                "requests.Response", self.fork.RateLimitedAdapter.send(adapter, request, **kwargs)
-            )
+            self._pace(adapter, request, log)
         except self.fork.RateLimited:
             attempt.error = "RateLimited"
             if log.sends == 0:
                 log.limiter = True
+            else:
+                log.withheld = True  # the failed response decides the outcome
             raise
+        except requests.RequestException:
+            attempt.refused = "retry not allowed"
+            raise
+        try:
+            response = requests.adapters.HTTPAdapter.send(adapter, request, **kwargs)
         except requests.RequestException as exc:
             self.sends += 1
             log.sends += 1
-            log.kind, log.retry_after, log.failed_at = NETWORK, None, _monotonic()
+            log.kind, log.retry_after = NETWORK, None
             attempt.error = type(exc).__name__
+            self._failed(log)
             raise
         self.sends += 1
         log.sends += 1
@@ -861,18 +1025,31 @@ class Transport:
         attempt.status = response.status_code
         content_type = response.headers.get("Content-Type", "")
         self.run.save_raw(f"{query.qid}-{log.number}-{log.sends}", content_type, body)
-        service = HOSTS.get((urlsplit(request.url or "").hostname or "").lower())
-        log.kind = classify(response, service, self.arxiv_406)
+        service = log.service
+        log.kind = classify(
+            response, service, self.arxiv_406, title_match=self.title_match, listed=self.listed
+        )
         if log.kind == USABLE:
             headers = dict(response.headers)
             log.memory = (response.status_code, headers, body, response.url or "")
         else:
-            log.retry_after, log.failed_at = _retry_after(response), _monotonic()
+            log.retry_after = _retry_after(response)
+            self._failed(log)
         key_header = KEY_HEADERS.get(service or "")
         carried = key_header is not None and request.headers.get(key_header) is not None
         if log.kind == AUTH and service in self.keys and carried:
             self.run.reject(service or "")
+        if log.kind == BUDGET:
+            self.run.spend_budget()
         return response
+
+    @staticmethod
+    def _failed(log: RequestLog) -> None:
+        """Note when a failure arrived, and plan the retry it allows."""
+        log.failed_at = _monotonic()
+        if log.first_arrival is None:
+            log.first_arrival = log.failed_at
+        log.plan_retry()
 
 
 class _NoSleep:
@@ -913,7 +1090,9 @@ class Connectors:
     http_limits: ModuleType
     relations: ModuleType
     request_errors: tuple[type[BaseException], ...]
+    s2_error: type[Exception]
     searcher: Any = None
+    s2_key: str | None = None
 
 
 def _year(value: object) -> int | None:
@@ -955,69 +1134,139 @@ def _record(service: str, paper: Any) -> dict[str, object]:  # noqa: ANN401 - a 
     }
 
 
-# @spec PRIOR-SCR-056
-def _s2_bulk(searcher: Any, query: str, depth: int) -> list[Any]:  # noqa: ANN401
-    params = {"query": query, "fields": S2_FIELDS, "sort": "citationCount:desc"}
-    response = searcher.request_api("paper/search/bulk", params)
-    if isinstance(response, dict):
+# @spec PRIOR-SCR-114, PRIOR-SCR-115
+def s2_seed(seed: str) -> str | None:
+    """A `recommend` seed as Semantic Scholar's paper ID, before percent-encoding.
+
+    Args:
+        seed: The seed as given.
+
+    Returns:
+        `DOI:<doi>`, `arXiv:<id>` or a lower-case paper ID, or None for any other form.
+    """
+    seed = seed.strip()
+    if match := DOI_SEED.fullmatch(seed):
+        # A `.` or `..` segment would be resolved away when the URL is prepared, sending the
+        # request to another endpoint's path. A DOI URL's query string or fragment isn't part
+        # of the DOI, and the citations lookup refuses it too.
+        if {".", ".."} & set(match[1].split("/")):
+            return None
+        if "://" in seed and any(mark in match[1] for mark in "?#"):
+            return None
+        return f"DOI:{match[1]}"
+    if match := ARXIV_SEED.fullmatch(seed):
+        return f"arXiv:{match[1]}"
+    if S2_PAPER_SEED.fullmatch(seed):
+        return seed.lower()
+    return None
+
+
+# @spec PRIOR-SCR-028, PRIOR-SCR-113, PRIOR-SCR-114, PRIOR-SCR-116, PRIOR-SCR-122
+# @spec PRIOR-SCR-083
+def _s2_fetch(connectors: Connectors, args: Args, query: str) -> list[dict[str, object]]:
+    """Send one `recommend` or `lookup` request, and make harvest records of its papers.
+
+    The connector has no method for either, so the harvester sends the request through the
+    connector's session, which carries its adapter, and parses each paper with the connector's
+    own parser. A retry is another call, which the adapter times like a connector's resend.
+
+    Returns:
+        The records; none when the response isn't a usable 200, whose outcome the adapter's
+        record decides.
+
+    Raises:
+        SemanticScholarRequestError: A usable response holds no list of papers.
+    """
+    searcher = connectors.searcher
+    if args.action == "recommend":
+        seed = quote(s2_seed(query) or "", safe=":/")
+        url = f"{S2_API}/recommendations/v1/papers/forpaper/{seed}"
+        params = {"from": "all-cs", "limit": str(args.max_results), "fields": S2_FIELDS}
+    else:
+        url = f"{S2_API}/graph/v1/paper/search/match"
+        params = {"query": query.strip(), "fields": S2_FIELDS}
+    listed = S2_LISTS[args.action]
+    headers = {} if connectors.s2_key is None else {"x-api-key": connectors.s2_key}
+    response = searcher.session.get(url, params=params, headers=headers, timeout=S2_TIMEOUT)
+    if response.status_code != 200:  # noqa: PLR2004 - a lookup's no-match 404 included
         return []
-    items = (response.json() or {}).get("data") or []
-    papers = [searcher._parse_paper(item) for item in items[:depth]]  # noqa: SLF001
-    return [p for p in papers if p is not None]
+    body = response.json()
+    items = body.get(listed) if isinstance(body, dict) else None
+    if not isinstance(items, list):
+        msg = f"Semantic Scholar's response has no {listed} list"
+        raise connectors.s2_error(msg)
+    records = []
+    for item in items[: args.max_results]:
+        paper = searcher._parse_paper(item) if isinstance(item, dict) else None  # noqa: SLF001
+        if paper is None:
+            continue
+        record = _record(S2, paper)
+        if args.action == "lookup":
+            record["match_score"] = item.get("matchScore")
+        records.append(record)
+    return records
 
 
-def fetch(connectors: Connectors, args: Args, query: str) -> tuple[list[Any], str | None]:
-    """Call the connector for one query.
+def fetch(
+    connectors: Connectors, args: Args, query: str
+) -> tuple[list[dict[str, object]], str | None]:
+    """Call the connector for one query, or send a Semantic Scholar request.
 
     Args:
         connectors: The connectors.
         args: The command line.
-        query: The query or paper ID.
+        query: The query, paper ID, seed or title.
 
     Returns:
-        The papers, and the stop reason when snowballing hit the connector's budget.
+        The harvest records, without their query ID and rank, and the stop reason when
+        snowballing hit the connector's budget.
     """
     searcher = connectors.searcher
+    if args.service == S2:
+        return _s2_fetch(connectors, args, query), None
     if args.action == "search":
-        if args.service == S2:
-            return _s2_bulk(searcher, query, args.max_results), None
-        return list(searcher.search(query, max_results=args.max_results)), None
+        papers = searcher.search(query, max_results=args.max_results)
+        return [_record(args.service, p) for p in papers], None
     getter = searcher.get_citations if args.action == "citations" else searcher.get_references
     # @spec PRIOR-SCR-078
     # The connector's own time budget runs on the real clock and includes the adapter's waits,
     # so give it the most it allows; its default of 30 seconds would undo a Retry-After wait.
     result = getter(query, max_results=args.max_results, timeout_seconds=RELATIONS_BUDGET)
     stop = result.get("stop_reason")
-    truncated = stop if stop in {"page_budget", "request_budget"} else None
-    return list(result.get("papers") or []), truncated
+    truncated = str(stop) if stop in {"page_budget", "request_budget"} else None
+    return [_record(args.service, p) for p in result.get("papers") or []], truncated
 
 
-# @spec PRIOR-SCR-057, PRIOR-SCR-058
+# @spec PRIOR-SCR-057, PRIOR-SCR-058, PRIOR-SCR-115
 def invalid(connectors: Connectors, args: Args, query: str) -> bool:
     """Whether a query is invalid input, which is never sent.
 
     Args:
         connectors: The connectors.
         args: The command line.
-        query: The query or paper ID.
+        query: The query, paper ID, seed or title.
 
     Returns:
         True when the query is invalid.
     """
-    if args.action != "search":
+    if args.action in {"citations", "references"}:
         try:
             connectors.relations.normalize_identifier(query)
         except ValueError:
             return True
         return False
+    if args.action == "recommend":
+        return s2_seed(query) is None
     operators = re.findall(r"\b(?:AND|OR|NOT)\b", query)
-    return args.service == OPENALEX and len(operators) > MAX_BOOLEAN_OPERATORS
+    is_openalex_search = args.action == "search" and args.service == OPENALEX
+    return is_openalex_search and len(operators) > MAX_BOOLEAN_OPERATORS
 
 
 # Outcomes -----------------------------------------------------------------------------------
 
 FAILURE_OUTCOMES = {
     RATE: "rate limit",
+    BUDGET: "rate limit",
     AUTH: "authentication",
     CLIENT: "client error",
     SERVER: "network",
@@ -1044,16 +1293,19 @@ def first_failure(state: QueryState) -> RequestLog | None:
 
 # @spec PRIOR-SCR-063, PRIOR-SCR-064, PRIOR-SCR-065, PRIOR-SCR-066, PRIOR-SCR-067
 # @spec PRIOR-SCR-068, PRIOR-SCR-069, PRIOR-SCR-070, PRIOR-SCR-074, PRIOR-SCR-076
-def outcome(state: QueryState, *, relations: bool, records: int) -> tuple[str, str | None]:
+# @spec PRIOR-SCR-118
+def outcome(state: QueryState, *, paper_id: bool, records: int) -> tuple[str, str | None]:
     """A query's outcome, from what its adapter recorded.
 
     Args:
         state: The query.
-        relations: Whether it was a citations or references query.
+        paper_id: Whether its first request looks up a paper ID (citations, references or
+            recommendations), so that a 404 there means the paper isn't found.
         records: How many harvest records it produced.
 
     Returns:
-        The outcome and, for `refused`, its reason.
+        The outcome and its reason: a refusal's, or `daily budget` for an OpenAlex budget
+        response.
     """
     log = first_failure(state)
     if log is None:
@@ -1062,8 +1314,9 @@ def outcome(state: QueryState, *, relations: bool, records: int) -> tuple[str, s
     if log.sends == 0:
         return _unsent_outcome(log)
     if log.kind == NOT_FOUND:
-        return ("not found" if relations and log.number == 1 else "client error"), None
-    return FAILURE_OUTCOMES.get(log.kind or NETWORK, "network"), None
+        return ("not found" if paper_id and log.number == 1 else "client error"), None
+    reason = DAILY_BUDGET if log.kind == BUDGET else None
+    return FAILURE_OUTCOMES.get(log.kind or NETWORK, "network"), reason
 
 
 def _unsent_outcome(log: RequestLog) -> tuple[str, str | None]:
@@ -1073,13 +1326,6 @@ def _unsent_outcome(log: RequestLog) -> tuple[str, str | None]:
     if log.limiter:
         return "not sent: limiter wait", None
     return "network", None
-
-
-DIAGNOSES = {
-    "rate limit": "rate limit",
-    "skipped: service throttled": "rate limit",
-    "not sent: limiter wait": "rate limit (local pacing)",
-}
 
 
 # @spec PRIOR-SCR-087, PRIOR-SCR-088
@@ -1097,11 +1343,15 @@ def diagnosis(results: list[QueryResult], service: str, keys: dict[str, str]) ->
     failed = [r for r in results if r.outcome not in RAN | QUERY_FAULTS]
     last = failed[-1]
     setting = KEY_SETTINGS.get(service)
-    if last.outcome in {"rate limit", "skipped: service throttled"}:
+    if DAILY_BUDGET in {last.reason, last.stopped_by}:
+        return "rate limit (daily budget)"
+    # A query skipped after Semantic Scholar's 5xx falls through to "network".
+    skipped = last.outcome == "skipped: service throttled"
+    if last.outcome == "rate limit" or (skipped and last.stopped_by != "network"):
         unkeyed = setting is not None and service not in keys
         return "rate limit, no key set" if unkeyed else "rate limit"
-    if last.outcome in DIAGNOSES:
-        return DIAGNOSES[last.outcome]
+    if last.outcome == "not sent: limiter wait":
+        return "rate limit (local pacing)"
     rejected = last.outcome == "refused" and last.reason == "key rejected"
     if rejected or (last.outcome == "authentication" and service in keys):
         return f"authentication: `{setting}` rejected"
@@ -1124,6 +1374,9 @@ class QueryResult:
     records: list[dict[str, object]] = field(default_factory=list)
     truncated: str | None = None
     attempts: list[Attempt] = field(default_factory=list)
+    # What stops the service for the rest of the invocation: set on the query whose outcome
+    # stops it, and on each query skipped after it (`rate limit`, `daily budget` or `network`).
+    stopped_by: str | None = None
 
 
 class Harvester:
@@ -1142,7 +1395,7 @@ class Harvester:
         self.args = args
         self.redact = Redactor(settings)
         self.keys = {s: settings[n] for s, n in KEY_SETTINGS.items() if n in settings}
-        shared = _prepare_environment(settings, args.service)
+        shared = _prepare_environment()
         self.run = RunDir(args.run_dir, self.redact)
         self.limits_note = _choose_limits(shared, self.run.root)
         now = datetime.fromtimestamp(_wall(), UTC)
@@ -1182,6 +1435,7 @@ class Harvester:
             self.run,
             self.keys,
             arxiv.ArxivSearcher._is_usable_406_feed,  # noqa: SLF001 - the connector's own check
+            action=self.args.action,
         )
         self.transport = transport
 
@@ -1225,7 +1479,14 @@ class Harvester:
             openalex_relations.OpenAlexRelationError,
             semantic.SemanticScholarRequestError,
         )
-        return Connectors(http_limits, openalex_relations, errors, searcher)
+        return Connectors(
+            http_limits,
+            openalex_relations,
+            errors,
+            semantic.SemanticScholarRequestError,
+            searcher,
+            self.keys.get(S2),
+        )
 
     def close(self) -> None:
         """Detach the log handler."""
@@ -1235,12 +1496,13 @@ class Harvester:
         for module, clock in getattr(self, "connector_clocks", {}).items():
             vars(module)["time"] = clock
 
+    # @spec PRIOR-SCR-055, PRIOR-SCR-113, PRIOR-SCR-119
     def run_query(self, number: int, query: str) -> QueryResult:
-        """Run one query, retrying once as the specs allow.
+        """Run one query, calling the connector again while its failed request may be retried.
 
         Args:
             number: Its position on the command line, from 1.
-            query: The query or paper ID.
+            query: The query, paper ID, seed or title.
 
         Returns:
             Its result.
@@ -1253,12 +1515,24 @@ class Harvester:
         self.transport.query = state
         try:
             result = self._call(state, query)
-            failed = first_failure(state)
-            if result.outcome not in RAN and failed is not None and failed.may_retry:
-                result = self._call(state, query)  # @spec PRIOR-SCR-055
+            while result.outcome not in RAN:
+                failed = first_failure(state)
+                if failed is None or not failed.may_retry:
+                    break
+                sends = self.transport.sends
+                result = self._call(state, query)
+                if self.transport.sends == sends:  # nothing more was sent, so stop
+                    break
         finally:
             self.transport.query = None
         result.attempts = state.attempts
+        failed = first_failure(state)
+        if result.outcome == "rate limit":
+            result.stopped_by = result.reason or "rate limit"
+        elif self.args.service == S2 and result.outcome == "network" and failed is not None:
+            # Semantic Scholar sheds load with 5xx as well as 429 (a 503 is already a rate
+            # limit); a connection error on the last attempt doesn't stop the service.
+            result.stopped_by = "network" if failed.kind == SERVER else None
         return result
 
     def _reraise_internal(self) -> None:
@@ -1270,23 +1544,23 @@ class Harvester:
             raise error
 
     def _call(self, state: QueryState, query: str) -> QueryResult:
-        papers: list[Any] = []
+        records: list[dict[str, object]] = []
         truncated = None
         raised = False
         try:
-            papers, truncated = fetch(self.connectors, self.args, query)
+            records, truncated = fetch(self.connectors, self.args, query)
         except self.connectors.request_errors:
             raised = True
         self._reraise_internal()
-        records = [_record(self.args.service, p) for p in papers]
-        relations = self.args.action != "search"
-        kind, reason = outcome(state, relations=relations, records=len(records))
+        paper_id = self.args.action in NOT_FOUND_ACTIONS
+        kind, reason = outcome(state, paper_id=paper_id, records=len(records))
         if raised and kind in RAN:
             kind = "network"  # @spec PRIOR-SCR-076
         if kind not in RAN:
-            records, truncated = [], None
+            return QueryResult(state.qid, query, kind, reason)
         return QueryResult(state.qid, query, kind, reason, records, truncated)
 
+    # @spec PRIOR-SCR-082, PRIOR-SCR-083
     def write(self, result: QueryResult) -> None:
         """Append a query's log line and records.
 
@@ -1380,20 +1654,20 @@ class Harvester:
             The exit status.
         """
         results: list[QueryResult] = []
-        throttled = False
+        stopped_by: str | None = None
         for number, query in enumerate(self.args.queries, start=1):
             qid = f"{self.invocation}-q{number}"
-            if throttled:
-                result = QueryResult(
-                    qid, query, "skipped: service throttled"
-                )  # @spec PRIOR-SCR-071
+            if stopped_by is not None:
+                # @spec PRIOR-SCR-071, PRIOR-SCR-119
+                result = QueryResult(qid, query, "skipped: service throttled")
+                result.stopped_by = stopped_by
             else:
                 try:
                     result = self.run_query(number, query)
                 except Exception:  # noqa: BLE001 - any other error is a bug, reported as such
                     trace = self.internal_trace or traceback.format_exc()
                     return self._internal_error(results, number, trace)
-            throttled = throttled or result.outcome == "rate limit"
+                stopped_by = result.stopped_by
             self.write(result)
             results.append(result)
         return self._finish(results)
