@@ -211,6 +211,58 @@ def test_note_template_has_every_section() -> None:
     assert [h.lower() for h in headings] == [s.lower() for s in NOTE_SECTIONS]
 
 
+# @spec PRIOR-PKG-010
+def test_note_template_need_section_records_common_uses() -> None:
+    """The need section has a place for the developer's common uses, or why there are none."""
+    text = (REFERENCES / "note-template.md").read_text()
+    match = re.search(r"^## Need and criteria\s*$(.*?)^## ", text, flags=re.MULTILINE | re.DOTALL)
+    assert match, "note-template.md has no Need and criteria section"
+    section = match[1].lower()
+    assert "common uses" in section
+    assert "unanswered" in section
+    assert "inferred" in section
+
+
+# @spec PRIOR-PKG-024
+def test_github_rows_discover_topics_and_sort_both_ways() -> None:
+    """Topic names come from GitHub's topic search, and repository searches run in two orders."""
+    rows = {row["route"].lower(): row for row in route_table()}
+    assert "search/topics" in rows["github topics"]["tactics"]
+    search = rows["github repository search"]["tactics"].lower()
+    assert re.search(r"--sort[= ]stars|sort=stars", search), "no sort by stars"
+    recent = r"pushed:>[^.;]*sort[= ]updated|sort[= ]updated[^.;]*pushed:>"
+    assert re.search(recent, search), "no pushed:> restriction sorted by update time in one clause"
+
+
+def _names_route(text: str, route: str) -> bool:
+    """Whether `text` names `route` as a whole name, not inside a longer word or host."""
+    return re.search(rf"(?<![\w.-]){re.escape(route)}(?![\w-])", text) is not None
+
+
+# @spec PRIOR-PKG-025
+def test_routes_that_block_scripted_clients_name_an_alternative() -> None:
+    """A blocked route says so, and points to another route that reaches the same projects."""
+    rows = {row["route"].lower(): row["tactics"].lower() for row in route_table()}
+    blocked = "blocks scripted clients"
+    for name in ("codeberg search", "lib.rs"):
+        assert name in rows, f"sources.md has no {name} route"
+        assert rows[name].startswith(blocked), f"{name}'s tactics don't start with {blocked!r}"
+    assert "pypi" in rows, "sources.md has no PyPI route"
+    assert f"search page {blocked}" in rows["pypi"], f"PyPI doesn't say its search page {blocked}"
+    fully_blocked = {name for name, tactics in rows.items() if tactics.startswith(blocked)}
+    for name, tactics in rows.items():
+        if blocked not in tactics:
+            continue
+        marker = re.search(r"\b(?:instead|use|search with)\b", tactics)
+        assert marker, f"{name} blocks scripted clients but says nothing to use instead"
+        after = tactics[marker.end() :]
+        named = {other for other in rows if other != name and _names_route(after, other)}
+        assert named, f"{name} blocks scripted clients but names no other route to use instead"
+        assert not named & fully_blocked, (
+            f"{name}'s alternative {named & fully_blocked} also blocks"
+        )
+
+
 # @spec PRIOR-PKG-016
 def test_literature_routes_exist_and_each_names_a_different_substitute() -> None:
     """A literature outage has a named substitute, so one failing API doesn't end the search."""
@@ -441,6 +493,11 @@ def test_eval_citations_name_eval_specs() -> None:
 # @spec PRIOR-SCR-100, PRIOR-SCR-101, PRIOR-SCR-102, PRIOR-SCR-103, PRIOR-SCR-104
 # @spec PRIOR-SCR-105, PRIOR-SCR-106, PRIOR-SCR-107, PRIOR-SCR-108, PRIOR-SCR-109
 # @spec PRIOR-SCR-110, PRIOR-SCR-120, PRIOR-SCR-121
+# @spec PRIOR-EFF-008, PRIOR-SRCH-017, PRIOR-SRCH-018, PRIOR-SRCH-019, PRIOR-SRCH-020
+# @spec PRIOR-SRCH-021, PRIOR-SRCH-022
+# @spec PRIOR-LIC-007, PRIOR-LIC-008, PRIOR-LIC-009, PRIOR-LIC-010
+# @spec PRIOR-SRC-011, PRIOR-SRC-012, PRIOR-SRC-013, PRIOR-SRC-014, PRIOR-SRC-015
+# @spec PRIOR-SRC-016
 @pytest.mark.parametrize("spec", eval_spec_ids())
 def test_eval_spec_is_exercised_by_an_eval_case(spec: str) -> None:
     """Every eval-verified spec has at least one eval case that exercises it."""

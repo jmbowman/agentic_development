@@ -1,5 +1,5 @@
 # @spec PRIOR-LIT-008, PRIOR-LIT-012, PRIOR-LIT-004, PRIOR-LIT-005, PRIOR-LIT-003, PRIOR-LIT-011
-# @spec PRIOR-SAVE-009, PRIOR-SAVE-003, PRIOR-PRIV-002
+# @spec PRIOR-SAVE-009, PRIOR-SAVE-003, PRIOR-PRIV-002, PRIOR-SRC-015
 schema_version: "1.1"
 name: paper-supplied-update
 description: >-

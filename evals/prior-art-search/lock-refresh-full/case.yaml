@@ -3,9 +3,12 @@
 # @spec PRIOR-CLS-005, PRIOR-CLS-006, PRIOR-CLS-010, PRIOR-CLS-011, PRIOR-CLS-012
 # @spec PRIOR-SRC-002, PRIOR-SRC-004, PRIOR-SRC-005, PRIOR-SRC-008, PRIOR-RPT-001
 # @spec PRIOR-RPT-004, PRIOR-SAVE-001, PRIOR-SAVE-002, PRIOR-SAVE-003, PRIOR-SAVE-007
+# @spec PRIOR-SRCH-008, PRIOR-SRCH-021, PRIOR-RPT-003, PRIOR-SRC-011
+# @spec PRIOR-LIC-007, PRIOR-LIC-009, PRIOR-LIC-010
 schema_version: "1.1"
 name: lock-refresh-full
 description: >-
-  Reference case: keeping committed mise lock files current on template-update PRs.
+  Reference case: keeping committed mise lock files current on template-update PRs. Routes that block scripted
+  clients get no requests and their alternatives are searched, and subagents' reads keep their true depth.
 context:
   scaffold_script: scaffold.sh

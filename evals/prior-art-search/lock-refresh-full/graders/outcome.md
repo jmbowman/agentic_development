@@ -13,5 +13,5 @@ PASS if all hold:
 - any native feature it reports on is checked against the installed code or the docs for its pinned version;
 - every `unsupported` matrix cell cites evidence of the absence (a search command and its scope), and unconfirmed cells are `unverified`;
 - the "Verified" list includes at least the top two ranked candidates;
-- the ledger includes the routes the need triggers (at least GitHub, npm, awesome lists and general web search), and later rounds were seeded from serious candidates (their topics, alternatives pages, awesome lists, other-language equivalents or dependents).
+- the ledger includes the routes the need triggers (at least GitHub, npm, awesome lists and general web search), and later rounds were seeded from serious candidates (their topics and the topic variants GitHub's topic search finds for their names, alternatives pages, awesome lists, other-language equivalents or dependents).
 FAIL if any is missing.

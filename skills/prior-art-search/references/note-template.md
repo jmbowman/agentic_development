@@ -7,7 +7,7 @@
 
 ## Need and criteria
 
-<Each requirement, with the underlying need beside it. Then the hard criteria, then the preferences.>
+<Each requirement, with the underlying need beside it. Then the developer's two or three common uses of the result, or "asked; unanswered (non-interactive run)" followed by the uses inferred from the need, each labeled inferred. Then the hard criteria, then the preferences.>
 
 ## Verdict
 
