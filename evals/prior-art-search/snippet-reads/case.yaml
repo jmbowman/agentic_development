@@ -1,4 +1,5 @@
 # @spec PRIOR-CLS-013, PRIOR-CLS-014, PRIOR-CLS-010, PRIOR-SRC-008, PRIOR-SRC-009
+# @spec PRIOR-SRC-011
 schema_version: "1.1"
 name: snippet-reads
 description: >-

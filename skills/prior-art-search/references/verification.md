@@ -14,8 +14,20 @@ Cite the file and line you used. A forge badge or the forge API's license field 
 - **Pin it.** Record the license at the commit you read, and for the paths you use. In a monorepo, a package's own license file takes precedence over the one at the repo root.
 - **Choices.** When a license offers a choice ("MIT OR Apache-2.0", or separate `LICENSE-MIT` and `LICENSE-APACHE` files), record every option.
 - **Vendored code.** When a candidate vendors code under another license (`vendor/`, `_vendor/`, `third_party/`), flag the directory and its license; it can fail the license criterion on its own.
-- **No license.** Cite the file listing that showed none. A candidate with no license can be borrowed from as an idea, but never adopted or built on.
-- **Source-available licenses** are judged against the hard criteria from step 2.
+- **No license.** Cite the file listing that showed none, read at `full` depth (a summary of the repo page doesn't count). A candidate with no license can be borrowed from as an idea, but never adopted or built on.
+- **Source-available licenses** are judged against the hard criteria from step 2, for how the host repo will use and distribute the result.
+- **Read the whole file.** Read the license file at `full` depth (see [Read depth](#read-depth)), to the end, in a quick pass too: registries, badges and the file's own heading can say "MIT" for a file that adds terms below the standard text. Search it for added terms (`grep -niE "commons clause|rider|additional terms|restrict" LICENSE*`) and read each hit. Wording of the standard text itself, such as MIT's "without restriction", and an exception on SPDX's exception list, such as a GPL linking exception, aren't added terms. Record any added terms as part of the license (for example "MIT plus the Commons Clause"), treat it as source-available, and name the added terms in the report.
+- **Unread is unverified.** A license read only at `snippet` depth leaves the license criterion `unverified`, and a candidate whose license is `unverified` is never classified **adopt** or **build on**.
+
+## Lookalike copies
+
+Results sorted by update time surface copies of real tools that aren't marked as forks. Check a serious candidate when it has the same description or license copyright holder as another project while its own owner isn't that holder, or has a README that tells users to download and run an installer instead of building the code, whoever the owner is. Search for the original by name, taking first the repo whose owner matches the license's copyright holder, then the repo the tool's package registry entry or official site links to, then the earliest-created repo with that name and description.
+- **Original found:** reject the copy with the original named as the reason, and add the original as a serious candidate in the current round if it fits the need.
+- **No original found:** evaluate the candidate on its merits, flag it in the report as a possible copy, and don't classify it **adopt** or **build on** without the developer's review (in a non-interactive run, the report asks for that review).
+
+## Read depth
+
+A reading is `full` only when you had the text itself: from a clone, the forge's contents API, a local file, or a raw file or verbatim endpoint (a `.md` docs page, `llms-full.txt`, docs.github.com's article API, jsDelivr's `gh/` route for a README or license) fetched with a tool that returns it unchanged, such as `curl`. A fetch tool that summarizes or truncates the page (Claude Code's WebFetch does both) gives `snippet` depth whatever URL it fetched, and so do web search results. The rule holds for your readings and your subagents' alike. A paper is *read in full* only when its whole body text was read at `full` depth.
 
 ## Reading source
 

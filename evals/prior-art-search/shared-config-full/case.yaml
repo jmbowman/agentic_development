@@ -1,8 +1,11 @@
 # @spec PRIOR-SRCH-001, PRIOR-SRCH-005, PRIOR-CLS-007, PRIOR-CLS-008, PRIOR-CLS-009
 # @spec PRIOR-SAVE-002, PRIOR-SAVE-004, PRIOR-SAVE-008
+# @spec PRIOR-SRCH-008, PRIOR-SRCH-010, PRIOR-SRCH-017, PRIOR-SRCH-018, PRIOR-SRCH-019
+# @spec PRIOR-SRCH-020, PRIOR-SRCH-022
 schema_version: "1.1"
 name: shared-config-full
 description: >-
-  Reference case: shared config with committed per-repo overrides and local overlays.
+  Reference case: shared config with committed per-repo overrides and local overlays. GitHub topics are
+  discovered and searched in both sort orders, and finalists walk the common uses before generic scenarios.
 context:
   scaffold_script: scaffold.sh

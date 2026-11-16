@@ -20,8 +20,8 @@
 api_key = ""
 
 [librariesio]
-# required (every request needs a key). A free key gives one package search across 32 package managers
-# and dependents lookups, at 60 requests a minute; it travels in the `api_key` query parameter. Register by hand at https://libraries.io (its terms
+# required (every request needs a key). A free key gives one package search across 32 package managers,
+# including PyPI, whose own search page blocks scripts, at 60 requests a minute; it travels in the `api_key` query parameter. Register by hand at https://libraries.io (its terms
 # forbid accounts registered by bots), then copy the key from your account page. Terms read 2026-11-05
 # (https://libraries.io/terms): the data is CC BY-SA 4.0, and automated access is allowed through its
 # documented API.
