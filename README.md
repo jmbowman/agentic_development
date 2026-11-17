@@ -52,6 +52,7 @@ lifecycle into one system a single developer can drive, and to build only what's
 | `apm.yml`, `apm.lock.yaml`, `.claude/hooks/` | [LID](https://github.com/jszmajda/lid)'s skills pinned with [APM](https://github.com/microsoft/apm). The pin serves this repo and, as the skills package's dependency, every repo that installs the package. Also this repo's hook that installs the tools and skills in Claude Code cloud sessions. |
 | `evals/` | Behavior evals for each skill, in `evals/<skill>/`, run by hand with `mise run eval`, which runs `claude plugin eval` in a clean copy of the plugin; each skill's `latest-results.md` gives every case's most recent triaged result. See its README. |
 | `scripts/` | The workflow's helper script, fetched at the workflow's own commit; `run_evals.py`, which the `eval` task runs; and `collect_scenarios.py`, with which `check` imports the interactive scenarios (still to come) without running them. |
+| `backlog/`, `scripts/tasks.py` | A pilot of task tracking for people and agents: this repo's outstanding work as one Markdown file per task in [Backlog.md](https://github.com/MrLesk/Backlog.md)'s format, and a tool (`mise run tasks -- board`) that lints the files and ranks what is ready, separately for the developer and for agents. Not yet designed or released for other repos; see [its README](backlog/README.md). |
 | `docs/` | The system's high-level design, each component's design and specs, prior-art notes, a log of each review wave's yield and cost, and lessons about the development process. |
 
 ## Using it
@@ -77,8 +78,9 @@ and from `.agents/skills/` (for other agents).
 
 Early: one template (Python), GitHub only, Linux runners. Two shared agent skills are built:
 prior-art search, and session wrap-up, whose capture of items in an issue, memory triage and cross-repo routing are still to come. It reads the process notes that its hooks collect from subagents.
-Delivering skills through the template, installed from a lock file, is designed and not yet
-released. Process guardrails (commit gates, review loops) are designed in
+The template delivers skills to a repo, installed from a lock file (copier-python v0.3.0 and
+later). Session wrap-up and the other changes made here since v0.3.1 aren't in a release yet, so
+they don't reach template repos. A pilot of task tracking is in `backlog/`. Process guardrails (commit gates, review loops) are designed in
 outline only.
 
 ## Developing this repo
