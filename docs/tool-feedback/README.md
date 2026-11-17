@@ -16,4 +16,4 @@ Proposed enhancements and bugs for the tools this repo uses or plans to adopt, k
 - [Renovate](renovate.md): the `pep723` manager neither updates script lock files nor bumps git-pinned dependencies.
 - [delta](delta.md): no mode showing each changed line once; `--word-diff` output loses its styling for code; hunk headers show one level of scope.
 - [difftastic](difftastic.md): no function or class in hunk headers; no inline display mode; fixed colours; no Markdown parser.
-- [Backlog.md](backlog-md.md): a task file can run a shell command; claims not atomic; ID generation fetches and prunes; `init --defaults` writes an always-run instruction into `AGENTS.md`; cycle checks in MCP edits unverified.
+- [Backlog.md](backlog-md.md): a task file can run a shell command; claims not atomic; ID generation fetches and prunes; `init --defaults` writes an always-run instruction into `AGENTS.md`; cycle checks in MCP edits unverified; the terminal viewer moves backticked paths out of their sentences.

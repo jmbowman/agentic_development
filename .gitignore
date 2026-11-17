@@ -13,6 +13,9 @@ inbox/
 # The template is skills/prior-art-search/references/settings.example.toml.
 .config/prior-art-sources.toml
 
+# The task tool's cache of GitHub lookups, and task drafts that can't be public.
+backlog/.cache/
+backlog/private/
 
 # APM dependencies
 apm_modules/

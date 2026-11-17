@@ -29,6 +29,13 @@ Feedback for [Backlog.md](https://github.com/MrLesk/Backlog.md), the leading tas
 - **Evidence:** confirmed by running `init Test --defaults` in an empty repo: it created a 24-line `AGENTS.md` and `backlog/config.yml`, and nothing else.
 - **Suggested fix:** default to no agent instructions in non-interactive mode, or say in the init summary which files it changed.
 
+## The terminal viewer pulls backticked paths out of their sentences
+
+- **Where:** `src/ui/code-path.ts:45-97` (`transformCodePaths`), applied to the description, checklist items, plan, notes, comments and summary in `src/ui/task-viewer-with-search.ts:1703-1807`.
+- **What:** in the terminal task view, any backticked string with a slash or a file extension is removed from its line and listed on a line of its own after that line's text, unless it is the line's only path and fewer than ten other characters remain. A sentence that names several paths loses them: "the extra files in `backlog/` (`focus.yml`, `BOARD.md`, `README.md`, `outbox/`) don't confuse it" shows as "the extra files in ( , , , ) don't confuse it", with the paths listed below the paragraph. Backticked strings without a slash or extension (`performer`) stay in place. The `--plain` output keeps paths in place (`transformCodePathsPlain`), so agents aren't affected. In the same view, `**bold**` markers showed as typed (seen, not traced in source).
+- **Evidence:** seen by the developer in the terminal board on 2026-11-17 (task AD-1), then read in source at v1.55.3.
+- **Suggested fix:** style a path where it stands, as the isolated-path branch already does, and never move it.
+
 ## Dependency cycles: check MCP edits
 
 - **What:** the CLI refuses an edit that would create a cycle ("These dependencies would create a cycle: TASK-2 -> TASK-1 -> TASK-2"), confirmed by running. An earlier source reading found only `backlog doctor` reporting cycles (`src/utils/readiness.ts:1-121`, `src/cli.ts:5920-5921`), so the MCP `task_edit` path may not refuse them; this hasn't been checked.
