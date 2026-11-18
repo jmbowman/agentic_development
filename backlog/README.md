@@ -71,3 +71,4 @@ Ready tasks are ordered in three tiers: the developer's pins in `focus.yml`, in 
 - Never edit `focus.yml`, and never change a `priority` whose `priority_set_by` is `human`. Propose the change in the conversation instead.
 - A task file never carries `onStatusChange`: Backlog.md runs that key as a shell command.
 - Split a task rather than leave agent-doable work inside one that waits on the developer.
+- Task file names contain spaces (`ad-12 - Title.md`). Quote them in commands, and match one by ID with an escaped glob: `backlog/tasks/ad-12\ -\ *.md`.

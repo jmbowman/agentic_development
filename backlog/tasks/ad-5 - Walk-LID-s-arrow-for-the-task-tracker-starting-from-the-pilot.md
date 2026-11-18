@@ -40,6 +40,9 @@ Carried over from the pilot's review wave (2026-11-17), to settle in this walk:
 - The GitHub lookup: a reopened issue reads as closed for up to six hours; lookups run one after another with a ten-second timeout each, and failures aren't cached, so an unreachable network slows `brief`.
 - The tool loads `tasks/` and `completed/` but not `archive/`, where Backlog.md's cleanup may move tasks, so a dependency on an archived task would read as unknown.
 - Editing through Backlog.md's board writes `ordinal` into a card's column neighbours and re-serializes each file it touches. Decide whether the design accepts that churn or avoids the board for edits.
+- Whether `backlog/BOARD.md` is tracked. Closing a task changes it, so every status change carries a second modified file, and Backlog.md's own boards show the same data. The developer's leaning (2026-11-17) is to drop it and keep the `tasks` commands.
+
+The pilot's scratch files are in `tmp/task-pilot/` on the machine that built it (gitignored, so they may be absent): the harvest brief and each harvester's raw inventory, the curation that merged and ranked them, the importer, and a read-only clone of Backlog.md v1.55.3.
 
 **Why it matters:** Brings the prototype under the same intent discipline as the rest of the repo.
 <!-- SECTION:DESCRIPTION:END -->
