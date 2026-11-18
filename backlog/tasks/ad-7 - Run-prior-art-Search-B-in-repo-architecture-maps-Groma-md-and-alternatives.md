@@ -1,9 +1,10 @@
 ---
 id: AD-7
 title: 'Run prior-art Search B: in-repo architecture maps (Groma.md and alternatives)'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-18T04:34:00Z'
 labels:
   - loose-end
 milestone: m-1
@@ -32,3 +33,9 @@ Run the quick-pass prior-art search described as Search B in tmp/prior-art-next/
 
 **Why an agent:** a search run by the prior-art-search skill, no decision needed first
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Note written: docs/prior-art/2026-11-17-in-repo-architecture-maps.md (verdict: blend; LID's tree, @spec and Mermaid stay the map, plus a lookup rule in AD-318). Review wave 1 applied. Follow-ups: AD-318 to AD-322; refresh in AD-73.
+<!-- SECTION:FINAL_SUMMARY:END -->
