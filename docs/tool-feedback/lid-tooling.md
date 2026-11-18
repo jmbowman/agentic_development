@@ -102,6 +102,7 @@ Each enhancement fits `lidc`'s design, and none conflicts with LID's rule that r
   - [specspan](https://github.com/nripankadas07/specspan) (`src/specspan/analyzer.py:617-654` at d0c1fe0);
   - [V-Model](https://github.com/leocamello/spec-kit-v-model) (`scripts/bash/impact-analysis.sh:194-260` at e050c7b);
   - LID's audit checklist already maps changed files to segments.
+  - The same lookup answers an agent's "which segment owns this file?". [The in-repo architecture-maps note](../prior-art/2026-11-17-in-repo-architecture-maps.md) found no map tool worth adopting over LID's own tree, and has agents answer that question with its lookup rule for now (`git grep` for `@spec`, then the HLD Components table).
 - **Suggested fix:** a `lidc impact --files` query with JSON output. It maps a changed file to the citations in it, then to spec IDs and their nodes, then to dependents through `index.yaml`. It's the inverse of the MCP spec-reference lookup, and the caller supplies the file list.
 - **Size:** small to medium, roughly 200-400 lines.
 
