@@ -179,10 +179,10 @@ backend = "npm:backlog.md"
 specifiers = ["1.55.3"]
 
 [[tools."npm:renovate"]]
-version = "44.239.1"
-aube = { path = ".mise/locks/npm-renovate/44.239.1~aa673d8d", digest = "sha256:324c7eebb7e5441c844a6e64971e94f9799484b9338cd8ab233e8ab613a5c594" }
+version = "44.240.0"
+aube = { path = ".mise/locks/npm-renovate/44.240.0~aa673d8d", digest = "sha256:6a6af9d29513540d59676bdec0cde5fad97bc4c6f9b9bb91346aa985a2e784db" }
 backend = "npm:renovate"
-specifiers = ["44.239.1"]
+specifiers = ["44.240.0"]
 
 [tools."npm:renovate".options]
 trust_policy_excludes = '["@yarnpkg/libzip@3.2.2"]'
