@@ -8,7 +8,7 @@ labels:
   - prior-art
 milestone: m-1
 dependencies:
-  - AD-5
+  - AD-5.3
 references:
   - docs/tool-feedback/backlog-md.md
   - docs/prior-art/2026-11-12-task-management-for-humans-and-agents.md

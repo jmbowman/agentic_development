@@ -8,7 +8,7 @@ labels:
   - surfaced
 milestone: m-1
 dependencies:
-  - AD-5
+  - AD-5.1
 references:
   - skills/prior-art-search/SKILL.md
   - docs/task-tracking-pilot.md

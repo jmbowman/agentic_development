@@ -5,6 +5,7 @@ Lessons about this repo's development process, drawn from building its skills, f
 ## Slices and specs
 
 - **Specs grow in review.** A slice estimated before the EARS coverage review can double or more (session-wrap-up's second slice went from 8 specs to 38): coverage gaps and edge-audit forks add specs. Count a slice's specs after that review, and re-cut it if it passes about 40.
+- **Cut slices from the work that waits on them.** Before proposing a slice plan, list the tasks that depend on the work (`tasks why <ID>`) and what each one actually needs. Order the slices so the earliest one unblocks the most valuable of them, and make each slice a subtask so its dependents can point at that slice, not the whole task. Put each data fix in the slice that adds the rule requiring it, so every slice ends with checks passing. The task tracker's first plan, layered by component (data, then ranking, then the skill), would have left everything waiting until the last slice. Its lint would also have failed checks for two slices while the data fixes waited.
 - **Spikes before EARS pay off.** Running the platform behaviors a design depends on (memory paths, session listing, the eval runner) removes wrong assumptions before any spec is written. Record the results as facts in the LLD.
 
 ## Review and evals
