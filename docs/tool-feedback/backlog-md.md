@@ -40,3 +40,24 @@ Feedback for [Backlog.md](https://github.com/MrLesk/Backlog.md), the leading tas
 
 - **What:** the CLI refuses an edit that would create a cycle ("These dependencies would create a cycle: TASK-2 -> TASK-1 -> TASK-2"), confirmed by running. An earlier source reading found only `backlog doctor` reporting cycles (`src/utils/readiness.ts:1-121`, `src/cli.ts:5920-5921`), so the MCP `task_edit` path may not refuse them; this hasn't been checked.
 - **Suggested fix, if MCP doesn't refuse them:** the same check there, reusing `findCycleThroughRoot` (`src/utils/dependency-graph.ts:219`).
+
+## Milestone edits drop custom frontmatter keys
+
+- **Where:** `src/file-system/operations.ts:1971-1979` (`serializeMilestoneContent`), used when a milestone is created or edited (`:2184`, `:2241`).
+- **What:** a milestone file is rewritten with only `id`, `title` and `due_date` in its frontmatter, so any other key is dropped, unlike task files, which keep keys Backlog.md doesn't know. The body is kept.
+- **Evidence:** read in source at v1.55.3; not yet confirmed by running.
+- **Suggested fix:** keep unknown frontmatter keys on milestones, as on tasks.
+
+## Setting a task's status to `Draft` demotes it
+
+- **Where:** `src/core/backlog.ts:3219-3262` (`demoteTaskWithUpdates`), `src/utils/task-links.ts:65-77`.
+- **What:** `backlog task edit <id> -s Draft` moves the task to `drafts/` with a new `DRAFT-<n>` ID and removes the old ID from every other task's `dependencies` and `references`, as `task demote` does. `task create --help` lists `Draft` among the valid statuses, so a status edit can drop links silently.
+- **Evidence:** read in source at v1.55.3; not yet confirmed by running.
+- **Suggested fix:** refuse `Draft` as a status in `task edit` and point to `task demote`, or ask before removing other tasks' links.
+
+## A missing config key rewrites `config.yml`
+
+- **Where:** `src/cli.ts:1033-1060` (the migration run before each command), `src/core/config-migration.ts`, `src/file-system/operations.ts:2341` (`saveConfig`).
+- **What:** before each command, if `config.yml` lacks a key the migration checks (such as `default_port` or `auto_open_browser`), Backlog.md writes the whole file again with its own set of keys, dropping comments and keys it doesn't know.
+- **Evidence:** read in source at v1.55.3; not yet confirmed by running.
+- **Suggested fix:** add only the missing keys, keeping the rest of the file as written.
