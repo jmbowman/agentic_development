@@ -1,0 +1,29 @@
+---
+id: AD-326
+title: >-
+  Render the backlog in the docs site: task pages off the default sidebar, and
+  the board as a generated page
+status: To Do
+assignee: []
+created_date: '2026-11-18T12:55:00Z'
+labels: []
+milestone: m-8
+dependencies:
+  - AD-252
+references:
+  - docs/intent/task-tracker/task-tracker-design.md
+  - docs/prior-art/2026-10-23-docs-site-search-and-graph-features.md
+priority: medium
+type: spike
+ordinal: 13000
+performer: agent
+agent_tier: strong
+effort: M
+priority_set_by: agent
+---
+
+## Description
+
+<!-- SECTION:DESCRIPTION:BEGIN -->
+The task tracker computes its views on read (HLD tenet 10), so a board generated when the docs site is built needs no tracked or gitignored file, and custom views over the backlog can sit in the site's normal navigation. Backlog.md can keep the backlog under docs/ through backlog_directory in a root backlog.config.yml, and the task tool follows the same setting (docs/intent/task-tracker/task-tracker-design.md, Layout). In the mdBook spikes, check: task pages rendered (frontmatter shown or hidden as for notes) without hundreds of entries in the sidebar (a folded Backlog chapter, CSS, or a preprocessor that leaves them out of the navigation); the board as a preprocessor-generated page; how seiso and the link checkers treat task pages; and whether outbox drafts belong on the public site. The developer plans a preprocessor that generates useful views of task data for the site, the board among them, once the docs site is set up; the spike should find what it needs from the task tool, such as links relative to the site and a machine-readable output, rather than a second reader of the format. Done when the spike's results say which of these work, and the docs-site and task-tracker designs are updated to match.
+<!-- SECTION:DESCRIPTION:END -->

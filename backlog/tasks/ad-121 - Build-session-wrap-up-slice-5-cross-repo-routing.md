@@ -42,6 +42,8 @@ priority_set_by: agent
 <!-- SECTION:DESCRIPTION:BEGIN -->
 Implement step 7 of the session-wrap-up skill: never edit another repo, find a session rooted in the target repo by name pattern (`_` to `-`, plus `-` and two hex chars), message it, ask when several match, fall back to an issue on that repo via `gh repo view`, else put the draft in the report; screen drafts for private content and secrets; report delivery status and issue URLs. Specs: WRAP-XREPO-001 to WRAP-XREPO-012, including the new `skills/session-wrap-up/references/cross-repo.md` (WRAP-XREPO-012). Walk through LID with eval cases for the *(eval)* specs, manual scripts for the *(manual)* ones, and a structure test for the reference file. Done when cross-repo items become selectable, `mise run check` passes and the README status line is updated.
 
+Cascade from the task-tracker LLD (AD-5): work for another repo is recorded as an outbox draft in this repo's backlog, which is the record; messaging a session there, an issue on that repo, and the report are ways of delivering the draft, not alternatives to writing it. Reconcile step 7 and the WRAP-XREPO specs with that when this slice walks the arrow.
+
 **Why it matters:** Makes feedback for sibling repos reach a session that can act on it instead of sitting in a report.
 
 **Why an agent:** specs are written; implementation and tests are agent work
