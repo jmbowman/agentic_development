@@ -1,0 +1,412 @@
+---
+parent: high-level-design
+prefix: TASK
+---
+
+# Task tracker
+
+## Context and Design Philosophy
+
+A repo's outstanding work lives in its backlog: one Markdown file per task in the repo's backlog directory, in Backlog.md's file format. The tracker adds three things to that format: a few custom keys, a read-only task tool that lints the files and ranks the ready work, and a skill that tells agents how to pick up, record and finish tasks. The tool and the agents' rules ship together as the `task-tracker` skill in the skills package, and each template wires them into its consumers.
+
+Three rules shape the design:
+
+- **Facts and rulings in files, everything else computed.** A task file records what someone decided or observed: who does the task, how big it is, what it waits on, its priority. Readiness, rank, what a task unblocks, and the board are computed each time the tool runs, and never written back (HLD tenet 10). The tool never writes a task file.
+- **The developer's rulings are visible and protected.** The developer's pins and ranking weights live in the focus file, which agents read and never edit. A `priority` the developer set is marked `priority_set_by: human`, and agents propose changes to it instead of making them.
+- **Fail closed, explain every rank.** Anything the tool can't read (a GitHub issue, a task in another repo, a malformed date) blocks rather than unblocks, so nothing starts by mistake. Every score is printed with the terms that make it up, so the terms, not the numbers, are what a person reviews.
+
+Arithmetic ranks the list, never a model. Agents propose a task's attributes when they create it; the ranking turns those attributes into an order.
+
+Who writes what, and what the tool reads:
+
+```mermaid
+flowchart TD
+  dev(["Developer"]) -->|edits| rul["focus.yml, milestones,<br/>config, schema"]
+  agent(["Agent"]) -->|"Backlog.md CLI,<br/>custom keys"| tf["Tasks and<br/>outbox drafts"]
+  rul --> tool["Task tool<br/>(read-only)"]
+  tf --> tool
+  ext["GitHub cache,<br/>other repos' clones"] --> tool
+  tool --> views["check · next · why<br/>milestone · board · brief"]
+```
+
+## Layout
+
+All paths are relative to the backlog directory. The tool finds it the way Backlog.md does: the `backlog_directory` named in a `backlog.config.yml` at the repo root (a path inside the repo, whose config then lives in that root file), otherwise `backlog/`. `--root` overrides both. Moving the backlog, for example under `docs/` so a docs site can render it, is then a config change; `backlog/` is used below for the default.
+
+| Path | Holds | Written by |
+|---|---|---|
+| `config.yml` | Backlog.md's settings, which the tool also reads: `project_name`, `task_prefix`, `statuses`, `types` | The developer |
+| `tasks/` | Open and recently finished tasks, `<id> - <Title>.md`, where `<id>` is the lower-cased task ID | Agents and the developer |
+| `completed/` | A legacy archive folder: older Backlog.md releases moved finished tasks here. Current releases read it as archived, never write it, and `backlog doctor --fix` moves its files into `archive/tasks/` | Older Backlog.md releases |
+| `archive/tasks/` | Tasks Backlog.md has archived: taken off the board, whether finished or dropped | Backlog.md |
+| `focus.yml` | The developer's pins, weight overrides and cache setting | The developer only |
+| `schema.json` | Optional: the repo's own rules for task and draft frontmatter, as JSON Schema | The developer |
+| `README.md` | A pointer to the skill's format reference and the commands | The developer |
+| `.cache/` | The GitHub lookup cache. Gitignored | The tool |
+| `milestones/` | The workstreams tasks are grouped under, one file each (*Milestones*) | The developer, or an agent drafting for the developer's review |
+| `outbox/<repo>/<slug>.md` | Task drafts for the repo `<repo>`, named by a slug | Agents draft; the developer delivers |
+| `private/outbox/<repo>/<slug>.md` | A stopgap for drafts that can't be public, until the private coordination repo has a backlog (*Private work*). Gitignored, and kept in the main checkout | Agents draft; the developer delivers |
+
+The tool loads `tasks/`, `completed/` and `outbox/`, and `private/outbox/` only with `--private`. It reads `archive/tasks/` only to look up an ID that no loaded task has, so that a reference to an archived task resolves, and can be told apart from one to a task that never existed; archived tasks never appear in a queue, on the board or in the brief. Backlog.md's `drafts/` holds its own drafts (tasks not yet accepted onto its board, with `DRAFT-<n>` IDs); the tool doesn't read them as tasks, and lint reports any file there. It ignores Backlog.md's `decisions/` and `docs/` folders and anything else in the backlog directory. A missing backlog directory or `config.yml` is an error: every command except `help` prints one line naming the missing path and exits 2.
+
+A repo is identified across repos by its forge path, `<host>/<owner>/<repo>` (`github.com/jmbowman/agentic_development`): prefixing `https://` gives its clone URL, and the form names no particular forge. The tool takes this repo's own forge path from its `origin` remote, normalized to that form, so a task file never states which repo it is in; a repo with no `origin` has no forge path, and a reference that names it reads as another repo's. `config.yml`'s `project_name` is only Backlog.md's display name. Task IDs are `task_prefix` upper-cased, a hyphen and a token of letters and digits, with `.<n>` for each level of subtask (`AD-12`, `AD-12.1`). Backlog.md's `task create` assigns numbers in sequence, but the tool assumes only this shape, so a repo that assigns IDs another way, for example to avoid collisions between developers, keeps the rest of the tracker. Backlog.md's own file-name patterns expect numbers, so a scheme with letters must also be checked against Backlog.md's allocator and views (AD-327). Numeric parts compare without leading zeros, as Backlog.md compares them (`AD-01` is `AD-1`). IDs compare case-insensitively: the tool upper-cases them on reading.
+
+**Open.** A task is open when it was loaded from `tasks/` or an outbox and its `status` isn't `Done`. Any status other than `Done`, including one a repo adds to `config.yml`, is open. Tasks in `completed/` and archived tasks are never open, whatever their status. A draft is a task of the repo its outbox folder names.
+
+## Task files
+
+A task file is YAML frontmatter followed by a Markdown body, as Backlog.md writes it. Backlog.md keeps frontmatter keys it doesn't know when it rewrites a file, which is what lets the custom keys sit beside its own. A test in this repo runs the pinned Backlog.md CLI on a task carrying every custom key and fails if an edit drops or changes one, so an upgrade that breaks this fails `check`.
+
+**Backlog.md's keys the tool reads.** `id`, `title`, `status`, `priority` (`high`, `medium`, `low`), `type`, `milestone`, `dependencies` (task IDs in the same backlog), `parent_task_id`, `created_date`, `due_date` and `references`. `status` is one of `config.yml`'s `statuses`, which must include `To Do`, `In Progress` and `Done`. `type` is one of `config.yml`'s `types` when it lists any. The types this repo and the template use are `bug`, `chore`, `decision`, `docs`, `eval`, `feature`, `review`, `search`, `spike` and `upstream`. A `search` is a task whose main output is a research record, normally a run of the prior-art-search skill that saves a note; a `spike` is a hands-on trial or probe. Labels say where a task came from (such as `issue`, `loose-end` or `prior-art`), not what kind of work it is.
+
+**Custom keys.**
+
+| Key | Values | Meaning |
+|---|---|---|
+| `performer` | `human`, `agent` | Who does the task. A task needing both is two tasks linked by `dependencies` |
+| `agent_tier` | `fast`, `moderate`, `strong` | For an agent task: the weakest model class suited to it |
+| `effort` | `S`, `M`, `L` | Well under an hour; about a session; several sessions |
+| `external_blockers` | A list of references (below) | Blockers outside this backlog |
+| `deadline_kind` | `hard`, `soft`, `target` | How firm `due_date` is. Without it, a `due_date` counts as `soft` |
+| `defer_until` | A date | The task isn't ready before this date |
+| `waiting` | Free text | Who is waiting for the task to be done |
+| `priority_set_by` | `agent`, `human` | Who last set `priority`. Absent means `agent` |
+| `sessions` | A list of session records (below) | The agent sessions that created, worked on or finished the task |
+| `target` | A forge path, `<host>/<owner>/<repo>` | Outbox drafts only: the repo the draft is for |
+
+A date is an ISO date, optionally followed by a time (`2026-12-01`, `2026-12-01 09:00`, `2026-11-17T12:18:00Z`); the tool reads the date as written when there is no time zone, and converts a time with a zone (`Z` or an offset) to the local date. Backlog.md writes `created_date` and `updated_date` as UTC timestamps, so without the conversion a task created late in the evening could read as created the next day. "Today" is the local date where the tool runs, so a deferral ends on the developer's day. Day counts are whole calendar days. A task file never carries `onStatusChange`, which Backlog.md runs as a shell command.
+
+A session record is a mapping: `agent`, the harness that ran the session (`claude-code`); `id`, its session ID in that harness; `role`, one of `created`, `worked` and `finished`; and `date`. A session appears once per role. Records are added, never edited, so the list is the task's history of who touched it, and a person or agent can reopen a session for context (`claude --resume <id>` for Claude Code) while its transcript survives. A subagent's work is recorded under its parent session, whose transcript holds it.
+
+`title`, `status`, `priority`, `performer` and `effort` are required, and so is `agent_tier` on an agent task: an absent one is a lint finding, as is a value outside the key's list. The other keys are optional. The tool ignores Backlog.md's `updated_date`, `reporter`, `project`, `ordinal` and `subtasks`; it finds a task's subtasks from their `parent_task_id`, never from the parent's `subtasks` list, which Backlog.md saves when present and can go stale. `waiting` counts as set only when it holds non-blank text.
+
+**References between tasks and repos.** `dependencies` holds IDs in the same backlog. `external_blockers` holds three forms:
+
+| Form | Names | Closed when |
+|---|---|---|
+| `gh:<owner>/<repo>#<n>` | A GitHub issue or pull request | GitHub reports it closed with its work done (see *GitHub lookup*) |
+| `<host>/<owner>/<repo>#<ID>` | A task in that repo's backlog (`github.com/jmbowman/copier-python#CP-12`) | That task is `Done` at the repo's default branch, whether in its `tasks/` or its archive (*Other repos*). A reference to this repo resolves against the loaded backlog |
+| `<outbox folder>/<slug>` | A draft in this backlog's outbox (`copier-python/add-the-backlog-scaffolding`) | Never: delivering the draft replaces the reference with the receiving task's `<host>/<owner>/<repo>#<ID>` (*The skill*, delivering a draft) |
+
+A reference the tool can't read counts as open and is shown as unreadable: another repo with no local clone, a clone whose default branch lacks the ID, or a GitHub lookup that failed. It isn't a lint finding, since this run may simply not see the other repo. A reference to this repo's own tasks or outbox is different: one that names nothing is a lint finding, as a dependency would be.
+
+A task in a public repo never references a private repo's task, which would name the private repo; the private repo carries any dependency between the two instead.
+
+`references` lists what a reader should open: a URL, a path in this repo, or one of the reference forms above. It is the only list of links a task carries: Backlog.md's `documentation` key, a second free-text list of paths and URLs, isn't used, and lint reports a task or draft that has one. A path must be tracked by git, or at least not ignored: a reader of the repo on its forge can't open an ignored file. In an outbox draft, every entry must be a URL or a forge-qualified reference, because a path in this repo means nothing in the receiving one; the same goes for paths and spec IDs in the draft's body, which name their repo (`github.com/jmbowman/agentic_development`'s `PRIOR-ACC-012`) or link by URL.
+
+**Outbox drafts.** A draft has the same keys as a task except `id` and `dependencies`, which the receiving repo assigns when it accepts the draft, plus `target`: the receiving repo's forge path. The outbox folder keeps a short, readable name (`outbox/copier-python/`), and every draft in one folder has the same `target`; the target travels with the draft when it is delivered. A draft's identity until then is `<outbox folder>/<slug>`. Its `priority` is the sender's proposal. Drafts appear on the board under their repo and never in this repo's ready queues.
+
+## Milestones
+
+A milestone is a workstream: the level at which a person asks what a body of work is for and how much it matters, above any one task. A milestone file has Backlog.md's frontmatter (`id`, `title` and an optional `due_date`) and a body of up to four sections:
+
+- `## Description`: the big picture. What the workstream is for, and what done looks like for the workstream as a whole.
+- `## Importance`: why it matters, or doesn't, now, and what waiting on it costs. Prose for people; a number that changes ranking belongs in the focus file.
+- `## Related`: one bullet per related milestone, its ID and a phrase saying how they relate (`m-8`: needs this workstream's backlog location to render tasks in the docs site).
+- `## References`: links to context outside the backlog, such as notes, design docs, issues and outside documents.
+
+A task names its milestone by ID. Backlog.md also accepts a milestone's title or bare number, so lint reports a `milestone` value that isn't a milestone ID. Archived milestones (`archive/milestones/`) are read only when a lookup misses, as archived tasks are, so a task in an archived milestone still resolves, and lint reports it as needing a live one.
+
+The body says what no single task says. It never lists tasks, their steps or their status: the tool computes a milestone's tasks and counts on read. Backlog.md keeps a milestone's body when it rewrites the file but writes back only `id`, `title` and `due_date`, so these details live in the body rather than in custom frontmatter keys.
+
+## Private work
+
+A public repo's tree never holds anything private. The developer's private tasks, and drafts that can't be public, live in the backlog of a **private coordination repo**: a repo the developer keeps private, which applies the same template and so runs the same task tool. A private draft is an outbox draft in that repo's `outbox/<target repo>/`, including private work for the public repo the agent is working in. Nothing is lost when a worktree of a public repo is removed, because no private file was ever in it.
+
+An agent finds the coordination repo through `private_root`, the path to its checkout, in the per-machine settings (*Other repos*). Because the setting is tracked nowhere, a public repo never names the private one. With no setting, an agent writes no private draft and says so. A session that writes there needs its sandbox to allow that path.
+
+The developer sees private drafts and tasks by running the task tool in the coordination repo, whose board shows its own outbox. Reading several repos' backlogs together is the portfolio view (AD-16).
+
+Until the coordination repo has a backlog, private drafts stay in a public repo's gitignored `backlog/private/outbox/`, written in the main checkout, and `--private` loads them; both go away once the drafts have moved.
+
+## Other repos
+
+**Per-machine settings.** `$XDG_CONFIG_HOME/task-tracker/config.yml` (`~/.config` when the variable is unset) belongs to the machine, not to any repo, and holds:
+
+- `private_root`: the path to the private coordination repo's checkout (*Private work*);
+- `clone_roots`: directories where clones of other repos live, such as `~/Source`;
+- `repos`: a mapping from forge paths to the paths of clones kept elsewhere.
+
+A missing file or key means no clones and no private root. A value that isn't the right shape is reported by every command on standard error, and ignored.
+
+**Finding another repo's clone.** For a reference to `<host>/<owner>/<repo>`, the tool uses the `repos` entry if there is one, and otherwise tries `<root>/<repo>` under each of `clone_roots`, in order. A candidate counts only when its `origin` remote, normalized, is that forge path, so a directory with the same name but another origin is never read by mistake.
+
+An outbox draft's life, for a task here that waits on work in copier-python:
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant S as Sender
+  participant D as Deliverer
+  participant R as Receiver
+  S->>S: Write the draft
+  S->>S: AD-40 blocked by draft
+  D->>R: Create CP-12 from it
+  D->>S: Point AD-40 at CP-12,<br/>delete the draft
+  R-->>S: CP-12 Done
+  S->>S: AD-40 ready
+```
+
+Here the sender is this repo and the receiver copier-python; the deliverer is the developer or a session in copier-python. In step 1 the draft is `copier-python/add-scaffolding`, with `target: github.com/jmbowman/copier-python`, and step 2's blocker names it that way. In step 3, CP-12 references `github.com/jmbowman/agentic_development#AD-40`. In step 4, AD-40's blocker becomes `github.com/jmbowman/copier-python#CP-12`, and the deliverer runs `check`. Step 5 is read from the local clone of copier-python, at its default branch.
+
+**Reading it.** The tool reads the other repo's backlog at its default branch's committed state, with `git show`, so whatever branch is checked out there, and any uncommitted edits, don't change the answer. The answer is as fresh as that clone's last fetch; the tool never fetches. It finds the other backlog directory as it finds its own (*Layout*), and the task by its ID among the file names in `tasks/` and then the archive folders. Reading other repos this way serves `<host>/<owner>/<repo>#<ID>` blockers; a combined view of several backlogs is the portfolio view (AD-16).
+
+## The focus file
+
+`focus.yml` is a mapping with four optional keys:
+
+- `pins`: task IDs (or `<outbox folder>/<slug>` drafts) in the order the developer wants them done. A single ID may be written without a list. A ready pinned task comes first in any queue it belongs to, in pin order; a pin doesn't add a task to a queue whose performer or repo it doesn't match, and doesn't make a blocked task ready. A pin that names no open task is a lint finding.
+- `weights`: a mapping from the weight names in *Ranking* to numbers (integers or decimals, negative allowed), overriding the defaults. A name that isn't one of them, or a value that isn't a number (a YAML boolean included), is a lint finding, and the default is used. The other constants in *Ranking* (the unblocks cap, the nearness curve, the firmness factors, the seven-day window) aren't configurable.
+- `milestones`: a mapping from milestone IDs to numbers, an extra ranking term for every task in that milestone (*Ranking*). A key that names no milestone, or a value that isn't a number, is a lint finding, and the entry is ignored.
+- `github_cache_hours`: how long a GitHub answer stays cached (*GitHub lookup*), a positive number, default 24. Any other value is a lint finding, and the default is used.
+
+A missing file means no pins and default weights. The file's protection from agent edits is a path rule outside the tool (a permission deny and a commit check, AD-11); the tool only reads it.
+
+## Readiness
+
+A task is **ready** when all of these hold:
+
+1. it is open;
+2. every task in its `dependencies` is `Done`, wherever it was found (`tasks/`, `completed/` or `archive/tasks/`). An archived task that isn't `Done` was dropped (cancelled, a duplicate), so a dependency on it never resolves: a person must remove or re-point it, and lint reports it;
+3. every entry in its `external_blockers` reads as closed;
+4. its `defer_until` is absent or is on or before today. A `defer_until` that isn't a date defers the task indefinitely;
+5. none of its subtasks (tasks whose `parent_task_id` is its ID) is open.
+
+A task that isn't open has no blockers, and its external blockers are never looked up.
+
+**What a task unblocks.** An open task *waits on* its open dependencies, the open tasks and drafts its forge-qualified and `<outbox folder>/<slug>` blockers name in this backlog, and its open subtasks. A task *unblocks* every open task, draft or not, that waits on it directly or through others; the count is computed over the whole backlog, before any queue's filters. It drives the `unblocks` ranking term and the board's Bottlenecks table. A task that waits on itself through this relation, by any mix of dependencies, blockers and subtasks, is in a cycle, which lint reports.
+
+## Ranking
+
+From an open task to its place in a queue:
+
+```mermaid
+flowchart TD
+  open["Open task"] --> ready{"Ready?"}
+  ready -->|no| blocked["Blocked list"]
+  ready -->|yes| filter["Queue filter:<br/>performer, repo, type"]
+  filter --> tiers["Tiers:<br/>1. pins, in order<br/>2. hard deadline ≤ 7 days<br/>3. the rest"]
+  tiers --> score["Within tiers 2 and 3:<br/>score, then ID"]
+```
+
+A queue holds the ready tasks matching its performer and repo. It is ordered in three tiers:
+
+1. **Pinned**: tasks in `pins`, in pin order.
+2. **Imminent hard deadline**: tasks with `deadline_kind: hard` whose `due_date` is at most seven days away, or past.
+3. **Everything else.**
+
+Within tiers 2 and 3, tasks are ordered by score, highest first, then by ID in natural order (`AD-2` before `AD-12`, `AD-12` before `AD-12.1`; parts that aren't numbers compare as text).
+
+The score is the sum of these eight terms. Each term's weight is the default below unless `focus.yml` overrides it. The defaults for priority, unblocks, due, active and age are Taskwarrior's urgency coefficients; those for effort and waiting are this design's own.
+
+| Term | Weight name and default | Value |
+|---|---|---|
+| Priority | `priority_high` 6.0, `priority_medium` 3.9, `priority_low` 1.8 | The weight for the task's priority; nothing when it is absent or not a priority |
+| Unblocks | `unblocks` 8.0 | weight × min(1, √(n / 16)), where n is the number of tasks it unblocks |
+| Deadline | `due` 12.0 | weight × nearness × firmness. Nearness is 1 − 0.8 × (d + 7) / 21, clamped to [0.2, 1], where d is days until `due_date` (negative when past). Firmness is 1.0 for `hard`, 0.6 for `soft`, 0.3 for `target` |
+| In progress | `active` 4.0 | The weight, when `status` is `In Progress` |
+| Small effort | `effort_S` 2.0, `effort_M` 1.0 | The weight for `S` or `M`; nothing for `L` |
+| Someone waiting | `waiting` 3.0 | The weight, when `waiting` is set |
+| Age | `age` 2.0 | weight × min(1, days since `created_date` / 365), and nothing for a `created_date` in the future |
+| Milestone | The focus file's `milestones` entry for the task's milestone; none by default | That number, when the focus file gives the task's milestone one |
+
+A term whose date is absent or isn't a date contributes nothing; lint reports the bad date. The unblocks term grows with the square root so that one decision gating twenty tasks ranks well above one gating two without swamping every other term. Every listing prints each nonzero term with its label (`priority high 6.0`, `unblocks 5 (3 for agents) 4.5`, `hard deadline in 3d 10.3`, `milestone m-1 3.0`), where "for agents" counts the unblocked tasks whose performer is `agent`. A pinned task's terms start with `pinned #<n>`.
+
+## Lint
+
+`check` lints every loaded file (so private drafts only with `--private`), reports every finding as one line, `<task ID>: <problem>` or, when no ID could be read, `<file name>: <problem>`, and exits 1 when there is any. With none it prints `<n> tasks, no problems`, where n counts every loaded task and draft. Findings:
+
+| Scope | Finding |
+|---|---|
+| A file | Frontmatter that isn't valid YAML (the file is then left out of every view, so tasks that depend on it get findings of their own); no `id` (tasks); an `id` that isn't `task_prefix`, a hyphen and a token of letters and digits with optional `.<n>` parts, when `config.yml` sets `task_prefix`; an `id` another loaded file already uses, in any folder; a file name that doesn't start with `<lower-cased id> - ` (tasks) |
+| Required keys | A required key absent or outside its values (*Task files*); `priority_set_by` outside its values; `type` outside `config.yml`'s `types` |
+| Dates | `created_date`, `due_date` or `defer_until` that isn't a date; `deadline_kind` outside its values, or without a `due_date` |
+| Authority | A `decision` whose `performer` isn't `human`; `onStatusChange` in a task file or `config.yml` |
+| Granularity | A human task whose body has a checklist line (`- [ ]` or `- [x]`) containing `[agent]`; a `Done` task with an open subtask |
+| Links | A dependency, or a forge-qualified blocker naming this repo, that names no loaded or archived task; an `<outbox folder>/<slug>` blocker that names no draft in this outbox ("if delivered, replace it with the receiving task's forge-qualified ID"); a dependency on an archived task that isn't `Done` ("archived without being done"); a file in Backlog.md's `drafts/`; a `parent_task_id` that names no loaded task; a cycle in the waits-on relation (*Readiness*); an `external_blockers` entry in none of the three forms; a `references` path that git ignores (open tasks and public drafts only) |
+| Links between keys | A task or draft with Backlog.md's `documentation` key ("move these links into `references`") |
+| Drafts | A draft with an `id` or `dependencies`; a draft with no `target`, or a `target` that isn't a forge path; drafts in one outbox folder with different targets; a draft `references` entry that is neither a URL nor a forge-qualified reference |
+| Focus file | Not a mapping; a `weights`, `milestones` or `github_cache_hours` entry that *The focus file* rejects; a pin that names no open task |
+| Milestones | A task's `milestone` that isn't a milestone ID, names no milestone file, or names an archived milestone while the task is open; a `## Related` bullet that names no milestone; a milestone with open tasks whose `## Description` is missing, empty or Backlog.md's placeholder (`Milestone: <title>`) |
+| Config | `statuses` missing `To Do`, `In Progress` or `Done`, or with `Done` anywhere but last (Backlog.md treats the last status as finished); `default_assignee` or `default_reporter` set (they fill `assignee` on every new task); `filesystem_only: true` (it turns off the branch scan when allocating IDs); `priorities` other than `high`, `medium` and `low`; `definition_of_done` set (finishing steps live in the skill) |
+| GitHub blockers | A `gh:` blocker of an open task that the lookup cache records as closed without its work done, or as not found ("deleted, transferred or not visible to you: check it and re-point or drop the blocker"; GitHub answers the same way for all three) |
+
+**Schemas.** The rules that concern one file's frontmatter alone (required keys, allowed values, date formats, and rules that tie one key to another, such as a `decision` needing `performer: human`) are written as JSON Schema (draft 2020-12) in the skill's `schemas/`, checked with format assertions on. Tasks and outbox drafts each have a schema. The engine that checks them is either the Python `jsonschema` library, run inside the tool, or schematter, a document-schema validator whose frontmatter rules are the same JSON Schema and which can also check a Markdown body's sections; implementation settles which (*Open Questions*). If schematter, the milestone body rules (*Milestones*) can be written as its section rules rather than in code. A schema violation is reported like any other finding, naming the key. A repo can add rules of its own in `backlog/schema.json`, a JSON Schema applied to every task and draft beside the skill's; this repo's adds that a task labelled `open-question` is a `decision`. A repo schema that isn't valid JSON Schema is itself a finding. The values that come from `config.yml` (statuses, types) are checked against `config.yml` in code, as are every rule spanning files (IDs, links, cycles, archive, subtasks) and the body's `[agent]` checklist rule.
+
+Lint never asks GitHub. It judges the files, plus whatever the lookup cache holds: `next`, `why`, `board` and `brief` fill the cache, and each prints the count of lint problems, so a blocker that will never close as done surfaces at the next session start instead of leaving its task blocked unnoticed. `check` stays fast and works offline; with an empty cache, as in CI, the GitHub blocker findings don't arise. Whether two tasks describe the same work is left to the agents' rules (below); a check for near-duplicate titles would be mostly noise.
+
+## GitHub lookup
+
+The lookup is a read-only check of the state of issues and pull requests that block tasks, in any repo. Tasks are not copied to GitHub issues: issues stay the public way in, each linked from the tasks made from it. A pull mirror of GitHub issues into local files (AD-18), if it is built, may answer the lookup for the repos it mirrors; the lookup never depends on it. The lookup needs the `gh` CLI, which this repo and the template pin through mise; without it, `gh:` blockers read as unreadable.
+
+The commands that compute readiness (`next`, `why`, `board`, `brief`) look up the `gh:` blockers of every open task, drafts included. All references not answered from the cache go to GitHub in one `gh api graphql` request, which reads each one's state, whether a pull request was merged, and an issue's close reason. The whole request has a 15-second timeout.
+
+A `gh:` blocker is closed when the issue is closed as completed, or the pull request is merged. An issue closed for any other reason (not planned, duplicate), or a pull request closed without merging, still blocks, shown as `closed without its work done`: the work the task waited for didn't happen here, so a person decides whether to drop or re-point the blocker. A reference GitHub reports as missing or inaccessible reads as unreadable, while the rest of the request's answers stand.
+
+Answers are cached in `backlog/.cache/github.json`, which git ignores, for `github_cache_hours` from the focus file (default 24). Keeping the cache inside the repo lets a sandboxed agent, which may write only there, run the lookup. A request that fails as a whole (no `gh`, no network, not logged in, a timeout) marks every reference it carried as unreadable for ten minutes, so repeated runs without a network don't each wait for the timeout; it never replaces an answer still fresh in the cache. `--offline` skips the lookup, and every `gh:` blocker not already fresh in the cache shows as `not looked up` and blocks. The cache file is written whole and renamed into place, so two runs never read half a file.
+
+## Commands
+
+The tool is `scripts/tasks.py` inside the skill, a PEP 723 script whose dependencies are PyYAML and, if it is the schema engine, `jsonschema`, at pinned versions (schematter, if chosen instead, is a binary pinned through mise beside the tool), run with `uv run --script`. Repos run it through a `tasks` mise task, so the commands are `mise run tasks -- <command>`.
+
+| Command | Output |
+|---|---|
+| `check` | The lint findings, or `<n> tasks, no problems`; exits 1 on any finding |
+| `next [--for human\|agent\|all] [--type T] [-n N] [--repo R]` | The ready queue, ranked: ID, score, performer or tier, effort, title, then the terms. Default all performers and types, ten rows, this repo; `--type` keeps one type (`--type search` lists the searches ready to start); `-n 0` shows all; `--repo <name>` shows an outbox's drafts, `--repo all` everything. A `--type` that isn't in `config.yml`'s `types` is an error, exit 2 |
+| `why <ID>` | One loaded task or draft, open or not (an archived one is shown as archived, with no rank): performer, status, repo, milestone title, its ranking tier and score with the terms, each open blocker, each task it unblocks, and its session records with the command that reopens each. An ID that names nothing loaded prints `no task <ID>` and exits 1 |
+| `milestone <ID>` | One milestone: its whole body, then its open tasks' counts (ready, blocked, by performer), its ready tasks ranked, and its blocked tasks with what each waits on. An ID that names no milestone prints `no milestone <ID>` and exits 1 |
+| `board` | The whole backlog as one Markdown page on standard output (below) |
+| `brief` | The session-start summary (below) |
+| `help` | The commands, without reading the backlog |
+
+Two options go before the command: `--offline` (no GitHub lookup) and `--private` (also load `private/outbox/`, the stopgap in *Private work*). `--root <dir>` names the backlog directory, default `backlog`. `next`, `why` and `board` print their output and, when lint finds anything, a line on standard error saying how many problems `check` would report; they still exit 0, apart from `why`'s unknown ID. `brief` carries that count in its own output instead. The developer's and agents' groupings on the board and in the brief are by `performer`; a task whose performer is neither appears in neither, and lint reports it.
+
+**The board** has, in order: counts of ready, blocked and total open tasks for the developer, for agents and in the outbox; the open pinned tasks in pin order, each marked when it isn't ready; the developer's ready queue (top 25); the agents' ready queue (top 30); Bottlenecks (the 15 open tasks that the most others wait on, whether each is ready, and what it waits on); every blocked task with what it waits on; each outbox repo's drafts; and every open task grouped by milestone, each group headed by the milestone's title, the first sentence of its description and its `## Related` lines. Task IDs link to their files by paths relative to the working directory, wherever `--root` points. The board is a view to read, not a file in the repo; `mise run tasks -- board > /tmp/board.md` saves one. It can disagree with Backlog.md's own board: with `check_active_branches` on, Backlog.md shows the most progressed copy of a task found on any recently active local branch, while the tool reads only the working tree. The branch scan is kept for what it adds to ID allocation.
+
+**The brief** is what a SessionStart hook shows an agent, so it follows HLD tenet 9: it reports what changes between sessions and prints nothing when nothing needs attention. It lists, each only when non-empty: tasks in progress; open pins; ready tasks with an imminent hard deadline; the top five ready agent tasks; the count of the developer's ready tasks with the top three; and the lint problem count. With every list empty it prints nothing.
+
+## The skill
+
+`skills/task-tracker/` in the skills package holds:
+
+- `SKILL.md`: when to use it (picking up work, recording new work, finishing a task, filing work for another repo), the agents' rules below, and where they differ from Backlog.md's own instructions;
+- `scripts/tasks.py`: the task tool;
+- `references/task-format.md`: the task file format, keys and reference forms, for agents and people writing tasks by hand;
+- `schemas/task.schema.json` and `schemas/draft.schema.json`: the per-file key rules (*Lint*).
+
+Its frontmatter uses only the Agent Skills fields, and its instructions work in any agent that can run a shell (HLD tenet 8).
+
+**Agents' rules.**
+
+- **When to create a task.** Record work that is left outstanding beyond the current request: a loose end, a follow-up, a deferred spec, a decision the developer must make. Work done now, in the session that found it (exploration, a mechanical edit), needs no task.
+- **Recording work.**
+  - Before creating a task, search the backlog with a query and filters (status, label, milestone), not by listing everything, for one that covers the same work, and extend or link it instead.
+  - Check the scope: one task is what one focused pull request would finish. Use subtasks for parts of one goal in one area, and `dependencies` for work across components.
+  - The description gives the why: the problem or trigger, and the context a reader can't recover from the code. Acceptance criteria state testable behaviour, not implementation steps, and don't repeat the description. Leave the plan to whoever starts the task.
+  - Create the task with `backlog task create`, which assigns the ID and names the file. Then add the custom keys to its frontmatter by hand, since the CLI has no option for them: `performer`, `effort`, `priority_set_by: agent`, for an agent task `agent_tier`, and a `sessions` record with role `created`. Run `check` afterwards.
+- **Session records.** Add a record for the current session when creating a task (`created`), starting it (`worked`) and finishing it (`finished`), taking the session ID from the harness where it exposes one (in Claude Code, the `CLAUDE_CODE_SESSION_ID` environment variable). Where the harness exposes none, add no record.
+- **Granularity.** A task is one thing for one performer. Split agent-doable work out of a task that waits on the developer, and link the two with `dependencies`; a task may depend on one created after it. Labels don't restate the type: a decision is `type: decision`.
+- **Doing the work.**
+  - Take the top of `next --for agent` unless the developer names a task. Read the task before changing it, including its `## Comments`, where the developer or a reviewer may have left guidance for whoever picks it up. Set `status: In Progress` when starting.
+  - Comments (`--comment`, with `--comment-author` naming the session) are the asynchronous channel between people and agents on a task: guidance, review remarks, and questions that don't stop the work. A question that blocks the work becomes a `decision` task the work depends on. Progress goes in notes, not comments.
+  - Record the plan with `--plan` (which replaces it) or `--append-plan`, and progress with `--append-notes`, briefly and in time order.
+  - Don't widen the task silently: record extra work as a new task, or ask.
+  - Work through subtasks one at a time, and finish a parent only when all of its subtasks are done.
+- **Finishing.**
+  - Tick an acceptance criterion only on evidence that the behaviour works, such as a passing test or an observed result. The presence of code, or a grep hit, isn't evidence.
+  - Write a final summary (`--final-summary`) of what changed, why, how it was verified, and any risks, then set `status: Done`. A commit message, drafted separately, may cite the task.
+  - A `decision` task's ruling is recorded in the document it governs (a design doc, a note, a config file), and the final summary links to it. Only when no document governs the choice does the final summary hold the ruling itself.
+- **Milestones.** Put a task in the milestone whose description covers it, naming it by ID. Never change a milestone's `## Importance`, which is the developer's; an agent may draft or update the other sections for the developer's review, saying only what no single task says. Adding, renaming, archiving and removing milestones are the developer's.
+- **Work for another repo** is an outbox draft in `outbox/<repo>/`, with the same keys except `id` and `dependencies`. Work that can't be public, for any repo, is a draft in the private coordination repo's outbox (*Private work*), or, until that repo has a backlog, in this repo's `private/outbox/<repo>/` in the main checkout. It carries `target`, the receiving repo's forge path, and names this repo's files by URL and this repo's tasks and specs by its forge path. The draft is the record; a message to a session in that repo, or an issue on it, is a way of delivering it.
+- **Delivering a draft** is done by whoever delivers it (the developer, or a session in the receiving repo). The receiving repo creates the task with its own ID and lists the sending task in its `references` by forge path. Then, in the sending repo, every `<outbox folder>/<slug>` reference to the draft is replaced with the new task's `<host>/<owner>/<repo>#<ID>`, the draft is deleted, and `check` is run.
+- **Private repos** are never named in a public repo's tasks, drafts or references.
+
+**Other skills.** A skill that turns up outstanding work, such as the session wrap-up or prior-art search, tells the agent to create follow-up tasks, using this skill's rules when it is installed and the skill's own short description of a task otherwise. The calling skill's approval steps apply to the tasks it creates.
+- **Authority.** Never edit `focus.yml`, and never change a `priority` whose `priority_set_by` is `human`: propose the change to the developer instead. Leave `assignee` empty: `performer` says who does a task.
+- **Editing.**
+  - Edit tasks through Backlog.md's CLI or directly in the file, not by moving cards in its terminal board, which rewrites the `ordinal` of a card's column neighbours. Never add `onStatusChange`.
+  - In shell commands, put text that contains backticks in single quotes. Build multi-line text by repeating an `--append-*` option, not with heredocs or `$'…'`, which some agents' command checks reject.
+  - Several `task edit` options replace a whole list rather than add to it: `--acceptance-criteria`, `--dep` (`--depends-on`), `--ref`, `-l`, `--notes` and `-a`. Add with `--add-ref`, `--add-label` and `--append-notes`; to add a dependency, pass the full list to `--dep`. Tick acceptance criteria with repeated `--check-ac <n>`.
+  - Never set a task's status to `Draft` or run `task demote`: Backlog.md then moves the task to its drafts, gives it a new ID, and removes the old ID from every other task's `dependencies` and `references`.
+- **File names** contain spaces (`ad-12 - Title.md`): quote them, and match one by ID with an escaped glob.
+- **Duplicate IDs.** When `check` reports an ID used by two files, as can happen when branches made on different machines merge, the task added later takes a new ID: rename its file, change its `id`, and update every reference to the old ID that its own branch added, in tasks, docs, notes and specs alike. Then run `check`.
+
+**Where Backlog.md's own instructions differ.** Backlog.md ships agent instructions (the block `backlog init` writes into `AGENTS.md`, and `backlog instructions`), which these rules replace. Where they conflict, the skill says so explicitly:
+- task files may be edited by hand, for the custom keys and anything the CLI can't set;
+- don't read Backlog.md's overview at every session start;
+- commits follow the repo's own policy (in this repo, agents don't commit);
+- agents don't assign themselves;
+- priority follows the authority rule above;
+- work is found with `next`, not `task list`;
+- outstanding work is recorded as tasks, as the rules above say, without asking first, unless the workflow in use asks the developer before it writes (the session wrap-up does);
+- agents never run `backlog doctor --fix`, which renumbers duplicate IDs by its own rule without updating references; plain `doctor`, which only reports, is fine;
+- links go in `references`, never in `documentation` (`--doc`);
+- no Definition of Done checklists (`--dod`, the `definition_of_done` config key): the skill's finishing rules cover them;
+- agents never use Backlog.md's drafts (`task create --draft`, `draft …`), `backlog doc`, `backlog decision`, its MCP tools, `task delete`, `board export` (which writes a board into `Backlog.md` or the repo's `README.md`), or `agents --update-instructions` (which edits agent instruction files). Deleting a task is the developer's call.
+
+## Consumer wiring
+
+Each template that pins the skills package renders:
+
+- a template-owned `tasks` mise task, which runs the installed skill's `scripts/tasks.py` with `uv run --script`;
+- `tasks check` as a dependency of the template's `check` task;
+- a template-owned pin of Backlog.md, at the version this repo's contract test covers, so agents can create tasks with its CLI and people can use its board;
+- a pin of the `gh` CLI, which the GitHub lookup uses, so every machine and CI run the same version;
+- a pin of schematter, if it is the schema engine (*Lint*);
+- a repo-owned `backlog/config.yml`, rendered once: `project_name` from the repo's name, `task_prefix` from a copier answer, the statuses and types above, `remote_operations: false` (otherwise creating a task runs `git fetch --prune`), `check_active_branches: true` (so allocating an ID also scans local branches, with no network) and `auto_commit: false`;
+- a repo-owned `backlog/focus.yml`, rendered once, with empty `pins` and `weights`;
+- a repo-owned `backlog/README.md`, rendered once, that points readers to the skill's format reference and the `tasks` commands;
+- ignore rules for `backlog/.cache/` and `backlog/.locks/` (Backlog.md's per-task edit locks). Consumers keep private work in the coordination repo from the start, so they get no `backlog/private/`.
+
+The rendered `config.yml` holds every key Backlog.md checks for before each command (`project_name`, `statuses`, `default_port`, `auto_open_browser`, `remote_operations`, `auto_commit`) and no comments: when one is missing, Backlog.md rewrites the whole file with its own fixed set of keys, dropping comments and keys it doesn't know.
+
+A release that adds a lint finding or a required key can turn a consumer's `check` red when the template update arrives. From this repo's 1.0 release on, such a release is a major version under the HLD's versioning rule; before 1.0, it may ship in a minor release.
+
+The template never runs `backlog init`, which by default adds instructions to `AGENTS.md` and registers MCP config for several agents. In copier-python this wiring is an outbox draft for that repo; its own design docs record it.
+
+## This repo's backlog
+
+This repo keeps its own backlog under `backlog/` and runs the tool from `skills/task-tracker/scripts/tasks.py` through its own `tasks` mise task, as a consumer would. Its `config.yml` uses `task_prefix: ad`. Its `backlog/README.md`, like a consumer's, points readers to the skill's format reference and the `tasks` commands, and adds only what is particular to this repo. GitHub issues on this repo are the public way in: each task made from one lists the issue in `references`, and the issue is closed when those tasks are done.
+
+## Testing
+
+The tool's tests build small backlogs in a temporary directory and call the tool's functions directly, with GitHub answers supplied from a table; one test runs the command line as a subprocess with `--offline`, and one runs `check` and every view over this repo's own backlog. The GitHub lookup is tested against a fake `gh` on `PATH`. The Backlog.md contract test runs the pinned CLI in a scratch git repo and is skipped where the CLI isn't installed. The agents' rules get eval cases, written after the code: creating a task with the custom keys and a session record, searching before creating, never editing the focus file, and never setting a task's status to `Draft`.
+
+## Decisions & Alternatives
+
+| Decision | Chosen | Alternatives Considered | Rationale |
+|---|---|---|---|
+| Who protects the developer's rulings | One file only the developer edits (`focus.yml`), plus `priority_set_by: human` on a task | A checker that compares protected fields in every task across commits; a `proposals.md` for agent suggestions | A path rule is a one-line check; field diffs need a medium-sized checker. Pins and weights are the rulings that change weekly, and a per-task flag covers the rest |
+| Model hint | `agent_tier`, a capability floor | A `suggested_model` naming a model | Model names go stale; a model chosen up front from a task's text is unreliable, so a floor plus escalation is what the evidence supports |
+| Spotting agent work inside a human task | An `[agent]` marker on checklist items, linted | No check; splitting by review only | Stranded agent work was the most common granularity failure in the harvested backlog, and the marker makes it checkable |
+| Unblocks curve | Square root of the count, capped at 16 | A linear count; a count capped at a few | One decision gated twenty tasks: linear swamped every other term, a low cap couldn't tell it from a decision gating three |
+| Generated board | Printed on demand, not tracked | A tracked `backlog/BOARD.md` regenerated by the tool | Every status change would carry a second modified file, and Backlog.md's own views show the same data (HLD tenet 10) |
+| A blocker closed without its work done | Still blocks, shown as such | Counts as closed | The task waited for that work; a closed-unmerged PR or a not-planned issue means a person must re-plan, and failing closed makes them look |
+| GitHub lookup | One batched GraphQL request; answers cached for a configurable time, 24 hours by default; failures cached ten minutes | One REST request per reference; a short fixed cache; no failure cache | One request bounds the wait to a single timeout, and caching failures keeps offline runs fast. Blocker state changes rarely, so a day-old answer is good enough, and a repo that wants fresher answers sets a shorter time |
+| Blocker state, and tasks on GitHub | A direct, batched lookup of each blocker's state; tasks are not copied to GitHub issues | Reading blocker state from a sync tool's local mirror of issues (clove, gh-issue-sync, gitpm, ADLC's ticket sync); a push-only sync of tasks to GitHub issues (the task-management note's piece F) | The developer doesn't want every task replicated as an issue: issues are the public way in, linked from tasks (AD-14). Blockers can sit in any repo, and a mirror covers only the repos it syncs, while one GraphQL request answers every blocker. The task-management note found each sync tool unfit in source: clove is AGPL with per-issue conflict resolution, gh-issue-sync records failed edits as synced and can skip changes, gitpm treats API errors as deletions, and ADLC syncs only its own tickets. The lookup already takes their good failure rules: unreadable blocks, and a failure never replaces a fresh answer |
+| Cache location | `backlog/.cache/`, gitignored | The user's cache directory | A sandboxed agent may write only inside the repo, and the ignore rule keeps the cache out of the working tree's changes |
+| Lint and the network | `check` never asks GitHub, but reports from the lookup cache a `gh:` blocker that will never close as done | `check` looks blockers up itself; GitHub findings as warnings that never fail `check`; no GitHub findings | A blocker that can't close as done would otherwise leave its task blocked unnoticed. Reading only the cache keeps `check` fast and offline; the cost is that its verdict can change when the cache does, and CI, with no cache, doesn't see these findings |
+| Archived dependencies | `archive/tasks/` read only for an ID found nowhere else; an archived dependency is satisfied when it is `Done`, and one that isn't is a lint finding | Never read (reads as unknown, like a typo); loaded with every run; archived always unsatisfied | Backlog.md archives finished tasks as its normal cleanup and resolves an archived dependency by its status, so the tool agrees with it. A dropped dependency needs a person to re-plan, and the finding says why. Reading the archive only on a miss keeps it out of every view |
+| Backlog.md's `docs/` and `decisions/` | Not read by the tool, and not used by agents | Read them as part of the backlog; use them for this repo's reference docs and decision records | Each job already has one home. Reference knowledge lives in the repo's `docs/`, which the docs site's single navigation hierarchy organizes; decisions live in the arrow of intent (Decisions tables, decision docs, the HLD's Key Design Decisions), and a decision still awaiting the developer is a `type: decision` task. A second store would split both, and neither kind of file affects readiness or rank |
+| Backlog.md's drafts | Not used: the skill forbids them and lint reports any file in `drafts/` | Use them as a triage inbox for tasks agents propose; rename the outbox concept | A draft is hidden from Backlog.md's board and from the tool's views, so work put there would vanish. Agent proposals are ranked without a confirmation step |
+| Naming other repos | Forge paths (`<host>/<owner>/<repo>`) in references and a draft's `target`; local clones found per machine through `clone_roots` and `repos`, checked against their `origin`, and read at the default branch | Short repo names, with a tracked registry in each repo mapping names to URLs; reading other backlogs through the forge's API | A forge path tells a stranger where to clone the repo, can't collide across owners, and keeps its meaning when a draft moves to another repo, where a registry would have to agree with the sender's. Local clones read offline and fast; the forge's API would need the network and a login for private repos, and would tie the tool to one forge |
+| Private work | The backlog of a private coordination repo that runs the same tool, found through a per-machine `private_root` setting | A gitignored `backlog/private/` in each public repo; private drafts in the git common directory; a link from each worktree to the main checkout's private folder | A gitignored folder is deleted with the worktree that holds it, and most work happens in worktrees. A private repo gives private drafts history, backup and reach from other machines, and the per-machine setting keeps its name out of public repos. The cost is sandbox permission for one path outside the repo |
+| Milestone details | Four body sections (Description, Importance, Related, References); a milestone's weight in ranking only through the focus file's `milestones` map | Custom frontmatter keys; an importance key in the milestone file that ranking reads; progress stored in the milestone | Backlog.md writes back only `id`, `title` and `due_date` when it rewrites a milestone, so custom keys would be lost, while the body is kept. Importance in prose explains; a number that reorders work is the developer's ruling, so it sits with the other rulings in the focus file. Progress is computed (HLD tenet 10) |
+| Session records | A `sessions` list of records (harness, session ID, role, date), added and never edited | Ad-hoc `session:<id>` entries in `references`; a list of the sessions working on the task now, kept in the file | A structured record names the harness (HLD tenet 8), can be checked by the schema, and gives `why` a command to reopen each session. Live state doesn't belong in a task file: agents don't commit, so it would reach other worktrees and machines late, and a dead session would leave it behind (*Open Questions*, claiming). A transcript lives only on the machine that ran it, and Claude Code deletes old ones (after 30 days by default, the `cleanupPeriodDays` setting) unless they are archived elsewhere, so a record is chiefly useful to its own author, and the task's notes and final summary remain the shared record |
+| Definition of Done | Not used; lint reports the config key | Project defaults listing the finishing steps on every task; per-task items only | The finishing steps are the same for every task and live in the skill; defaults would copy them into every file, and Backlog.md's views gain little from a checklist that never varies |
+| Comments | The asynchronous channel on a task: guidance and review remarks for whoever picks it up, and questions that don't block; a blocking question becomes a `decision` task | Not used, with notes as the only history | With work spread over parallel worktrees, the agent that picks up a task is often not in a conversation with the developer, and a team needs a place for review remarks; notes stay the record of what was done |
+| One list of links | `references` only; Backlog.md's `documentation` key is a lint finding | Both keys, `documentation` for what to read first and `references` for the rest; `documentation` only | Backlog.md describes `references` as related code, issues and URLs, which covers every use here, and keeps it consistent: deleting or demoting a task removes its ID from other tasks' `references`, but not from `documentation`. Two lists would make every new link a choice of key, which agents would make inconsistently |
+| Backlog.md's `modified_files` | Not used | Record the files each task changed | Agents would have to keep it current by hand; git records the changed files, and a task ID in the commit message links them more cheaply |
+| References to ignored files | A lint finding for open tasks and public drafts | Allowed; allowed with a marker | A reader of the public repo can't open them; scratch files can be named in the body as session-local |
+| Draft references | URLs or repo-qualified forms only | Relative paths, resolved by the receiver | A path in the sender's repo means nothing in the receiving one |
+| Per-file key rules | JSON Schema files, plus an optional repo schema; the engine (the Python `jsonschema` library or schematter) is settled during implementation | Rules in code only; remark-lint-frontmatter-schema | The schema states the rules as data a repo can extend without code, and both engines read it unchanged, so the choice can wait for evidence. `jsonschema` is mature and runs inside the tool, giving `check` one output. schematter is likely faster, also checks Markdown body sections (the milestone sections, and any rules about a task's body), and is the knowledge base's candidate schema checker, but it is young, has one maintainer, and adds a pinned binary to every consumer |
+| Duplicate tasks | A rule in the skill: search before creating, extend or link | A lint check on similar titles | Title similarity flags many distinct tasks; search-before-create fixes it at the source |
+| Editing through Backlog.md's board | Agents edit through the CLI or the file; the developer may use the board and accept its `ordinal` churn | Forbid the board; strip `ordinal` | The tool ignores `ordinal`, so the churn is cosmetic, and the board is a person's convenience |
+| Task ID assignment | Backlog.md's allocator: sequential numbers, a creation lock in the git common directory that every worktree shares, and a scan of every worktree's task files and of local branches active within `active_branch_days` (30 by default); lint reports an ID two files use, and the later task is renumbered | IDs collision-free when created (a random token, or a prefix per developer); IDs assigned when a task reaches the default branch | For one developer the allocator's protection is enough, and readable sequential IDs are worth keeping. Collisions across machines are caught at the merge. The tool never assigns IDs and assumes only their shape, so a repo with several developers can replace the assignment step alone (*Open Questions*) |
+| Tool delivery | A script inside the `task-tracker` skill | Its own package; a template-owned copy | Settled at the HLD (Key Design Decisions) |
+
+## Open Questions & Future Decisions
+
+### Deferred
+
+1. The portfolio view: several repos' backlogs read together, with a combined ranking and blockers between siblings (AD-16). *Other repos* settles how the tool finds and reads another repo's backlog; the view itself, and how its ranking treats tasks from several repos, are AD-16's.
+2. The SessionStart hook that shows the brief (AD-10), which waits on how hooks reach consumers (the process hooks design), and with it the brief's line budget beside other session-start hooks and how it frames text echoed from task files as data (AD-215, AD-227).
+3. The path rule protecting `focus.yml` (AD-11).
+4. Claiming a task when agents pick their own work in parallel, and showing which session is working on what (AD-19). The direction: a claim held under a lock in the git common directory, which every worktree sees, rather than in a task file; and the live view computed, not stored, by joining tasks' session records with the running sessions and their state that `claude agents --json` reports ([parallel-session note](../../prior-art/2026-11-18-parallel-session-and-worktree-management.md)).
+5. A pull mirror of GitHub issues into local files (AD-18): it would show new issues and comments, and let agents inspect other repos' issue data offline. If built, it may answer the GitHub lookup for the repos it mirrors.
+6. Task IDs for several developers on several machines in one repo, where sequential numbers collide on work no one has pushed yet and no scan can see. The candidates are IDs that can't collide when created, and IDs assigned when a task reaches the default branch; either replaces only the assignment step.
+7. A check that every open or deferred EARS spec is cited by a task (AD-13), and whether it belongs in the task tool or in the LID tooling (AD-156, AD-190).
+8. A lint finding for stray files in Backlog.md's `docs/` and `decisions/` folders (AD-329).
+9. A review of how well the ranking works after two weeks of use (AD-17).
+10. Whether to keep PyYAML, which the tool ships to every consumer, now that it is flagged as abandoned (AD-26).
+11. How a commit cites the task it works on (AD-172); the task's final summary may cite the commit meanwhile.
+12. Follow-up tasks a template release delivers to its consumers (AD-316). A file arriving through a template update has no ID, so it would land in an incoming folder like an outbox, not in `tasks/`, where it would fail `check` and block the update.
+13. Views of the backlog in the docs site, generated by a preprocessor when the site is built: the board, and other views of task data (AD-326). They need board links relative to the site rather than the working directory, and a machine-readable output from the tool or a second reader of the format. The [generated-views note](../../prior-art/2026-11-19-generated-views-over-markdown.md) recommends a small preprocessor that runs the tool's views at build time, borrowing mdbook-cmdrun's marker.
+14. The schema engine, decided while implementing the lint: schematter if it simplifies the implementation more than trivially, otherwise `jsonschema`. The evidence to weigh: how much of the milestone body rules and the per-file rules move from code into schemas; `check`'s time on this repo's backlog with each; how cleanly schematter's JSON output merges into `check`'s findings; and the cost of pinning one more binary in every consumer against schematter's maturity.
+15. Personal-task extensions: recurrence, effort in two units, a context key, a privacy tier per task, and people or events as blockers.
+
+## References
+
+- HLD: *Outstanding work: the task backlog*, tenets 9 and 10, and the Key Design Decision on tasks.
+- Prior art: [task management for humans and agents](../../prior-art/2026-11-12-task-management-for-humans-and-agents.md), [cross-repo task coordination](../../prior-art/2026-11-16-cross-repo-task-coordination.md).
+- [Backlog.md](https://github.com/MrLesk/Backlog.md) 1.55.3; Taskwarrior's [urgency coefficients](https://taskwarrior.org/docs/urgency/).

@@ -1,9 +1,10 @@
 ---
 id: AD-5
 title: Walk LID's arrow for the task tracker, starting from the pilot
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-17'
 labels:
   - issue
 milestone: m-1

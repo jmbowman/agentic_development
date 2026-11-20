@@ -62,23 +62,39 @@ The planned components, not yet designed:
 - review-wave orchestration with a commit gate;
 - a spec-review loop around LID's design phases.
 
+### Outstanding work: the task backlog
+
+Each repo keeps its outstanding work in a **backlog**: one Markdown file per **task**, in Backlog.md's file format, under `backlog/` unless the repo's Backlog.md config names another directory. The backlog is the repo's record of outstanding work. Work found anywhere (a session's loose ends, a prior-art verdict, a deferred spec) becomes a task instead of staying where it was found, so the backlog is complete enough to rank. GitHub issues stay the public way in: a task links the issue it came from, and the issue is closed when its tasks are done.
+
+Backlog.md is adopted as a file format, not as a runtime. It keeps frontmatter keys it doesn't know when it rewrites a task, and that is the extension point: a few custom keys record who performs a task (the developer or an agent, and for an agent the weakest model class suited to it), its effort, blockers outside the backlog, how firm its deadline is, and until when it is deferred. Backlog.md's own terminal board and web view work over the same files. The **task tool** reads the backlog and never writes a task file. It lints the files, works out which tasks are ready, and ranks the ready ones separately for the developer and for agents, printing every term behind each score. Arithmetic over the tasks' recorded attributes produces the rank, never a model. Agents propose attributes. The developer's pins and ranking weights live in the **focus file**, which only the developer edits.
+
+Work for another repo is drafted in this repo's **outbox**, `backlog/outbox/<repo>/`, and becomes a task when the developer delivers it to that repo, which assigns its ID and priority. Nothing private lives in a public repo: the developer's private tasks, and drafts that can't be public, live in the backlog of a private coordination repo that applies the same template, found through a per-machine setting. Reading several repos' backlogs together is not yet designed.
+
+The task tool and the rules agents follow when they pick up, record and finish work ship as a skill in the skills package, so every template that pins the package delivers them. Each template wires the skill into its consumers: a `tasks` task that runs the installed tool, the backlog lint in `check`, a pin of Backlog.md, and a starting Backlog.md config and focus file rendered once as repo-owned files.
+
 ## Glossary
 
 - **APM:** an agent package manager. It installs skills, prompts and plugins from git repositories at pinned versions, resolves their dependencies, records them in a lock file, and deploys their files into each agent's directory (for Claude Code, `.claude/`).
+- **Backlog:** a repo's outstanding work, kept as task files under `backlog/`.
+- **Backlog.md:** a third-party task manager whose file format (one Markdown file per task, with YAML frontmatter) the backlog uses, and whose board and web view display it.
 - **Cloud session:** a Claude Code session that runs on Anthropic's infrastructure from a fresh clone of the repo, for example one started at claude.ai/code.
 - **copier:** a Python tool that renders a template repository into a project and later updates it, replaying the project's own edits.
 - **Dependency sidecar:** a file `mise lock` writes beside `mise.lock` (under `.mise/locks/`) to pin the indirect dependencies of an npm- or Python-based tool. `mise.lock` records its digest.
+- **Focus file:** `backlog/focus.yml`, the developer's pins and ranking weights. Agents read it and never edit it.
 - **Layer:** one template covering one concern (python, rust, documentation). A repo can apply several, each with its own answers file.
 - **LID:** Linked-Intent Development, the spec process used here: HLD → LLDs → EARS specs → tests → code.
 - **`lidc`:** a third-party CLI that checks LID's spec-to-test-to-code links.
 - **mise:** a tool-version manager and task runner.
 - **Named exception:** one relaxation of the strict baseline, written in a repo-owned file or as an inline suppression, scoped to the narrowest path, line or rule the tool allows.
 - **Prior-art search:** a search for existing software, and for published research on approaches, that could do a job, cut its implementation work, or supply ideas, run before recommending that something be built.
+- **Outbox:** `backlog/outbox/<repo>/`, task drafts for another repo, named by a slug until that repo accepts one and assigns its ID.
 - **prek:** a fast git-hook runner, compatible with pre-commit.
 - **Renovate:** a dependency-update bot. Here it runs as the hosted GitHub app and opens a pull request per update, which merges automatically once CI passes.
 - **ruff:** a Python linter and formatter.
 - **SessionStart hook:** a command, declared in a repo's committed Claude Code settings, that runs when a session starts, before the agent's first turn.
 - **Strict baseline:** the template's default checks, set as strict as each tool allows (for example, every ruff rule minus a commented list of exclusions, and every ty rule at error level).
+- **Task:** one unit of outstanding work, one file in a backlog, done by either the developer or an agent.
+- **Task tool:** the script that lints a backlog, works out which tasks are ready and ranks them. It reads task files and never writes them.
 - **ty:** a Python type checker (beta, so pinned exactly).
 
 ## Target Users
@@ -114,6 +130,7 @@ Ordered: when two conflict, the higher one wins.
 7. **Self-contained skills over composed ones.** A skill carries the procedures it needs (for example, how to make a read-only scratch clone) rather than depending on other skills. A helper becomes a shared dependency only once several skills need it and it has proved stable.
 8. **Portable skills by default, Claude Code features where they pay.**
 9. **Committed instructions for what agents should know, hooks for live state.** Information that is the same every session (what exists, where it is, the rules for using it) goes in the project's `AGENTS.md`, where every agent reads it and git review covers it. A SessionStart hook reports only what can change between sessions, and stays silent when nothing needs attention.
+10. **Compute what can be derived; store only facts and rulings.** Values that follow from other recorded data (a task's readiness and rank, what it unblocks, a summary view) are computed when read, not written into files, so nothing drifts and no tool writes another tool's fields.
 
 ## System Design
 
@@ -160,10 +177,11 @@ Components:
 |---|---|---|
 | CI workflows | this repo, `.github/workflows/` | The reusable check workflow each language layer's stub calls, what it requires a consumer repo to contain, the checks it runs, and its release tests against a fixture consumer. The reusable lock-refresh workflow that keeps a consumer's committed `mise.lock` current on Renovate's branches |
 | Renovate presets | this repo | Shared Renovate behavior: automerge policy, the supply-chain delay, paths Renovate must not touch, the exception that holds LID minor and major bumps for a manual upgrade, and treating the lock-refresh App's commits as Renovate's own |
-| copier-python | [copier-python](https://github.com/jmbowman/copier-python) (`../copier-python` locally), with its own design docs | The Python baseline files, their owners, and the template's own tests. Its pin of the skills package (which brings LID's skills), the manifest, lock file and skill links it renders into consumers, and the tasks and SessionStart hook that install the skills there |
-| Skills package | this repo, `skills/` (the repo root is the plugin) | The template-owned skills, released with this repo's tags, and their structure tests and evals. Every skill's frontmatter uses only the Agent Skills fields, and its instructions work in any agent that reads them. Claude Code features (subagents, hooks, its extra frontmatter) are optional speed-ups in the instructions where possible, with the portability cost noted where not. Skill names are specific, because a consumer can't give its own skill the name of a template skill. A script a skill ships passes the strict profile here, the only repo that lints it. The skills are the [prior-art search skill](intent/prior-art-search/prior-art-search-design.md) and the [session wrap-up skill](intent/session-wrap-up/session-wrap-up-design.md). The Claude Code hooks a skill ships, declared in the plugin's `hooks/hooks.json`: the [subagent notes hooks](intent/subagent-notes/subagent-notes-design.md) |
+| copier-python | [copier-python](https://github.com/jmbowman/copier-python) (`../copier-python` locally), with its own design docs | The Python baseline files, their owners, and the template's own tests. Its pin of the skills package (which brings LID's skills), the manifest, lock file and skill links it renders into consumers, and the tasks and SessionStart hook that install the skills there. Its wiring of the task tracker into consumers |
+| Skills package | this repo, `skills/` (the repo root is the plugin) | The template-owned skills, released with this repo's tags, and their structure tests and evals. Every skill's frontmatter uses only the Agent Skills fields, and its instructions work in any agent that reads them. Claude Code features (subagents, hooks, its extra frontmatter) are optional speed-ups in the instructions where possible, with the portability cost noted where not. Skill names are specific, because a consumer can't give its own skill the name of a template skill. A script a skill ships passes the strict profile here, the only repo that lints it. The skills are the [prior-art search skill](intent/prior-art-search/prior-art-search-design.md), the [session wrap-up skill](intent/session-wrap-up/session-wrap-up-design.md), and the [task tracker skill](intent/task-tracker/task-tracker-design.md). The Claude Code hooks a skill ships, declared in the plugin's `hooks/hooks.json`: the [subagent notes hooks](intent/subagent-notes/subagent-notes-design.md) |
 | Interactive scenarios | this repo, `evals/<skill>/interactive/` | Each skill's multi-turn, interactive checks, written as pytest tests against pytest-claude-code-evals, and this repo's pin of that plugin. They aren't shipped to consumers |
 | pytest-claude-code-evals | its own public repository, with its own design docs | The pytest plugin that drives an interactive Claude Code session for a test: typed turns, scripted answers to question dialogs, tool gating and logging, repo state at each stop, and the judge |
+| Task tracker | this repo: the `task-tracker` skill in `skills/` ([design](intent/task-tracker/task-tracker-design.md)), and the `backlog/` this repo keeps; each template's wiring lives in that template's repo | The task file format and its custom keys, readiness, ranking, the lint rules, the focus file and outbox conventions, the task tool, and the rules agents follow for tasks. Each template renders into its consumers the `tasks` task, the lint in `check`, the Backlog.md pin and the repo-owned starting files |
 | Process hooks | this repo (planned) | Commit gates and other hooks, and how Claude Code hooks reach consumer repos. Not yet designed |
 
 Copier never edits the repo-owned reference files after the first render, and Renovate never edits template-owned files (the shared preset excludes them), so two update mechanisms never touch the same line.
@@ -185,7 +203,8 @@ Copier never edits the repo-owned reference files after the first render, and Re
   - the GitHub App that pushes refreshed lock files;
   - the forge prefix in the preset reference (`github>`);
   - repository URLs;
-  - the repo settings that platform automerge needs (applied at onboarding).
+  - the repo settings that platform automerge needs (applied at onboarding);
+  - the task tool's blockers on GitHub issues and pull requests (`gh:` references, looked up with the `gh` CLI). Another forge adds its own reference prefix and lookup.
 
   Everything else is forge-neutral. The checks are mise tasks, the preset's policy is plain Renovate config, and the template files don't mention a forge. Each template asks a `forge` question (only `github` for now) that selects which CI stub and preset reference to render. Adding GitLab means a GitLab CI component in this repo that runs the same `mise run check`, a `gitlab` answer, and `gitlab>` references. No existing file changes owner.
 - **Template skills are pinned by the template and installed from its lock file.** Each template pins the skills package in its own `apm.yml` in `.config/<template>/`, with `targets: [claude]`. The package lists LID's `linked-intent-dev` plugin as a dependency in this repo's root `apm.yml`, so APM installs LID's skills with it, and every template and consumer runs the LID version this repo pins. That root manifest is both this repo's own and the package's dependency list: LID stays under `dependencies` (APM doesn't install a package's `devDependencies`), and anything added there reaches every consumer. Renovate's apm manager bumps the pin and its lock file in the template repo, and copier renders the manifest and lock file into consumers as template-owned files. `apm install --frozen` in that directory deploys the skills to `.config/<template>/.claude/skills/` (APM always deploys under `.claude/skills/` beside its manifest), which the template gitignores. Delivering the pins through the template gives each consumer a single update channel for its baseline, and the hosted Renovate app has to run `apm install` only in template repos and this one. A skill update reaches consumers one template release after the package is tagged.
@@ -219,6 +238,13 @@ Copier never edits the repo-owned reference files after the first render, and Re
 - **The interactive eval harness is its own project.** pytest-claude-code-evals is generic: it tests any Claude Code plugin or skill, not this repo's skills in particular, and a search for an existing tool that scripts answers to Claude Code's question dialogs across several turns found none ([prior-art note](prior-art/2026-11-03-interactive-skill-evals.md)). As its own repository it has its own releases and design docs, other plugin authors can use it, and this repo depends on it by a pinned version (tenet 3) instead of carrying a framework inside its skills package. *Alternatives:*
   - build it in this repo and split it out once stable (less setup now, but the split moves code, history and design docs later, and other authors can't use it meanwhile);
   - contribute it to [pytest-skillcheck](https://github.com/wiltaylor/pytest-skillcheck), the nearest pytest plugin (it runs each answer as a fresh `claude -p` resume with permissions skipped, so a gated, dialog-answering session would work against its design).
+- **Tasks are files in Backlog.md's format, read by a small tool that ships as a skill.** Agents can grep the whole backlog offline, a person gets Backlog.md's board and web view, and the custom keys need no fork because Backlog.md keeps keys it doesn't know. The developer's rulings on ranking sit in a file only the developer edits, so protecting them is a path rule rather than a checker that compares protected fields across commits. The evidence is in the prior-art notes on [task management](prior-art/2026-11-12-task-management-for-humans-and-agents.md) and [cross-repo coordination](prior-art/2026-11-16-cross-repo-task-coordination.md). *Alternatives rejected:*
+  - building on pm-cli (it keeps decisions out of the agent queue and records which model made each change, but needs as many custom pieces, has no board, stores tasks in a format that doesn't render as Markdown, and has one maintainer);
+  - beads (a Dolt database as the store, and side effects from its `init`);
+  - claude-task-master (a Commons Clause license);
+  - GitHub Issues as the record (agents can't grep it offline, and nothing protects the developer's rulings);
+  - shipping the task tool as its own package pinned by each template (a third release stream for a small script, and the agents' rules would still need a skill);
+  - a copy of the tool owned by each template (every template layer would carry the same file, against tenet 3).
 - **Conflicts never automerge.** Renovate reports a conflicted copier update as an artifact error, which blocks automerge. A conflict-marker check in each repo's `check` task is a second guard, which also covers updates run by hand.
 - **LID minor and major bumps are the one exception to automerge.** A project's `## LID` block records, as `- Version:`, the LID conventions its design docs follow. LID compares versions by major.minor, and a patch release asks nothing of a project. Moving a project to a new minor or major version needs a `/update-lid` walk of its design docs, which the bump PR can't do. Two guards hold such a bump until a person has walked it:
   - the shared preset holds Renovate's apm PRs that change LID's minor or major version in any repo whose own `apm.yml` pins it, this one included;

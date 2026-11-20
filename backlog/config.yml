@@ -2,7 +2,7 @@ project_name: "agentic_development"
 default_status: "To Do"
 statuses: ["To Do", "In Progress", "Done"]
 labels: []
-types: ["decision", "feature", "bug", "chore", "docs", "spike", "eval", "upstream", "review"]
+types: ["bug", "chore", "decision", "docs", "eval", "feature", "review", "search", "spike", "upstream"]
 priorities: ["high", "medium", "low"]
 date_format: yyyy-mm-dd
 max_column_width: 80
@@ -11,6 +11,6 @@ default_port: 6420
 remote_operations: false
 auto_commit: false
 bypass_git_hooks: false
-check_active_branches: false
+check_active_branches: true
 active_branch_days: 30
 task_prefix: "ad"
