@@ -8,7 +8,7 @@ labels:
   - surfaced
 milestone: m-1
 dependencies:
-  - AD-5
+  - AD-5.1
 references:
   - skills/session-wrap-up/SKILL.md
   - docs/intent/session-wrap-up/session-wrap-up-specs.md

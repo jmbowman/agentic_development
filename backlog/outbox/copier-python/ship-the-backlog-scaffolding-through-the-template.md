@@ -13,7 +13,7 @@ performer: agent
 agent_tier: moderate
 effort: M
 external_blockers:
-- agentic_development#AD-5
+- agentic_development#AD-5.2
 priority_set_by: agent
 ---
 

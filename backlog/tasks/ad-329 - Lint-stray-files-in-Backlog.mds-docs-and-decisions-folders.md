@@ -7,7 +7,7 @@ created_date: '2026-11-19T12:54:00Z'
 labels: []
 milestone: m-1
 dependencies:
-  - AD-5
+  - AD-5.2
 references:
   - docs/intent/task-tracker/task-tracker-design.md
 priority: low

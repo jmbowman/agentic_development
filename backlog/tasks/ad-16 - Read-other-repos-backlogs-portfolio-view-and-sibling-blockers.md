@@ -9,7 +9,7 @@ labels:
 milestone: m-1
 dependencies:
   - AD-4
-  - AD-5
+  - AD-5.3
 references:
   - scripts/tasks.py
   - docs/prior-art/2026-11-16-cross-repo-task-coordination.md

@@ -8,7 +8,7 @@ labels:
   - surfaced
 milestone: m-1
 dependencies:
-  - AD-5
+  - AD-5.2
 references:
   - scripts/tasks.py
   - docs/intent/
