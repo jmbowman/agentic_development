@@ -4,7 +4,7 @@ title: Walk LID's arrow for the task tracker, starting from the pilot
 status: In Progress
 assignee: []
 created_date: '2026-11-16'
-updated_date: '2026-11-17'
+updated_date: '2026-11-20'
 labels:
   - issue
 milestone: m-1
@@ -47,3 +47,16 @@ The pilot's scratch files are in `tmp/task-pilot/` on the machine that built it 
 
 **Why it matters:** Brings the prototype under the same intent discipline as the rest of the repo.
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-20: the HLD, LLD, EARS and edge-audit stops are done and approved by the developer. The HLD has the task backlog's subsection, tenet 10 and the Task tracker component; the LLD is docs/intent/task-tracker/task-tracker-design.md; the specs are docs/intent/task-tracker/task-tracker-specs.md (222, all `[ ]`). The carried-over items in the description are settled in the LLD.
+
+Next: Phase 5, tests first. Read the LLD, the specs, scripts/tasks.py and tests/test_tasks_pilot.py first. The proposed plan, which the developer hasn't yet approved, is three slices, each with failing tests first, then code, a review wave and a commit:
+1. The data layer and lint: move the tool into skills/task-tracker/ and cover the LAYOUT, FILE, MS, FOCUS and XREPO facets, LINT (except the GitHub findings), the schemas, and the REPO specs.
+2. Readiness, ranking, the GitHub lookup and its two lint findings, and the commands (READY, RANK, GH, CMD).
+3. SKILL.md, the format reference, the structure tests and the four evals (SKILL), then the data migration and the close-out: remove backlog/BOARD.md; fill the milestone descriptions (the agent drafts, the developer writes each Importance); add `target` to every outbox draft and make cross-repo references forge-qualified (the private draft's `agentic_development#AD-5` blocker included); move `session:` entries in references into `sessions`; retype the search tasks from `spike` to `search`; merge AD-230 into AD-270 and AD-189 into AD-147, and split AD-189's agent drafting out; fix AD-31's label and AD-308's milestone; fix references to ignored `tmp/` files (AD-7, AD-147, AD-219); update the copier-python outbox draft "Ship the backlog scaffolding through the template"; update backlog/README.md, CLAUDE.md's Tasks rule and README.md; reduce docs/task-tracking-pilot.md to history.
+
+First step of the next session: confirm the slicing with the developer, then write slice 1's failing tests, annotated with @spec IDs. AD-332 (whether Backlog.md rewrites config.yml) must be done before slice 1 writes the consumer wiring. Under this repo's policy the review wave, not the developer, inspects the tests stop and the code sign-off.
+<!-- SECTION:NOTES:END -->
