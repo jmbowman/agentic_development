@@ -53,6 +53,13 @@ None of the items below has been raised upstream. The repo has had no commits si
 - **Suggested fix:** in source files, count `@spec` only in comments (after the language's comment marker, outside string literals), or at least only when the line starts with a comment.
 - **Raised upstream:** no.
 
+### 6. A spec ID defined twice isn't reported
+
+- **Where:** `lidc check` 0.3.0, with `reverse-orphan`, `coverage` and `spec-id-format`.
+- **What:** two spec lines with the same ID pass every check, so a citation of that ID counts as covering both specs. Seen here on 2026-11-21: `docs/intent/session-wrap-up/session-wrap-up-specs.md` held two different WRAP-GATE-040 specs, and `mise run lid` reported no findings; two review readers found it by grepping the ID.
+- **Suggested fix:** report an ID defined more than once across the spec files, under `spec-id-format` or a check of its own.
+- **Raised upstream:** no.
+
 Minor: the Cargo workspace version is 0.2.1 at HEAD while the CHANGELOG says 0.3.0, and `Cargo.toml:10` names a different repository URL.
 
 ## Proposed enhancements
