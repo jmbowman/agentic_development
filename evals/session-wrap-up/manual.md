@@ -313,3 +313,70 @@ Pass, in both runs:
 - The non-interactive run writes no file (`git status` is clean apart from what the subagent task changed, which is nothing).
 
 Results:
+
+## Setting up the task runs
+
+Each run below starts from the same state. In an empty scratch directory, run `evals/session-wrap-up/tasks-existing-work/scaffold.sh` from this repo, which builds a git repo with a backlog (FE-1 to FE-16, FE-3 archived). Add a `mise.toml` with a `tasks` task that runs `uv run --locked --script <this repo>/skills/task-tracker/scripts/tasks.py`, run `mise trust` there, and commit it. Backlog.md's `backlog` CLI must be on `PATH` (`mise install` in this repo pins it). Move any per-machine task-tracker settings (`~/.config/task-tracker/config.yml`) aside for these runs, so `private_root` isn't set. Start a session there and type, one at a time:
+1. `Don't record any task until the wrap-up; I'll decide then what to record.`
+2. `fetch() failed again on a 503, this time under a batch import of 200 parallel requests. Not today; it can wait.`
+3. `We also need to decide whether to drop Python 3.10. Not now.`
+4. `Add tests for fetch()'s error handling later; not in this session.`
+5. `Wrap up the session.`
+
+This should give at least three task items: a comment on FE-1, a decision task, and an agent task for the tests. Reset between runs by deleting the scratch directory and building it again.
+
+## Applying task items (WRAP-TASK-014, WRAP-TASK-016, WRAP-TASK-017, WRAP-TASK-021, WRAP-TASK-022, WRAP-TASK-024)
+
+1. Type: `all`. Before answering any confirmation, check the text shown for each item.
+2. Apply each item as shown.
+3. After the closing report, read the new task files and FE-1, and run `mise run tasks -- check`.
+
+Pass:
+- The decision task's item asks nothing about the decision itself before it is applied (WRAP-TASK-014).
+- Each new task's shown text gives every key it will carry, `priority_set_by`, labels and the `sessions` record included, with "none" for an empty one, and its description and acceptance criteria; the FE-1 item shows the comment (WRAP-TASK-016).
+- Each new task was created with `backlog task create` and then edited to add `performer`, `effort`, `agent_tier` for the agent task, `priority_set_by`, the label `loose-end`, and, where the harness exposes a session ID, a `sessions` record with role `created` carrying it. The tests task's milestone is `m-1`; the Python 3.10 decision has none, since m-1's description doesn't cover it (WRAP-TASK-017).
+- FE-1 gained a comment through `backlog task edit FE-1 --comment` with a `--comment-author` (WRAP-TASK-021).
+- The agent ran `mise run tasks -- check` after applying, reported any finding about the tasks it created or edited with a fix as text, and changed nothing to fix it (WRAP-TASK-022).
+- The closing report gives the new tasks' IDs, and its next-session prompt names the IDs of the tasks that hold the work it continues (WRAP-TASK-024).
+
+Results:
+
+## Declining and leaving task items (WRAP-TASK-009)
+
+1. Type the number of the agent task's item only.
+2. At its confirmation, decline it.
+
+Pass:
+- The closing report lists the declined item under Skipped and the two items not chosen as not applied, and lists all three loose ends again as loose ends, since their work is still open.
+
+Results:
+
+## When the backlog CLI fails (WRAP-TASK-019, WRAP-TASK-020)
+
+Run the setup twice, each with a fake `backlog` first on the session's `PATH`, in a folder such as `~/fake-backlog/`:
+- **Run A:** a script that prints `backlog: internal error` to standard error and exits 1.
+- **Run B:** a script that runs the real `backlog` with the same arguments, then, after `task create`, finds the new task file (the newest file in `backlog/tasks/`) and makes it and `backlog/tasks/` read-only (`chmod 444` on the file, `chmod 555` on the folder), so the key edit fails whether it writes in place or renames. Restore the folder's mode afterwards.
+
+In each run, type `all` and apply each item as shown. Remove the fake afterwards.
+
+Pass:
+- Run A: no task file is written and no ID chosen by hand; the items stay open, the report gives the CLI's error (WRAP-TASK-019), and the closing report lists their loose ends again (WRAP-TASK-009, the failed case).
+- Run B: the report gives the created task as part-applied and names its file, which the agent leaves in place (WRAP-TASK-020).
+
+Results:
+
+## Outbox drafts and the private outbox (WRAP-XREPO-015, WRAP-XREPO-016, WRAP-XREPO-017)
+
+Before the setup's step 5, also create a gitignored `backlog/private/` folder (add `backlog/private/` to `.gitignore` and commit), and type:
+- `quote_field() in csv-utils (github.com/example/csv-utils) doesn't quote embedded newlines; that needs fixing over there.`
+- `Note for later, privately: ask my manager about moving the fetcher to the platform team. That can't go in this public repo.`
+
+Type `all` and apply each item as shown. Then rebuild the scratch repo, put a file at the private draft's path from the first run under `backlog/private/outbox/`, keep the first run's csv-utils draft in `backlog/outbox/csv-utils/`, and repeat the same session.
+
+Pass:
+- The csv-utils draft is written at `backlog/outbox/csv-utils/<slug>.md` with `target: github.com/example/csv-utils`, nothing is written in any csv-utils checkout, and the closing report lists the draft by path with one `Send` loose end for it (WRAP-XREPO-017, WRAP-XREPO-001).
+- The private note becomes a draft in `backlog/private/outbox/`, not a task in `backlog/tasks/` (WRAP-XREPO-015).
+- Before writing in the private outbox, the agent checked the path was free and showed the draft's full text for confirmation (WRAP-XREPO-016).
+- Second run: the agent doesn't overwrite the existing private draft, finds the existing csv-utils draft instead of proposing a second one, and lists it as a `Send` loose end (WRAP-XREPO-016, WRAP-XREPO-013, WRAP-XREPO-017).
+
+Results:

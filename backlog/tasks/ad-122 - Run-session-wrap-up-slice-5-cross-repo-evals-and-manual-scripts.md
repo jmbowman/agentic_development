@@ -1,9 +1,10 @@
 ---
 id: AD-122
 title: Run session-wrap-up slice 5 cross-repo evals and manual scripts
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-21T19:18:00Z'
 labels:
   - spec
 milestone: m-4
@@ -27,3 +28,9 @@ After slice 5 is built, run its eval cases (WRAP-XREPO-001, -005 to -009) with `
 
 **Why the developer:** paid evals and multi-session live runs are the developer's
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Superseded with AD-121 by AD-6 (2026-11-21): the cross-repo message and issue routing this task would have evaluated was removed from the design, and AD-6 carries the evals for outbox drafts.
+<!-- SECTION:FINAL_SUMMARY:END -->

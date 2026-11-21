@@ -18,8 +18,8 @@ Feedback for [Backlog.md](https://github.com/MrLesk/Backlog.md), the leading tas
 ## ID generation fetches and prunes by default
 
 - **Where:** `src/git/operations.ts:605-634`, `src/utils/id-generators.ts:45-60`.
-- **What:** with the default `remoteOperations: true`, creating a task runs `git fetch origin --prune`, which deletes stale remote-tracking refs and needs the network.
-- **Evidence:** read in source; confirmed by running: creating one task deleted a stale `origin/stale` ref, and with `remote_operations: false` the next create left another in place.
+- **What:** with the default `remoteOperations: true`, creating a task runs `git fetch origin --prune`, which deletes stale remote-tracking refs and needs the network. Read-only commands do too: `backlog search` runs the same fetch first.
+- **Evidence:** read in source; confirmed by running: creating one task deleted a stale `origin/stale` ref, and with `remote_operations: false` the next create left another in place. `backlog search` against an unreachable `origin` ran `git fetch origin --prune --quiet --no-recurse-submodules` (traced with `strace` at v1.55.3, 2026-11-21) and took ten seconds; with `remote_operations: false` it ran none.
 - **Suggested fix:** document the side effect beside the setting, or make pruning a separate opt-in.
 
 ## `init --defaults` writes an always-run instruction into `AGENTS.md`
@@ -61,3 +61,10 @@ Feedback for [Backlog.md](https://github.com/MrLesk/Backlog.md), the leading tas
 - **What:** before each command, if `config.yml` lacks a key the migration checks (such as `default_port` or `auto_open_browser`), Backlog.md writes the whole file again with its own set of keys, dropping comments and keys it doesn't know.
 - **Evidence:** read in source at v1.55.3; not yet confirmed by running.
 - **Suggested fix:** add only the missing keys, keeping the rest of the file as written.
+
+## `search` writes folders and skips archived tasks
+
+- **Where:** `backlog search` (1.55.3).
+- **What:** a search creates the empty `decisions/`, `docs/`, `drafts/` and `milestones/` folders in the backlog directory where they're missing, so a read-only use writes to the tree. It also searches only `tasks/`: a task in `archive/tasks/` or `completed/` is never found.
+- **Evidence:** confirmed by running in a scratch backlog, 2026-11-21: the folders appeared after one search, and a word present in `tasks/`, `archive/tasks/` and `completed/` matched only the `tasks/` file.
+- **Suggested fix:** create folders only in commands that write; offer an `--archived` (or `--all`) option to search the archive folders.

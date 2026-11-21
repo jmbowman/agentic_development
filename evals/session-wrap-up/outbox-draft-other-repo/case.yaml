@@ -1,0 +1,10 @@
+# @spec WRAP-XREPO-001, WRAP-XREPO-007, WRAP-XREPO-008, WRAP-XREPO-009, WRAP-XREPO-013
+# @spec WRAP-XREPO-014, WRAP-RPT-016
+schema_version: "1.1"
+name: outbox-draft-other-repo
+description: >-
+  A bug that another repo owns becomes an outbox draft in the host repo's backlog, targeted by
+  forge path, self-contained, screened of the client's name, not asking the receiver to do what
+  the developer refused, and not delivered by message or issue.
+context:
+  scaffold_script: scaffold.sh

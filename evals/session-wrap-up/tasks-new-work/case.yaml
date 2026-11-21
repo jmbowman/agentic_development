@@ -1,0 +1,11 @@
+# @spec WRAP-TASK-001, WRAP-TASK-002, WRAP-TASK-011, WRAP-TASK-012, WRAP-TASK-013
+# @spec WRAP-TASK-027, WRAP-TASK-028, WRAP-TASK-030
+schema_version: "1.1"
+name: tasks-new-work
+description: >-
+  New loose ends become task items of the right kind (an agent's unkept promise, a decision, a
+  parked question, work for both the developer and an agent as two tasks, an unchecked claim, an
+  inference), the uncommitted file stays a Commit loose end, the review task names no one, and the
+  recorded work is still a next step.
+context:
+  scaffold_script: scaffold.sh
