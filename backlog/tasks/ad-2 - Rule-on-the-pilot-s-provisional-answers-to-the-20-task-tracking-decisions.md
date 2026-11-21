@@ -14,9 +14,7 @@ references:
   - docs/task-tracking-pilot.md
   - docs/prior-art/2026-11-12-task-management-for-humans-and-agents.md
   - docs/prior-art/2026-11-16-cross-repo-task-coordination.md
-  - session:26c85309 2026-11-16
   - '#166'
-  - session:b966c1df 2026-11-14
   - >-
     docs/prior-art/2026-11-12-task-management-for-humans-and-agents.md#Open
     decisions for the developer
@@ -26,6 +24,15 @@ type: decision
 performer: human
 effort: M
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 26c85309-65ed-4104-ac8a-5d535bdaccc6
+    role: worked
+    date: '2026-11-16'
+  - agent: claude-code
+    id: b966c1df-280e-4b70-b53b-f6a647dc9423
+    role: created
+    date: '2026-11-14'
 ---
 
 ## Description

@@ -9,13 +9,16 @@ labels:
   - maybe-done
 milestone: m-2
 dependencies: []
-references:
-  - session:b2ebedfa 2026-10-27
 priority: low
 type: decision
 performer: human
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: b2ebedfa-c230-4fac-ab40-6e8aae7953f8
+    role: created
+    date: '2026-10-27'
 ---
 
 ## Description

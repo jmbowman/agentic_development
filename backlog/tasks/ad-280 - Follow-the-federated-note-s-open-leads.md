@@ -13,7 +13,7 @@ references:
     docs/prior-art/2026-11-06-federated-knowledge-and-work-items.md#Snowball
     rounds
 priority: low
-type: spike
+type: search
 performer: agent
 agent_tier: moderate
 effort: M

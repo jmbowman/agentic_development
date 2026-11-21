@@ -16,6 +16,7 @@ effort: S
 external_blockers:
 - copier-python/check-jscpd-s-license-and-mise-renovate-support-for-the-base
 priority_set_by: agent
+target: github.com/jmbowman/copier-python
 ---
 
 ## Description

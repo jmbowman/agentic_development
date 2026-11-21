@@ -52,7 +52,8 @@ lifecycle into one system a single developer can drive, and to build only what's
 | `apm.yml`, `apm.lock.yaml`, `.claude/hooks/` | [LID](https://github.com/jszmajda/lid)'s skills pinned with [APM](https://github.com/microsoft/apm). The pin serves this repo and, as the skills package's dependency, every repo that installs the package. Also this repo's hook that installs the tools and skills in Claude Code cloud sessions. |
 | `evals/` | Behavior evals for each skill, in `evals/<skill>/`, run by hand with `mise run eval`, which runs `claude plugin eval` in a clean copy of the plugin; each skill's `latest-results.md` gives every case's most recent triaged result. See its README. |
 | `scripts/` | The workflow's helper script, fetched at the workflow's own commit; `run_evals.py`, which the `eval` task runs; and `collect_scenarios.py`, with which `check` imports the interactive scenarios (still to come) without running them. |
-| `backlog/`, `scripts/tasks.py` | A pilot of task tracking for people and agents: this repo's outstanding work as one Markdown file per task in [Backlog.md](https://github.com/MrLesk/Backlog.md)'s format, and a tool (`mise run tasks -- board`) that lints the files and ranks what is ready, separately for the developer and for agents. Not yet designed or released for other repos; see [its README](backlog/README.md). |
+| `skills/task-tracker/` | An agent skill for a repo's task backlog: outstanding work as one Markdown file per task in [Backlog.md](https://github.com/MrLesk/Backlog.md)'s format with a few extra keys, a read-only tool (`scripts/tasks.py`) that lints the files and ranks what is ready, separately for the developer and for agents, and the rules agents follow to record, pick up and finish tasks and to draft work for other repos. It assumes the repo already has a backlog: a `backlog/config.yml` with the statuses and task types the skill's format reference lists. The tool needs [uv](https://docs.astral.sh/uv/) and Python 3.12 or later, and uv installs its one dependency (PyYAML) on first use. Agents create tasks with Backlog.md's `backlog` CLI, and blockers on GitHub are looked up with the `gh` CLI. Still in progress: its lint and ranking are being rebuilt to their specs, and the template doesn't deliver it yet. |
+| `backlog/` | This repo's own backlog, tracked with the skill above; see [its README](backlog/README.md). |
 | `docs/` | The system's high-level design, each component's design and specs, prior-art notes, a log of each review wave's yield and cost, and lessons about the development process. |
 
 ## Using it
@@ -80,7 +81,8 @@ Early: one template (Python), GitHub only, Linux runners. Two shared agent skill
 prior-art search, and session wrap-up, whose capture of items in an issue, memory triage and cross-repo routing are still to come. It reads the process notes that its hooks collect from subagents.
 The template delivers skills to a repo, installed from a lock file (copier-python v0.3.0 and
 later). Session wrap-up and the other changes made here since v0.3.1 aren't in a release yet, so
-they don't reach template repos. A pilot of task tracking is in `backlog/`. Process guardrails (commit gates, review loops) are designed in
+they don't reach template repos. A third skill, the task tracker, is in progress: its rules and
+tool are usable in this repo, whose backlog it tracks. Process guardrails (commit gates, review loops) are designed in
 outline only.
 
 ## Developing this repo

@@ -9,8 +9,6 @@ labels:
 milestone: m-2
 dependencies: []
 references:
-  - session:83baf9d8 2026-11-16
-  - session:f4b2080f 2026-11-16
   - evals/README.md:35
   - scripts/run_evals.py
   - docs/tool-feedback/claude-plugin-eval.md
@@ -21,6 +19,15 @@ performer: agent
 agent_tier: moderate
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 83baf9d8-f511-40e3-875d-3d561ab7a7c4
+    role: created
+    date: '2026-11-16'
+  - agent: claude-code
+    id: f4b2080f-847f-4a0d-a503-34339722eeb7
+    role: worked
+    date: '2026-11-16'
 ---
 
 ## Description

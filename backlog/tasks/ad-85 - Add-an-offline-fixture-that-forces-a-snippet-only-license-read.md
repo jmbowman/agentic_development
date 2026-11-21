@@ -13,7 +13,6 @@ references:
   - docs/intent/prior-art-search/prior-art-search-specs.md:248-249
   - PRIOR-LIC-009
   - PRIOR-LIC-010
-  - session:f4b2080f 2026-11-16
   - docs/intent/prior-art-search/prior-art-search-specs.md:248
   - docs/review-log.md:96
   - evals/prior-art-search
@@ -23,6 +22,11 @@ performer: agent
 agent_tier: moderate
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: f4b2080f-847f-4a0d-a503-34339722eeb7
+    role: created
+    date: '2026-11-16'
 ---
 
 ## Description

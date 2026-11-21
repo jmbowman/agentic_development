@@ -1,8 +1,16 @@
-"""Pilot task tool: lint, rank and view a backlog kept as Backlog.md-format Markdown files.
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "pyyaml==6.0.3",
+# ]
+# ///
+"""Task tool: lint, rank and view a backlog kept as Backlog.md-format Markdown files.
 
 Reads `backlog/tasks/` (this repo's tasks), `backlog/outbox/<repo>/` (tasks drafted for other
 repos) and `backlog/focus.yml` (the developer's pins and weights), and never writes a task file.
-A prototype outside the arrow of intent; see docs/task-tracking-pilot.md.
+Run it as `uv run --script tasks.py <command>`; `help` lists the commands. The task-tracker
+skill's `references/task-format.md` describes the files it reads.
 """
 
 from __future__ import annotations
@@ -50,7 +58,8 @@ UNBLOCKS_CAP = 16  # the unblocks term grows with the square root of the count, 
 IMMINENT_DAYS = 7
 DUE_HORIZON_DAYS = 14
 GH_REF = re.compile(r"^gh:([\w.-]+/[\w.-]+)#(\d+)$")
-TASK_REF = re.compile(r"^([\w.-]+)#([A-Za-z]+-[\d.]+)$")
+# A task in a named repo: `<repo>#<ID>`, or forge-qualified, `<host>/<owner>/<repo>#<ID>`.
+TASK_REF = re.compile(r"^(?:[\w.-]+/[\w.-]+/)?([\w.-]+)#([A-Za-z]+-[\d.]+)$")
 DRAFT_REF = re.compile(r"^([\w.-]+)/([\w.-]+)$")
 AGENT_ITEM = re.compile(r"^\s*- \[[ x]\].*\[agent\]", re.MULTILINE)
 CACHE_SECONDS = 6 * 3600
@@ -551,7 +560,7 @@ def board(backlog: Backlog, root: Path, base: Path | None = None) -> str:
     Args:
         backlog: The loaded, resolved backlog.
         root: The `backlog/` directory.
-        base: The directory the page is written to, which its links are relative to.
+        base: The directory the page's links are relative to: where the tool was started.
     """
     base = base or root
     tasks = [t for t in backlog.tasks.values() if t.open]
@@ -669,9 +678,7 @@ def main(argv: list[str] | None = None) -> int:
         "--offline", action="store_true", help="don't ask GitHub; gh: blockers count as open"
     )
     parser.add_argument(
-        "--private",
-        action="store_true",
-        help="include the gitignored drafts; `board` then writes backlog/private/BOARD.md",
+        "--private", action="store_true", help="also load the gitignored drafts in private/outbox/"
     )
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("check", help="lint the backlog")
@@ -680,7 +687,7 @@ def main(argv: list[str] | None = None) -> int:
     listing.add_argument("-n", type=int, default=10, help="how many to show; 0 for all")
     listing.add_argument("--repo", default="", help="an outbox repo, or `all`; default this repo")
     commands.add_parser("why", help="explain one task's rank").add_argument("id")
-    commands.add_parser("board", help="write backlog/BOARD.md")
+    commands.add_parser("board", help="print the whole backlog as one Markdown page")
     commands.add_parser("brief", help="the session-start summary")
     commands.add_parser("help", help="show this help")
     args = parser.parse_args(argv)
@@ -708,9 +715,8 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "why":
         output = why(backlog, args.id)
     elif args.command == "board":
-        folder = args.root / "private" if args.private else args.root
-        (folder / "BOARD.md").write_text(board(backlog, args.root, folder), encoding="utf-8")
-        output = f"wrote {folder / 'BOARD.md'}\n"
+        # @spec TASK-CMD-017
+        output = board(backlog, args.root, Path.cwd())
     else:
         output = brief(backlog)
     sys.stdout.write(output)

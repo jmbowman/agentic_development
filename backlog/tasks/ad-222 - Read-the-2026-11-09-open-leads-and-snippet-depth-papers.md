@@ -11,7 +11,7 @@ dependencies: []
 references:
   - docs/prior-art/2026-11-09-agentic-development-process.md#Snowball rounds
 priority: low
-type: spike
+type: search
 performer: agent
 agent_tier: moderate
 effort: M

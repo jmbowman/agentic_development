@@ -15,6 +15,7 @@ effort: S
 external_blockers:
 - paper-search-mcp/check-whether-ieee-accepts-its-api-key-in-a-header
 priority_set_by: agent
+target: github.com/jmbowman/paper-search-mcp
 ---
 
 ## Description

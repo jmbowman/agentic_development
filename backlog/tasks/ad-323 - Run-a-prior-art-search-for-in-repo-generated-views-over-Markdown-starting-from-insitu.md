@@ -14,7 +14,7 @@ references:
   - docs/prior-art/2026-10-23-progressive-disclosure-knowledge-base.md
   - docs/intent/task-tracker/task-tracker-design.md
 priority: low
-type: spike
+type: search
 ordinal: 10000
 performer: agent
 agent_tier: strong

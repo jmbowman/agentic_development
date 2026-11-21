@@ -9,13 +9,17 @@ labels:
 milestone: m-1
 dependencies: []
 references:
-  - session:26c85309 2026-11-16
   - docs/prior-art/2026-11-16-cross-repo-task-coordination.md
 priority: medium
 type: chore
 performer: human
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 26c85309-65ed-4104-ac8a-5d535bdaccc6
+    role: created
+    date: '2026-11-16'
 ---
 
 ## Description

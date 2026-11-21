@@ -9,7 +9,6 @@ labels:
 milestone: m-2
 dependencies: []
 references:
-  - session:37563844 2026-11-15
   - '#167'
   - '#98'
   - https://github.com/jmbowman/agentic_development/issues/167
@@ -23,6 +22,11 @@ type: chore
 performer: human
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 37563844-7324-4e49-be68-9162b08ccf52
+    role: created
+    date: '2026-11-15'
 ---
 
 ## Description

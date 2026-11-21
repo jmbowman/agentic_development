@@ -1,0 +1,8 @@
+# @spec TASK-SKILL-009
+schema_version: "1.1"
+name: create-with-custom-keys
+description: >-
+  New outstanding work becomes a task created with backlog task create, then given the custom
+  keys and a session record by editing the file, then checked with the task tool.
+context:
+  scaffold_script: scaffold.sh

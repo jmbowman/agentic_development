@@ -14,6 +14,7 @@ performer: agent
 agent_tier: fast
 effort: S
 priority_set_by: agent
+target: github.com/jmbowman/paper-search-mcp
 ---
 
 ## Description

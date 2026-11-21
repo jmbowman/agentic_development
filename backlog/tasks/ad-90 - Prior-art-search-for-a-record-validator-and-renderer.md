@@ -13,7 +13,7 @@ references:
   - docs/intent/prior-art-search/prior-art-search-design.md:521
   - https://github.com/jmbowman/agentic_development/issues/157
 priority: medium
-type: spike
+type: search
 performer: agent
 agent_tier: moderate
 effort: M

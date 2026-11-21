@@ -9,8 +9,6 @@ labels:
 milestone: m-6
 dependencies: []
 references:
-  - session:be3cdf4b 2026-11-11
-  - session:be3cdf4b 2026-11-08
   - docs/prior-art/2026-11-06-agent-reference-clones.md
   - docs/tool-feedback/vendir.md
 priority: medium
@@ -19,6 +17,15 @@ performer: agent
 agent_tier: strong
 effort: L
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: be3cdf4b-57e8-4d99-b52d-46998d8fe60e
+    role: created
+    date: '2026-11-08'
+  - agent: claude-code
+    id: be3cdf4b-57e8-4d99-b52d-46998d8fe60e
+    role: worked
+    date: '2026-11-11'
 ---
 
 ## Description

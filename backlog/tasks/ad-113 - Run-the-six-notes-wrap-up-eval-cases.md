@@ -9,13 +9,17 @@ labels:
 milestone: m-4
 dependencies: []
 references:
-  - session:da2581da 2026-11-13
   - evals/session-wrap-up/
 priority: medium
 type: eval
 performer: human
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: da2581da-380d-47f8-8550-ee00c4dcc713
+    role: created
+    date: '2026-11-13'
 ---
 
 ## Description

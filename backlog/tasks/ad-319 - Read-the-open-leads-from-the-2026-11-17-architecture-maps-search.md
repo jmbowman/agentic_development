@@ -11,7 +11,7 @@ dependencies: []
 references:
   - docs/prior-art/2026-11-17-in-repo-architecture-maps.md#Snowball rounds
 priority: low
-type: spike
+type: search
 ordinal: 6000
 performer: agent
 agent_tier: moderate

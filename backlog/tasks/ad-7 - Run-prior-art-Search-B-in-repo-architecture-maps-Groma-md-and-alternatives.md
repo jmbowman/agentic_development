@@ -10,18 +10,25 @@ labels:
 milestone: m-1
 dependencies: []
 references:
-  - session:b966c1df 2026-11-14
-  - session:26c85309 2026-11-16
   - tmp/prior-art-next/HANDOFF.md#Search B
   - tmp/prior-art-next/HANDOFF.md
   - docs/prior-art/2026-11-06-federated-knowledge-and-work-items.md
   - docs/prior-art/2026-10-23-progressive-disclosure-knowledge-base.md
 priority: medium
-type: spike
+type: search
 performer: agent
 agent_tier: moderate
 effort: M
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: b966c1df-280e-4b70-b53b-f6a647dc9423
+    role: created
+    date: '2026-11-14'
+  - agent: claude-code
+    id: 26c85309-65ed-4104-ac8a-5d535bdaccc6
+    role: worked
+    date: '2026-11-16'
 ---
 
 ## Description

@@ -13,6 +13,7 @@ type: decision
 performer: human
 effort: S
 priority_set_by: agent
+target: github.com/jmbowman/pytest-claude-code-evals
 ---
 
 ## Description

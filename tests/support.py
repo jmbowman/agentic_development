@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -16,6 +18,7 @@ import yaml
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
@@ -26,6 +29,7 @@ PRESET = REPO_ROOT / "renovate" / "default.json"
 VERIFY_SCRIPT = REPO_ROOT / "scripts" / "verify_check.py"
 SKILLS = REPO_ROOT / "skills"
 EVALS = REPO_ROOT / "evals"
+TASK_TOOL = SKILLS / "task-tracker" / "scripts" / "tasks.py"
 
 # How GitHub runs a step's script on Linux: `shell: bash`, or no `shell` at all.
 SHELLS = {
@@ -334,6 +338,67 @@ def renovate_log(
     ]
     assert not invalid, invalid
     yield from records
+
+
+def load_task_tool() -> ModuleType:
+    """Import the task-tracker skill's task tool, which lives where no package can import it.
+
+    Returns:
+        The tool as a module, registered in `sys.modules` so its dataclasses resolve.
+    """
+    name = "task_tool_under_test"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, TASK_TOOL)
+    assert spec, f"no task tool at {TASK_TOOL}"
+    assert spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        del sys.modules[name]  # so the next caller sees the same failure, not a half-made module
+        raise
+    return module
+
+
+SMALL_CONFIG = """\
+project_name: example
+task_prefix: ex
+statuses: ["To Do", "In Progress", "Done"]
+types: ["chore", "decision"]
+"""
+SMALL_TASK = """\
+---
+id: EX-1
+title: Do the one thing
+status: To Do
+priority: medium
+type: chore
+performer: agent
+agent_tier: fast
+effort: S
+created_date: '2026-11-16'
+---
+
+A task.
+"""
+
+
+def small_backlog(root: Path) -> Path:
+    """Write a backlog with a settings file and one ready agent task, EX-1.
+
+    Args:
+        root: The directory to write `backlog/` in.
+
+    Returns:
+        The backlog directory.
+    """
+    backlog = root / "backlog"
+    (backlog / "tasks").mkdir(parents=True)
+    (backlog / "config.yml").write_text(SMALL_CONFIG, encoding="utf-8")
+    (backlog / "tasks" / "ex-1 - Do-the-one-thing.md").write_text(SMALL_TASK, encoding="utf-8")
+    return backlog
 
 
 def frontmatter(path: Path) -> dict[str, Any]:

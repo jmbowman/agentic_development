@@ -17,7 +17,7 @@ references:
   - docs/prior-art/2026-10-27-review-and-comprehension-burden.md#Refresh trigger
   - docs/prior-art/2026-11-17-in-repo-architecture-maps.md#Refresh trigger
 priority: medium
-type: spike
+type: search
 deadline_kind: target
 performer: agent
 agent_tier: strong

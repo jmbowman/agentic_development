@@ -4,11 +4,13 @@ title: 'Task tracker slice 2: lint and data'
 status: To Do
 assignee: []
 created_date: '2026-11-20T13:25:00Z'
+updated_date: '2026-11-21T01:14:00Z'
 labels: []
 milestone: m-1
 dependencies:
   - AD-5.1
   - AD-332
+  - AD-336
 parent_task_id: AD-5
 priority: high
 type: feature
@@ -35,3 +37,9 @@ Second slice of AD-5: the specified data layer and lint, with each data fix land
 - [ ] #1 The specs in scope are covered by tests that cite them, and pass
 - [ ] #2 mise run check passes over this repo backlog with the new lint
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-21, from the AD-5.1 code review: the pilot tool still loads completed/ as ordinary tasks and never reads archive/tasks/ (TASK-LAYOUT-007, TASK-LAYOUT-008), and requires `type` whenever config.yml lists types, which the format reference now states. Repo with no backlog directory: see the question raised at the AD-5.1 stop.
+<!-- SECTION:NOTES:END -->

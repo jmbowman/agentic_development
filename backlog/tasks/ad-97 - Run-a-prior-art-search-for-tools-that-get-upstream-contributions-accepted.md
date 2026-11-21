@@ -13,7 +13,7 @@ references:
   - https://github.com/jmbowman/agentic_development/issues/203
   - docs/prior-art/2026-11-06-decision-records-and-lid.md
 priority: low
-type: spike
+type: search
 performer: agent
 agent_tier: strong
 effort: L

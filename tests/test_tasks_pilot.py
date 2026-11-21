@@ -1,4 +1,8 @@
-"""Tests of the pilot task tool (scripts/tasks.py) against small backlogs built in tmp_path."""
+"""Tests of the pilot's behaviour in the task tool, against small backlogs built in tmp_path.
+
+The tool is the task-tracker skill's `scripts/tasks.py`; these tests predate its specs, and the
+slices that implement the specs replace them with tests in `test_task_tool.py`.
+"""
 
 from __future__ import annotations
 
@@ -12,8 +16,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from scripts import tasks
-from tests.support import REPO_ROOT
+from tests.support import REPO_ROOT, TASK_TOOL, load_task_tool
+
+tasks = load_task_tool()
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -206,6 +211,21 @@ def test_external_blockers_fail_closed_without_failing_lint(root: Path) -> None:
     assert tasks.check(backlog) == []
 
 
+def test_forge_qualified_blockers_are_read_like_short_ones(root: Path) -> None:
+    """The form the skill's format reference gives passes lint, and resolves in this backlog.
+
+    The pilot compares only the repo's name with `project_name`; AD-5.3 replaces this with the
+    forge-path comparison its specs give.
+    """
+    write_task(root, "AD-1", status="Done")
+    write_task(root, "AD-2", external_blockers=["github.com/o/home#AD-1"])
+    write_task(root, "AD-3", external_blockers=["github.com/o/other#OT-3"])
+    backlog = load(root)
+    assert ids(tasks.queue(backlog, "all", "home")) == ["AD-2"]
+    assert backlog.tasks["AD-3"].blockers == ["github.com/o/other#OT-3 (unreadable)"]
+    assert tasks.check(backlog) == []
+
+
 def test_rank_is_pins_then_hard_deadlines_then_score(root: Path) -> None:
     """Pins keep their order; a hard deadline within a week comes next; the rest go by score."""
     write_task(root, "AD-1", priority="high")
@@ -304,16 +324,13 @@ def test_board_and_brief_separate_the_developer_from_agents(root: Path) -> None:
 def test_private_drafts_stay_off_the_public_board(
     root: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Drafts under private/ load only with --private, whose board goes to private/BOARD.md."""
+    """Drafts under private/ load only with --private."""
     write_task(root, "AD-1")
     write_draft(root, "secret", "hidden-work", folder="private/outbox")
     assert tasks.main(["--root", str(root), "--offline", "board"]) == 0
-    assert "hidden-work" not in (root / "BOARD.md").read_text(encoding="utf-8")
-    public = (root / "BOARD.md").read_text(encoding="utf-8")
+    assert "hidden-work" not in capsys.readouterr().out
     assert tasks.main(["--root", str(root), "--offline", "--private", "board"]) == 0
-    assert "hidden-work" in (root / "private" / "BOARD.md").read_text(encoding="utf-8")
-    assert (root / "BOARD.md").read_text(encoding="utf-8") == public
-    assert "private" in capsys.readouterr().out
+    assert "hidden-work" in capsys.readouterr().out
 
 
 def test_the_command_line_reports_problems_and_stays_offline(
@@ -374,7 +391,7 @@ def test_github_state_is_cached_and_unreadable_when_gh_fails(
 
 def test_the_repo_backlog_passes_its_own_check(tmp_path: Path) -> None:
     """This repo's backlog has no findings; GitHub blockers aren't looked up."""
-    command = [sys.executable, str(REPO_ROOT / "scripts" / "tasks.py"), "--offline"]
+    command = [sys.executable, str(TASK_TOOL), "--offline"]
     command += ["--root", str(REPO_ROOT / "backlog"), "check"]
     result = subprocess.run(  # noqa: S603
         command, capture_output=True, text=True, cwd=tmp_path, check=False
