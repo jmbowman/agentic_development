@@ -4,6 +4,7 @@ title: 'Task tracker slice 3: readiness, ranking, GitHub lookup and other repos'
 status: To Do
 assignee: []
 created_date: '2026-11-20T13:25:00Z'
+updated_date: '2026-11-21T01:14:00Z'
 labels: []
 milestone: m-1
 dependencies:
@@ -34,3 +35,9 @@ Third slice of AD-5: readiness, ranking, the batched GitHub lookup with its two 
 - [ ] #1 The specs in scope are covered by tests that cite them, and pass
 - [ ] #2 mise run lid reports no uncovered TASK spec
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-21, from the AD-5.1 code review: as a stopgap, the pilot accepts forge-qualified blockers by widening TASK_REF, but local_id compares only the last path segment with project_name, case-sensitively. So any host or owner with a repo of the same name resolves to this backlog, and a blocker on another repo is always unreadable (open). TASK-FILE-013, TASK-LAYOUT-011, TASK-LAYOUT-019 and TASK-XREPO replace this.
+<!-- SECTION:NOTES:END -->

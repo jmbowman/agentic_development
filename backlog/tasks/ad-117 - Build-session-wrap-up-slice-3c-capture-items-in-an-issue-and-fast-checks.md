@@ -29,7 +29,6 @@ references:
   - WRAP-GATE-012
   - WRAP-GATE-032
   - WRAP-GATE-033
-  - session:5af90670 2026-11-04
   - >-
     docs/intent/session-wrap-up/session-wrap-up-specs.md#Capture and fast checks
     (slice 3c)
@@ -42,6 +41,11 @@ performer: agent
 agent_tier: strong
 effort: L
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 5af90670-4925-4893-9f63-86ccfe5510bf
+    role: created
+    date: '2026-11-04'
 ---
 
 ## Description

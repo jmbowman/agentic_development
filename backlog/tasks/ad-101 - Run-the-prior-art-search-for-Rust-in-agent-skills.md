@@ -13,7 +13,7 @@ references:
     docs/prior-art/2026-11-05-leads-from-source-calibration.md#Rust in agent
     skills
 priority: low
-type: spike
+type: search
 performer: agent
 agent_tier: strong
 effort: M

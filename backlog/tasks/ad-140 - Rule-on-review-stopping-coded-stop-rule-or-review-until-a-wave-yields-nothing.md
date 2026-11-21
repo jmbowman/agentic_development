@@ -12,7 +12,6 @@ references:
   - >-
     docs/prior-art/2026-11-10-agentic-development-process-synthesis.md#Tensions
     and open questions for the developer
-  - session:4c452121 2026-11-11
   - docs/prior-art/2026-11-10-agentic-development-process-synthesis.md
   - '#98'
   - >-
@@ -24,6 +23,11 @@ type: decision
 performer: human
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 4c452121-b77a-43b0-830c-8909ca64d653
+    role: created
+    date: '2026-11-11'
 ---
 
 ## Description

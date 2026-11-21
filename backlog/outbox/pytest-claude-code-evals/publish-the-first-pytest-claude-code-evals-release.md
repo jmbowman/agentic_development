@@ -18,6 +18,7 @@ effort: S
 external_blockers:
 - pytest-claude-code-evals/build-the-plugin-s-first-slice-of-interactive-session-drivin
 priority_set_by: agent
+target: github.com/jmbowman/pytest-claude-code-evals
 ---
 
 ## Description

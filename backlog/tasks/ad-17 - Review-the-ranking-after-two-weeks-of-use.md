@@ -10,7 +10,7 @@ milestone: m-1
 dependencies: []
 references:
   - backlog/focus.yml
-  - scripts/tasks.py
+  - skills/task-tracker/scripts/tasks.py
 priority: medium
 type: review
 performer: human

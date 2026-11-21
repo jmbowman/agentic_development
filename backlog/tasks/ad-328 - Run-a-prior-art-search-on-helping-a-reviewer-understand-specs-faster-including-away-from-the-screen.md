@@ -13,7 +13,7 @@ references:
   - docs/prior-art/2026-10-27-review-and-comprehension-burden.md
   - docs/prior-art/2026-10-30-change-presentation.md
 priority: medium
-type: spike
+type: search
 ordinal: 15000
 performer: agent
 agent_tier: strong

@@ -17,6 +17,7 @@ effort: S
 external_blockers:
 - copier-python/decide-how-rendered-repos-ignore-the-prior-art-settings-file
 priority_set_by: agent
+target: github.com/jmbowman/copier-python
 ---
 
 ## Description

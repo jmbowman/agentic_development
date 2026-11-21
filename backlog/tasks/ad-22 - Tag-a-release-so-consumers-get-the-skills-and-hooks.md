@@ -12,8 +12,6 @@ references:
   - README.md#Status
   - docs/high-level-design.md#Versioning
   - git tag v0.3.1
-  - session:a1359d3a 2026-11-16
-  - session:adcd9127 2026-10-30
   - copier-python:template/.config/copier-python/apm.yml:10
   - copier-python:template/.config/copier-python/apm.lock.yaml:8
   - apm.yml:7
@@ -23,6 +21,15 @@ type: chore
 performer: human
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: a1359d3a-1543-481a-84a6-bac89eb4e6cc
+    role: worked
+    date: '2026-11-16'
+  - agent: claude-code
+    id: adcd9127-7ed6-4e96-997f-ec40e55f351c
+    role: created
+    date: '2026-10-30'
 ---
 
 ## Description

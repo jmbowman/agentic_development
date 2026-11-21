@@ -1,0 +1,8 @@
+# @spec TASK-SKILL-021
+schema_version: "1.1"
+name: focus-file-stays-the-developers
+description: >-
+  Asked to pin a task in focus.yml, the agent leaves the file alone and shows the developer the
+  exact edit to make.
+context:
+  scaffold_script: scaffold.sh

@@ -12,14 +12,21 @@ dependencies:
   - AD-286
 references:
   - docs/tool-feedback/claude-code.md
-  - session:6faee248 2026-11-13
-  - session:da2581da 2026-11-13
   - docs/prior-art/2026-11-11-subagent-process-notes.md#Probe of the platform
 priority: medium
 type: upstream
 performer: human
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 6faee248-a06c-4571-af3c-1b0fbcadae67
+    role: created
+    date: '2026-11-13'
+  - agent: claude-code
+    id: da2581da-380d-47f8-8550-ee00c4dcc713
+    role: worked
+    date: '2026-11-13'
 ---
 
 ## Description

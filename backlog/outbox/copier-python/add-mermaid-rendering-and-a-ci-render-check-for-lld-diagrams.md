@@ -16,6 +16,7 @@ effort: M
 external_blockers:
 - copier-python/wire-the-docs-site-pieces-into-the-template-mise-build-tasks
 priority_set_by: agent
+target: github.com/jmbowman/copier-python
 ---
 
 ## Description

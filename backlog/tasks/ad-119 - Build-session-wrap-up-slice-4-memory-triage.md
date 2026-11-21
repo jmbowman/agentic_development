@@ -20,8 +20,6 @@ references:
   - WRAP-MEM-005
   - WRAP-MEM-006
   - WRAP-MEM-007
-  - session:5af90670 2026-11-04
-  - session:da2581da 2026-11-13
   - docs/intent/session-wrap-up/session-wrap-up-specs.md#Memory (slice 4)
 priority: medium
 type: feature
@@ -29,6 +27,15 @@ performer: agent
 agent_tier: strong
 effort: M
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 5af90670-4925-4893-9f63-86ccfe5510bf
+    role: created
+    date: '2026-11-04'
+  - agent: claude-code
+    id: da2581da-380d-47f8-8550-ee00c4dcc713
+    role: worked
+    date: '2026-11-13'
 ---
 
 ## Description

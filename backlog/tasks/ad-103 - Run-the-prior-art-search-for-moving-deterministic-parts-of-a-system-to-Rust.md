@@ -14,7 +14,7 @@ references:
     deterministic parts to Rust
   - https://github.com/jmbowman/agentic_development/issues/157
 priority: low
-type: spike
+type: search
 performer: agent
 agent_tier: strong
 effort: M

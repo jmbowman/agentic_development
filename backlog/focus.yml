@@ -4,6 +4,6 @@
 # ahead of anything computed. Keep it short (three or so); remove a pin when its task is done.
 pins: []
 
-# weights: overrides for the ranking terms in scripts/tasks.py (WEIGHTS), for example
+# weights: overrides for the ranking terms in skills/task-tracker/scripts/tasks.py (WEIGHTS), for example
 #   weights: {unblocks: 10.0, effort_S: 3.0}
 weights: {}

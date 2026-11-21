@@ -17,6 +17,7 @@ effort: S
 external_blockers:
 - copier-python/add-session-wrap-up-skill-links-in-copier-python-on-the-apm
 priority_set_by: agent
+target: github.com/jmbowman/copier-python
 ---
 
 ## Description

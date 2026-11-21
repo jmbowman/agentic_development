@@ -10,14 +10,18 @@ milestone: m-3
 dependencies:
   - AD-98
 references:
-  - session:f4b2080f 2026-11-16
   - skills/prior-art-search/references/sources.md
 priority: low
-type: spike
+type: search
 performer: agent
 agent_tier: moderate
 effort: M
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: f4b2080f-847f-4a0d-a503-34339722eeb7
+    role: created
+    date: '2026-11-16'
 ---
 
 ## Description

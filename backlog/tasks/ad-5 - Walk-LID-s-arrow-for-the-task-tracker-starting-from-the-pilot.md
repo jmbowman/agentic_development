@@ -12,7 +12,7 @@ dependencies:
   - AD-2
 references:
   - docs/task-tracking-pilot.md
-  - scripts/tasks.py
+  - skills/task-tracker/scripts/tasks.py
   - https://github.com/jmbowman/agentic_development/issues/166
   - docs/prior-art/2026-11-06-federated-knowledge-and-work-items.md
   - docs/prior-art/2026-11-12-task-management-for-humans-and-agents.md
@@ -59,5 +59,5 @@ Phase 5, tests first, runs as three slices, each a subtask: failing tests first,
 3. AD-5.3, readiness, ranking, the GitHub lookup and other repos (unblocks AD-10, AD-16 and AD-19).
 Each subtask's description holds its scope. Between slices the pilot's ranking code runs on a partly rewritten data layer, so the pilot's tests and the check over this repo's backlog must pass at every slice boundary. The private draft's `agentic_development#AD-5` blocker stays on AD-5 and moves to the forge-qualified form in AD-5.3. Under this repo's policy the review wave, not the developer, inspects the tests stop and the code sign-off.
 
-Next: AD-5.1's failing tests, annotated with @spec IDs. Read the LLD, the specs, scripts/tasks.py and tests/test_tasks_pilot.py first.
+2026-11-21: AD-5.1 is Done: built, reviewed, and its four eval cases pass. AD-5.2 waits on AD-332 and AD-336.
 <!-- SECTION:NOTES:END -->

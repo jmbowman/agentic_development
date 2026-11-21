@@ -10,7 +10,6 @@ milestone: m-7
 dependencies: []
 references:
   - https://github.com/jmbowman/agentic_development/issues/91
-  - session:a94b37f9 2026-11-12
   - docs/prior-art/2026-10-30-change-presentation.md
   - docs/tool-feedback/difftastic.md
   - '#91'
@@ -19,6 +18,11 @@ type: decision
 performer: human
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: a94b37f9-a8eb-4e27-abc2-8eb9da8159f2
+    role: created
+    date: '2026-11-12'
 ---
 
 ## Description

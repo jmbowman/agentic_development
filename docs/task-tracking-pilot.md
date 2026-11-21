@@ -1,6 +1,6 @@
 # Task tracking pilot (2026-11-16)
 
-A working pilot of the task tracker that [the task-management note](prior-art/2026-11-12-task-management-for-humans-and-agents.md) and [the cross-repo coordination note](prior-art/2026-11-16-cross-repo-task-coordination.md) sketched: this repo's whole backlog as files in [`backlog/`](../backlog/README.md), and a tool, [`scripts/tasks.py`](../scripts/tasks.py), that lints, ranks and displays them. It is a prototype built to settle the notes' open decisions on real data. It sits outside the arrow of intent: it has tests but no LLD or EARS specs, and [AD-5](../backlog/BOARD.md) is the task that walks the arrow for it.
+A working pilot of the task tracker that [the task-management note](prior-art/2026-11-12-task-management-for-humans-and-agents.md) and [the cross-repo coordination note](prior-art/2026-11-16-cross-repo-task-coordination.md) sketched: this repo's whole backlog as files in [`backlog/`](../backlog/README.md), and a tool, then `scripts/tasks.py` and now [the task-tracker skill's](../skills/task-tracker/SKILL.md) `scripts/tasks.py`, that lints, ranks and displays them. It is a prototype built to settle the notes' open decisions on real data. It started outside the arrow of intent, and [AD-5](../backlog/tasks/ad-5%20-%20Walk-LID-s-arrow-for-the-task-tracker-starting-from-the-pilot.md) is the task that walks the arrow for it.
 
 ## What the pilot is
 

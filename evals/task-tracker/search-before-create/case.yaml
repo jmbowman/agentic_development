@@ -1,0 +1,8 @@
+# @spec TASK-SKILL-006
+schema_version: "1.1"
+name: search-before-create
+description: >-
+  Outstanding work that an existing task already covers is linked to or folded into that task,
+  found by searching the backlog, and no duplicate task is created.
+context:
+  scaffold_script: scaffold.sh

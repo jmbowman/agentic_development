@@ -14,7 +14,7 @@ references:
     docs/prior-art/2026-11-05-leads-from-source-calibration.md#Additions to
     earlier notes
 priority: low
-type: spike
+type: search
 performer: agent
 agent_tier: moderate
 effort: M

@@ -17,6 +17,7 @@ effort: M
 external_blockers:
 - copier-python/decide-how-the-template-brings-inline-snapshot-and-its-test
 priority_set_by: agent
+target: github.com/jmbowman/copier-python
 ---
 
 ## Description

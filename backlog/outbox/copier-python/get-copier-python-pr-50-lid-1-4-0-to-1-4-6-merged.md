@@ -14,6 +14,7 @@ type: chore
 performer: human
 effort: S
 priority_set_by: agent
+target: github.com/jmbowman/copier-python
 ---
 
 ## Description

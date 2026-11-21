@@ -11,7 +11,7 @@ dependencies: []
 references:
   - docs/task-tracking-pilot.md
 priority: medium
-type: spike
+type: search
 performer: agent
 agent_tier: strong
 effort: L

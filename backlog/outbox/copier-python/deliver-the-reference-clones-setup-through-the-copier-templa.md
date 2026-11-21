@@ -13,10 +13,11 @@ performer: agent
 agent_tier: moderate
 effort: M
 external_blockers:
-- agentic_development#AD-150
-- agentic_development#AD-206
-- agentic_development#AD-207
+- github.com/jmbowman/agentic_development#AD-150
+- github.com/jmbowman/agentic_development#AD-206
+- github.com/jmbowman/agentic_development#AD-207
 priority_set_by: agent
+target: github.com/jmbowman/copier-python
 ---
 
 ## Description

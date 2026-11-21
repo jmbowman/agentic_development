@@ -25,7 +25,6 @@ references:
   - WRAP-XREPO-010
   - WRAP-XREPO-011
   - WRAP-XREPO-012
-  - session:5af90670 2026-11-04
   - >-
     docs/intent/session-wrap-up/session-wrap-up-specs.md#Cross-repo routing
     (slice 5)
@@ -35,6 +34,11 @@ performer: agent
 agent_tier: strong
 effort: L
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 5af90670-4925-4893-9f63-86ccfe5510bf
+    role: created
+    date: '2026-11-04'
 ---
 
 ## Description

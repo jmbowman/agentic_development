@@ -15,6 +15,7 @@ effort: M
 external_blockers:
 - pytest-claude-code-evals/decide-on-onboarding-pytest-claude-code-evals-as-a-template
 priority_set_by: agent
+target: github.com/jmbowman/pytest-claude-code-evals
 ---
 
 ## Description

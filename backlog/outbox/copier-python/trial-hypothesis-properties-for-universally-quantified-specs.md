@@ -14,6 +14,7 @@ performer: agent
 agent_tier: moderate
 effort: M
 priority_set_by: agent
+target: github.com/jmbowman/copier-python
 ---
 
 ## Description

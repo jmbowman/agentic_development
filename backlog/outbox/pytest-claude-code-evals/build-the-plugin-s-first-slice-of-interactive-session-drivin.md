@@ -17,6 +17,7 @@ external_blockers:
 - pytest-claude-code-evals/decide-the-credentials-form-for-the-plugin-s-isolated-sessio
 - pytest-claude-code-evals/write-pytest-claude-code-evals-hld-and-llds
 priority_set_by: agent
+target: github.com/jmbowman/pytest-claude-code-evals
 ---
 
 ## Description

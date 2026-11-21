@@ -24,14 +24,21 @@ references:
   - PRIOR-LIC-009
   - PRIOR-LIC-010
   - PRIOR-RPT-003
-  - session:83baf9d8 2026-11-16
-  - session:f4b2080f 2026-11-16
   - evals/README.md
 priority: medium
 type: eval
 performer: human
 effort: M
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 83baf9d8-f511-40e3-875d-3d561ab7a7c4
+    role: created
+    date: '2026-11-16'
+  - agent: claude-code
+    id: f4b2080f-847f-4a0d-a503-34339722eeb7
+    role: worked
+    date: '2026-11-16'
 ---
 
 ## Description
