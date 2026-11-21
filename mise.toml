@@ -24,7 +24,7 @@ node = "24.22.3"
 # bin folder holds only a launcher for code elsewhere.
 "github:MrLesk/Backlog.md" = { version = "1.55.3", bin = "backlog" }
 # The task tool's GitHub lookup reads blockers' state through `gh`.
-gh = "2.103.3"
+gh = "2.105.0"
 
 # In a shell where mise is activated, `tasks board` runs the task tool: see backlog/README.md.
 [shell_alias]
