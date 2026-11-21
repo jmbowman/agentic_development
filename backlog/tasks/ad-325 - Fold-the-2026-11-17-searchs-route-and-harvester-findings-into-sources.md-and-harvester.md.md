@@ -33,6 +33,8 @@ The architecture-maps search (docs/prior-art/2026-11-17-in-repo-architecture-map
 - ACM returned 403 to a scripted fetch of a PDF that OpenAlex lists as open access. The institution's repository copy and arXiv's HTML worked.
 - Shallow clones carry no tags. `git ls-remote --tags` lists releases without spending GitHub API calls.
 
+The parallel-sessions search (docs/prior-art/2026-11-18-parallel-session-and-worktree-management.md) hit the same exact-phrase behaviour again: 11 of its 23 arXiv phrase queries, all of four or more words, came back empty with no warning, and it was found only by reading a raw feed. That makes a harvester fix (or at least a warning on an empty multi-word arXiv query) more pressing than a references note alone. The same run also found that the harvester prints `harvest.log` as an output path but never wrote that file in the run directory.
+
 Related: AD-55. Done when the references record these and checks pass.
 
 **Why it matters:** The next search avoids the same silent empties and misleading license labels.
