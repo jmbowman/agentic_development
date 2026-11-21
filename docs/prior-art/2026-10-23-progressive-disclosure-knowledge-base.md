@@ -241,4 +241,4 @@ Could not verify:
 - When IWE's rewriting operations learn to edit links in place.
 - When seiso's convention adds an explanation or concept kind, or reaches 1.0.
 - When OKF reaches v1.0.
-- Generated index pages: the [generated-views search](2026-11-19-generated-views-over-markdown.md) found insitu (SQL over frontmatter written between markers, with a CI check) for tracked indexes, with mdsmith's `<?catalog?>` as the fallback. Revisit this blend's index pages when the first generated index is built, or when that note's own refresh trigger fires.
+- Generated index pages: the [generated-views search](2026-11-19-generated-views-over-markdown.md) chose [mq](https://github.com/harehare/mq) as the query layer, with index pages computed at docs-site build by a small custom view tool that runs only allowlisted views, or written by the same tool into tracked pages with a CI check. Whether index pages are tracked at all is AD-331. Revisit this blend's index pages when the first generated index is built, or when that note's own refresh trigger fires.

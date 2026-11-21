@@ -31,5 +31,7 @@ insitu (https://github.com/marcusinthesky/insitu, MIT, alpha) indexes Markdown a
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-2026-11-19: full-method search saved as docs/prior-art/2026-11-19-generated-views-over-markdown.md. Verdict: a blend of insitu (tracked knowledge-base indexes with `insitu check`, plus ad-hoc SQL on its index) and a small custom mdBook preprocessor that inserts the task tool's views at site build (AD-326), borrowing mdbook-cmdrun's marker. mdsmith's `<?catalog?>` is the fallback. The knowledge-base note's refresh triggers name the result. Whether knowledge-base indexes are tracked or computed on read is the developer's call (AD-331).
+2026-11-19: full-method search saved as docs/prior-art/2026-11-19-generated-views-over-markdown.md. The knowledge-base note's refresh triggers name the result.
+
+2026-11-20: after the review wave, the verdict is a blend of mq as the query layer for all three uses and a small custom view tool that runs only an allowlist of view commands: as an mdBook preprocessor at site build (AD-326), and with `sync` and `check` modes if index pages are tracked. insitu is held until it matures; cmdsync and mdsh were dropped because they run commands written in pages. Whether knowledge-base index pages are tracked or computed on read is the developer's call (AD-331), and AD-264's SessionStart hook waits on that ruling.
 <!-- SECTION:NOTES:END -->
