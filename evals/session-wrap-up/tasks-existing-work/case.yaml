@@ -1,0 +1,11 @@
+# @spec WRAP-TASK-003, WRAP-TASK-004, WRAP-TASK-005, WRAP-TASK-006, WRAP-TASK-007
+# @spec WRAP-TASK-008, WRAP-TASK-015, WRAP-TASK-018
+schema_version: "1.1"
+name: tasks-existing-work
+description: >-
+  Loose ends met by existing tasks: one the session adds a fact to becomes a comment, one already
+  recorded is skipped and not listed, one whose task is Done and archived becomes a new task citing
+  it, and one
+  whose task lacks required keys becomes a key repair; each found by searching, none written.
+context:
+  scaffold_script: scaffold.sh

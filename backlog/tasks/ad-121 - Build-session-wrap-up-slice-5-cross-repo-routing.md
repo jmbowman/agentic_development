@@ -1,9 +1,10 @@
 ---
 id: AD-121
 title: 'Build session-wrap-up slice 5: cross-repo routing'
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-21T19:18:00Z'
 labels:
   - spec
 milestone: m-4
@@ -52,3 +53,9 @@ Cascade from the task-tracker LLD (AD-5): work for another repo is recorded as a
 
 **Why an agent:** specs are written; implementation and tests are agent work
 <!-- SECTION:DESCRIPTION:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Superseded by AD-6 (2026-11-21). The session wrap-up now records work for another repo as an outbox draft in the host repo backlog, and delivering a draft (a message to a session there, or an issue on it) is the developer step the task tracker defines, so the wrap-up no longer matches sessions, sends messages or files issues on other repos. WRAP-XREPO-001, 007, 008 and 009 were restated for drafts in slice 5; WRAP-XREPO-002 to 006 and 010 to 012 were deleted. See docs/intent/session-wrap-up/session-wrap-up-design.md, Cross-repo work.
+<!-- SECTION:FINAL_SUMMARY:END -->

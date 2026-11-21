@@ -27,6 +27,7 @@ Each eval case's and interactive scenario's most recent triaged run: the run a r
 | nothing-durable | 2026-11-02 | 2.1.316 | claude-sonnet-5-5 | 1 | 0 | 2026-11-02 | session-wrap-up | Slice 3b evals | 1 |
 | no-trigger-apply-patch | 2026-11-02 | 2.1.316 | claude-sonnet-5-5 | 1 | 0 | 2026-11-02 | session-wrap-up | Slice 3b evals | 1 |
 | no-trigger-close-task | 2026-11-02 | 2.1.316 | claude-sonnet-5-5 | 1 | 0 | 2026-11-02 | session-wrap-up | Slice 3b evals | 1 |
+| outbox-draft-other-repo | 2026-11-21 | 2.1.330 | claude-sonnet-5-5 | 3 | 0 | 2026-11-21 | session-wrap-up (AD-6, slice 5: tasks) | Evals | 5 |
 | privacy-and-other-repos | 2026-11-02 | 2.1.316 | claude-sonnet-5-5 | 1 | 0 | 2026-11-02 | session-wrap-up | Slice 3b evals | 1 |
 | recorded-and-changed-rules | 2026-11-02 | 2.1.316 | claude-sonnet-5-5 | 1 | 0 | 2026-11-02 | session-wrap-up | Slice 3b evals | 1 |
 | repeat-nothing-new | 2026-11-02 | 2.1.316 | claude-sonnet-5-5 | 1 | 0 | 2026-11-02 | session-wrap-up | Slice 3b evals | 1 |
@@ -34,4 +35,9 @@ Each eval case's and interactive scenario's most recent triaged run: the run a r
 | routes-by-house-rules | 2026-11-03 | 2.1.317 | claude-sonnet-5-5 | 3 | 1 | 2026-11-03 | session-wrap-up | Slice 3b evals | 5 |
 | safety-overrides | 2026-11-02 | 2.1.316 | claude-sonnet-5-5 | 1 | 0 | 2026-11-02 | session-wrap-up | Slice 3b evals | 1 |
 | scope-and-conflicts | 2026-11-02 | 2.1.316 | claude-sonnet-5-5 | 2 | 0 | 2026-11-02 | session-wrap-up | Slice 3b evals | 2 |
+| tasks-backlog-would-fetch | 2026-11-21 | 2.1.330 | claude-sonnet-5-5 | 3 | 0 | 2026-11-21 | session-wrap-up (AD-6, slice 5: tasks) | Evals | 3 |
+| tasks-existing-work | 2026-11-21 | 2.1.330 | claude-sonnet-5-5 | 3 | 0 | 2026-11-21 | session-wrap-up (AD-6, slice 5: tasks) | Evals | 4 |
+| tasks-new-work | 2026-11-21 | 2.1.330 | claude-sonnet-5-5 | 3 | 1 | 2026-11-21 | session-wrap-up (AD-6, slice 5: tasks) | Evals | 5 |
+| tasks-no-backlog | 2026-11-21 | 2.1.330 | claude-sonnet-5-5 | 3 | 0 | 2026-11-21 | session-wrap-up (AD-6, slice 5: tasks) | Evals | 3 |
+| tasks-repeat-run | 2026-11-21 | 2.1.330 | claude-sonnet-5-5 | 3 | 0 | 2026-11-21 | session-wrap-up (AD-6, slice 5: tasks) | Evals | 3 |
 | template-named | 2026-11-02 | 2.1.316 | claude-sonnet-5-5 | 1 | 0 | 2026-11-02 | session-wrap-up | Slice 3b evals | 1 |

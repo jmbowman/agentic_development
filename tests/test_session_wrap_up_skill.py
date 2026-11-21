@@ -19,7 +19,7 @@ DESIGN = INTENT / "session-wrap-up-design.md"
 THIS_FILE = REPO_ROOT / "tests" / "test_session_wrap_up_skill.py"
 
 # The slices whose specs are delivered. Each slice adds its number when it lands.
-DELIVERED_SLICES = {"1", "2", "3a", "3b", "6"}
+DELIVERED_SLICES = {"1", "2", "3a", "3b", "5", "6"}
 
 SLICE_HEADING = r"^## .*\(slice (\d+[a-z]?)\)$"
 
@@ -140,6 +140,41 @@ def test_skill_text_has_no_spec_annotations() -> None:
     assert not annotated, annotated
 
 
+TASKS_MD = SKILL / "references" / "tasks.md"
+# What `references/tasks.md` must name for each part WRAP-TASK-025 lists.
+TASKS_REFERENCE_TOKENS = {
+    "which loose ends become task items": ["parked question", "deferred fix", "`Commit`", "`Send`"],
+    "how to search for an existing task": ["`backlog search`", "archive", "`Done`"],
+    "the keys and labels a task item gets": [
+        "`decision`",
+        "`human`",
+        "`performer`",
+        "`effort`",
+        "`agent_tier`",
+        "`priority_set_by`",
+        "`sessions`",
+        "`loose-end`",
+        "`inference`",
+    ],
+    "the outbox draft format": ["`outbox/", "`target`", "`id`", "`dependencies`"],
+    "the task tracker's rules for creating a task": ["`backlog task create`", "--comment"],
+}
+
+
+# @spec WRAP-TASK-025
+@pytest.mark.parametrize(("part", "tokens"), sorted(TASKS_REFERENCE_TOKENS.items()))
+def test_tasks_reference_covers_each_part(part: str, tokens: list[str]) -> None:
+    """A repo without the task-tracker skill still gets the rules a task item depends on."""
+    text = TASKS_MD.read_text()
+    missing = [token for token in tokens if token not in text]
+    assert not missing, f"{part}: {missing}"
+
+
+def test_skill_links_the_tasks_reference() -> None:
+    """The agent reaches the tasks reference from the procedure it reads first."""
+    assert "references/tasks.md" in SKILL_MD.read_text()
+
+
 def test_delivered_slices_have_specs() -> None:
     """The slice list in this file names slices the specs file defines."""
     assert set(re.findall(SLICE_HEADING, SPECS.read_text(), re.MULTILINE)) >= DELIVERED_SLICES
@@ -200,6 +235,14 @@ def test_manual_spec_is_in_the_manual_script(spec: str) -> None:
 # @spec WRAP-NOTES-005, WRAP-NOTES-006, WRAP-NOTES-007, WRAP-NOTES-008, WRAP-NOTES-009
 # @spec WRAP-NOTES-010, WRAP-NOTES-011, WRAP-NOTES-012, WRAP-NOTES-013, WRAP-NOTES-015
 # @spec WRAP-NOTES-016, WRAP-NOTES-017, WRAP-NOTES-018, WRAP-NOTES-019, WRAP-NOTES-020
+# @spec WRAP-TASK-001, WRAP-TASK-002, WRAP-TASK-003, WRAP-TASK-004, WRAP-TASK-005
+# @spec WRAP-TASK-006, WRAP-TASK-007, WRAP-TASK-008, WRAP-TASK-009, WRAP-TASK-010
+# @spec WRAP-TASK-011, WRAP-TASK-012, WRAP-TASK-013, WRAP-TASK-014, WRAP-TASK-015
+# @spec WRAP-TASK-016, WRAP-TASK-017, WRAP-TASK-018, WRAP-TASK-019, WRAP-TASK-020
+# @spec WRAP-TASK-021, WRAP-TASK-022, WRAP-TASK-023, WRAP-TASK-024, WRAP-TASK-026
+# @spec WRAP-TASK-027, WRAP-TASK-028, WRAP-TASK-029, WRAP-TASK-030
+# @spec WRAP-XREPO-001, WRAP-XREPO-007, WRAP-XREPO-008, WRAP-XREPO-009, WRAP-XREPO-013
+# @spec WRAP-XREPO-014, WRAP-XREPO-015, WRAP-XREPO-016, WRAP-XREPO-017, WRAP-RPT-016
 @pytest.mark.parametrize("spec", delivered_spec_ids("eval") + delivered_spec_ids("manual"))
 def test_hand_run_spec_is_cited_in_this_file(spec: str) -> None:
     """Lidc sees a citation for every delivered spec that only an eval or a manual run checks."""

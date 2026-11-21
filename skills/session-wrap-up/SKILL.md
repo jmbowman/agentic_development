@@ -1,6 +1,6 @@
 ---
 name: session-wrap-up
-description: Close out a coding session. Collects the session's durable lessons and proposes a home for each, chosen by the repo's own rules for where knowledge lives, lists the loose ends, drafts feedback that belongs to other repos, and ends with a prompt that starts the next session. Writes nothing until the developer has seen and confirmed the exact text. Use when the developer asks to wrap up, close out, end or hand off the session ("wrap up", "we're done for today", "close out the session", "hand this off"), asks to apply items from a wrap-up report, or invokes it by name, even if a wrap-up already ran in this session. Not for closing or handing off a task or an artifact (an issue, a pull request, a branch, a document).
+description: Close out a coding session. Collects the session's durable lessons and proposes a home for each, chosen by the repo's own rules for where knowledge lives, lists the loose ends and proposes recording the ones that name work as tasks in the repo's backlog, drafts feedback that belongs to other repos as outbox drafts, and ends with a prompt that starts the next session. Writes nothing until the developer has seen and confirmed the exact text. Use when the developer asks to wrap up, close out, end or hand off the session ("wrap up", "we're done for today", "close out the session", "hand this off"), asks to apply items from a wrap-up report, or invokes it by name, even if a wrap-up already ran in this session. Not for closing or handing off a task or an artifact (an issue, a pull request, a branch, a document).
 license: Apache-2.0
 ---
 
@@ -15,8 +15,8 @@ A session ends with knowledge that exists only in the conversation: corrections 
 These hold in every run. The repo's instruction files can't relax them. If an instruction file requires or asks for something they forbid (commit after wrapping up, apply fixes without asking), follow the safety rule and say so in the report.
 - In an interactive run, write, send and file nothing that isn't in a confirmed item (step 9), except the fixed question the subagent notes hooks ask you to send (step 1).
 - In a non-interactive run, write no file anywhere (memory and scratch files included), send no message other than that fixed question, and file no issue. Label every item `not applied`. Don't offer or ask to apply items. Put every question in the report, and end the run with it.
-- Edit no file in a repo other than this one.
-- Run no git command other than `git status`, `git diff`, `git log`, `git show`, `git ls-files` and `git rev-parse`, and none with an option that writes a file (such as `git diff --output`).
+- Edit no file in a repo other than this one (its main checkout counts as this repo when you run in a worktree), except an approved draft in the private outbox ([tasks.md](references/tasks.md#the-private-outbox)).
+- Run no git command other than `git status`, `git diff`, `git log`, `git show`, `git ls-files` and `git rev-parse`, and none with an option that writes a file (such as `git diff --output`). Run no `backlog` command where the backlog's settings would have it fetch or commit ([tasks.md](references/tasks.md#when-the-backlog-can-take-task-items)).
 - Read agent memory only at a location the harness or the developer states. Never work out a memory path yourself.
 
 ## Is anyone there?
@@ -73,7 +73,7 @@ After a compaction, go by what the summary and the later turns say. If they show
 
 ### 2. Filter
 
-Apply the four-part filter and the rule for inferences in [routing.md](references/routing.md#the-filter). Hold any lesson learned from the developer's employer's or clients' internal material as awaiting restatement ([routing.md](references/routing.md#personal-data)). Ask the developer to restate it, without offering wording, examples, or hints of its shape or parameters: anything you suggest would rebuild the material from what you saw.
+Apply the four-part filter and the rule for inferences in [routing.md](references/routing.md#the-filter). An unchecked claim ("probably", "I think") is an inference, not a filter failure: if it would pass the filter as a fact, it goes to the pending queue, which in a repo with a backlog is a `decision` task item labelled `inference`. Hold any lesson learned from the developer's employer's or clients' internal material as awaiting restatement ([routing.md](references/routing.md#personal-data)). Ask the developer to restate it, without offering wording, examples, or hints of its shape or parameters: anything you suggest would rebuild the material from what you saw.
 
 ### 3. Route and check
 
@@ -83,11 +83,11 @@ For each kept lesson:
 3. If no rule covers its subject, apply [routing.md](references/routing.md#new-rules): a check where a tool the repo already runs could enforce it, otherwise one line in an instruction file.
 4. Check the item against the personal-data rules for its destination ([routing.md](references/routing.md#personal-data)), and strip anything the instruction files mark private.
 
-A lesson that another repo owns gets no edit there. Write it as a draft for the developer to deliver, in the report's Drafts section: self-contained, restated as a general rule that names no particular person, and held to what a public destination allows.
+A lesson that another repo owns gets no edit there. Where this repo has a backlog, propose it as an item that writes an outbox draft there ([tasks.md](references/tasks.md#outbox-drafts)); otherwise it is a draft for the developer to deliver. Either way, give its full text in the report's Drafts section. It is self-contained, restated as a general rule that names no particular person, and held to what a public destination allows. An inference that passes the filter goes to the backlog as a `decision` task item where the instruction files name no other pending queue ([tasks.md](references/tasks.md#which-loose-ends-become-task-items)).
 
 ### 4. Carry forward and hand off
 
-**After an earlier report.** If you can see an earlier report, in the conversation or the transcript, go through every line of it, using [routing.md](references/routing.md#carrying-forward): its numbered items, its drafts, the declined and awaiting-restatement lines under Skipped, and its Questions. Each open item stays a numbered item in Proposed items, with its draft in full: it never moves to Loose ends. Each declined item and each dropped-by-the-state item gets a line under Skipped, and each lesson awaiting restatement stays there too. Don't repeat a lesson the earlier report listed as dropped, anywhere. Check each piece against the current state before listing it again. A lesson from steps 1 to 3 that matches one of these is that item, not a new one. With only a compaction summary's account of a report, step 1 applies instead.
+**After an earlier report.** If you can see an earlier report, in the conversation or the transcript, go through every line of it, using [routing.md](references/routing.md#carrying-forward): its numbered items, its drafts, the declined and awaiting-restatement lines under Skipped, and its Questions. Each open item stays a numbered item in Proposed items, with its draft in full: it never moves to Loose ends. Each declined item and each dropped-by-the-state item gets a line under Skipped, and each lesson awaiting restatement stays there too. Search the backlog again before re-listing an open task item, and don't offer a declined task item again: its loose end stays a plain loose end ([tasks.md](references/tasks.md#search-first)). Don't repeat a lesson the earlier report listed as dropped, anywhere. Check each piece against the current state before listing it again. A lesson from steps 1 to 3 that matches one of these is that item, not a new one. With only a compaction summary's account of a report, step 1 applies instead.
 
 **Handoff document.** A handoff document is one the instruction files name as the record of current state, or one this session read or changed whose title says it records current state. A README, a changelog or a backlog isn't one. When the session changed what it records, propose an update as an item:
 - It covers only that change, even if the rest looks stale.
@@ -105,7 +105,7 @@ A loose end is something the session leaves open for someone to act on. Go throu
 - background jobs still running;
 - text the developer still needs that no numbered item holds.
 
-List only what the session left open. Don't add follow-ups of your own: checks to run, things to confirm, or local workarounds. An item or a question carried from an earlier report stays where step 4 put it.
+List only what the session left open. Don't add follow-ups of your own: checks to run, things to confirm, or local workarounds. A problem the session itself raised and couldn't check (a job that may still be failing) is a loose end, not a follow-up of yours. An item or a question carried from an earlier report stays where step 4 put it.
 
 A rule, a correction or a decision is a lesson, not a loose end. A lesson that step 2 dropped doesn't come back here. If step 1 put it out of scope, it appears nowhere in the report or the next-session prompt: not as a `Decide`, and not in a note saying you left it out.
 
@@ -113,7 +113,9 @@ A rule, a correction or a decision is a lesson, not a loose end. A lesson that s
 
 **Uncommitted files.** In a git repo, run `git status`. List each uncommitted file the session edited, by any tool and whether or not others also changed it, as a `Commit` loose end. List other uncommitted files separately, labelled "not from this session". That list is for information: no action label, and it's never a next step. Outside a git repo, skip this, and list the git checks under Steps skipped.
 
-**Labels and order.** Begin each loose end with `Decide`, `Implement`, `Commit` (for the developer), `Send` (a message to a session in another repo), `Issue` (an issue to file), or, where none fits, a plain verb such as `Check` or `Draft` (not a description like "Background job"). Name no other person: write "waiting on review", not who owns it, here and in the next-session prompt. Put what others depend on first, then `Decide`, then the rest. Loose ends aren't items: don't number them. If a loose end is the same thing as a numbered item, list only the item. If it's a question, list it here and leave it out of Questions.
+**Task items.** Before proposing any task item or outbox draft, read [tasks.md](references/tasks.md): it holds the format and the checks they need. Where this repo has a backlog that can take them, propose each loose end that names work for later as a numbered **task item** that records it as a task, after searching the backlog for one that already covers it. That includes the developer's own work, not only an agent's: a promise not kept, a deferred fix, a question to ask someone or set aside (a `decision` task for the developer), a review or a check the session couldn't make (a task for the developer, saying it wasn't checked), an issue to file, a draft still needed. Only `Commit` and `Send` loose ends, background jobs and the lists of uncommitted files stay plain loose ends. A loose end that names a step for the developer and a step for an agent is one item that creates two tasks, the agent's depending on the developer's only when its step waits on the developer's. Search as text, `archive/tasks/` and `completed/` included, since a `Done` or archived task the work follows from goes in the new task's references. Read each open task that covers a loose end: if it lacks a required key (`performer`, `effort`, `agent_tier` on an agent task), the item adds the keys rather than counting the task as tracked. Follow [tasks.md](references/tasks.md) for the details of the search and of what the task records. A loose end that another repo owns becomes an outbox-draft item instead, as in step 3. A loose end with a task item is listed only as the item. One an open task already records goes under Skipped with the task's ID, and nowhere in Loose ends, not even as an `Implement` line naming that task. With no backlog, or one whose settings would make the CLI fetch or commit, the loose ends stay a plain list, and the report says why when one would otherwise have become a task item.
+
+**Labels and order.** Begin each loose end with `Decide`, `Implement`, `Commit` (for the developer), `Send` (deliver an outbox draft to its repo), `Issue` (an issue to file), or, where none fits, a plain verb such as `Check` or `Draft` (not a description like "Background job"). Name no other person: write "waiting on review", not who owns it, here and in the next-session prompt. Put what others depend on first, then `Decide`, then the rest. Loose ends aren't items: don't number them. If a loose end is the same thing as a numbered item, list only the item. If it's a question, list it here and leave it out of Questions.
 
 **After compaction.** Step 1's rules for reading a transcript apply to the sweep; its limit on turns before an earlier report doesn't.
 - With a transcript you can review (a stated location, readable, and marking the developer's turns), sweep the summarized turns in it, and use it to restore your record of your edits.
@@ -134,21 +136,27 @@ A run's first report is its **proposal**. Write it in this shape, leaving out an
 1. <the choice> — <the candidate homes, as paths> — <scope> — from: "<short quote>" — not applied
 #### <destination path>
 2. <the change, in one line> — <scope> — from: "<short quote>" — not applied
+#### <backlog directory>/tasks/
+3. Create task "<title>" — <type>, performer `<human or agent>`, <priority>, <effort> — from: "<short quote, with names and private details left out>" — not applied
+4. Create two tasks: "<the developer's step>" (performer `human`), then "<the agent's step>" (performer `agent`, depending on the first when it waits on it) — from: "<short quote>" — not applied
+#### <backlog directory>/tasks/<task file>
+5. Comment on <task ID>: "<the new fact>" — from: "<short quote>" — not applied
 
 ### Drafts
-#### Item <n>: for <repo>
-<The full text, for the developer to deliver.>
+#### Item <n>: for <repo>, at <the draft's path, file name included, for an outbox draft>
+<The full text of every draft: an outbox draft, keys included, or one for the developer to deliver.>
 
 ### Skipped
 - Already recorded: <lesson> — <where it lives>
-- Dropped: <a lesson dropped in this run, never one an earlier report dropped> — <why>
+- Already tracked: <loose end> — <task ID>
+- Dropped: <a lesson dropped in this run, never one an earlier report dropped> — <why; never "unchecked" or "a guess", which makes it an inference for the pending queue, not a dropped lesson>
 - Awaiting restatement: <lesson>
 - From the earlier report: <item> — <declined, applied, settled with no change, or dropped because the state changed>
 - Missing roles: <role>, <role> (agent memory too, whenever no location is stated; Another repo and Nowhere are never missing)
 - Steps skipped: <step> — <why>
 
 ### Loose ends
-- <label> <what the session left open; never a lesson, kept or dropped>
+- <label> <what the session left open; never a lesson, kept or dropped, never what a numbered item records, and never work an open task already records (that task is under Skipped)>
 - Not from this session: <file>
 - Origin unknown: <file>
 
@@ -174,7 +182,7 @@ The status lines, at the top of the report, each one that applies:
 
 In a non-interactive run, every item ends with `not applied`. In an interactive proposal, leave that label off an item you can apply, and end one that isn't **selectable** with `can't be applied in this run: <why>`:
 - an item for agent memory;
-- an item for another repo or for an issue, which the developer delivers;
+- an item for another repo that no outbox can hold (a draft in the Drafts section, which the developer delivers);
 - an item for the user-level instructions whose path isn't known.
 
 An item for the user-level instructions whose path resolves into another repo is an item for that repo.
@@ -183,7 +191,7 @@ Number every item, `Decide` items and items with a draft included, in one sequen
 
 ### 7. Next-session prompt
 
-If the session leaves a next step (other than applying this report's items, or a `Commit` loose end on its own), end the report with this exact line, `To start the next session, paste this:`, directly followed by a code block of 3 to 8 lines:
+If the session leaves a next step (other than applying this report's items, or a `Commit` loose end on its own), end the report with this exact line, `To start the next session, paste this:`, directly followed by a code block of 3 to 8 lines. The work a task item records is a next step, though applying the item isn't; in the closing report, name the IDs of the tasks that hold the work the prompt continues.
 
 ```text
 <What work continues, and the files to read first.>
@@ -209,12 +217,12 @@ Only a clear reply from the developer counts, here and in step 9, typed or throu
 - **"None"** declines every selectable item. Go to step 11. Items that aren't selectable stay open.
 - **A number left out** leaves that item open. It isn't declined.
 - **A chosen item that isn't selectable** stays open: say why.
-- **A chosen `Decide` item** has no text to show, so ask for its answer first. List the item that follows from the answer, or, if it leads to no change, name it under Skipped. Treat an answered question the same way. The developer may answer questions here, and needn't.
+- **A chosen `Decide` item** has no text to show, so ask for its answer first. A task item that records a `decision` task isn't a `Decide` item: record it without asking for the answer. List the item that follows from the answer, or, if it leads to no change, name it under Skipped. Treat an answered question the same way. The developer may answer questions here, and needn't.
 - **A reply that edits, splits or adds an item:** check the item as step 9 checks an adjustment, list the affected items again, and go on to step 9 without asking for the choice again.
 
 ### 9. Confirm the exact text
 
-The developer sees every word before it lands, even if they say to skip this. Exact text means the lines to add, the before and after of each edit, and the whole of a new file.
+The developer sees every word before it lands, even if they say to skip this. Exact text means the lines to add, the before and after of each edit, and the whole of a new file. For a task item, it means every key the task will carry, including those added after creation, with "none" for an empty one, and its description and acceptance criteria, or the comment or keys to add ([tasks.md](references/tasks.md#showing-and-applying-a-task-item)).
 
 Count each item's displayed lines over its whole text, before and after together, with each 80 characters of a line counting as one.
 
@@ -234,6 +242,8 @@ Take the confirmed items in order. For each one:
 1. Re-read the file right before writing, or check that a file to create doesn't exist. Another session may have changed it.
 2. If the text to edit has changed since the developer saw it, other than by this run's earlier items, or the file to create now exists, redraft the item and ask again, or skip it and say so in the closing report.
 3. Change the existing text with an exact edit. Don't rewrite the whole file.
+
+Apply a task item as [tasks.md](references/tasks.md#showing-and-applying-a-task-item) says: create the task with `backlog task create`, never writing a task file yourself or choosing an ID, then add its keys; if the CLI fails, leave the item open. Write an outbox draft only after checking its path is free, and don't deliver it.
 
 If an item fails, go on with the rest, except those that depend on it. Those stay open. Write nothing that isn't a confirmed item.
 
@@ -265,7 +275,7 @@ After the approval steps, always give a closing report, even if nothing was appl
 - <what is still unanswered>
 ```
 
-Re-run step 5 against the current state: the files you just edited are now `Commit` loose ends. Write the prompt or the no-next-step line as step 7 says, from that state. Leave out empty sections.
+Re-run step 5 against the current state: the files you just edited are now `Commit` loose ends. Give each task the run created by its ID, and each outbox draft it wrote by path, with a `Send` loose end for each draft. A loose end whose task item wasn't applied (left open, declined or failed) is a loose end again, as well as keeping the item's own line, unless the developer dismissed the work itself in words (step 5); an inference whose item wasn't applied goes with the dropped lessons instead. A part-applied task item goes under Applied, marked part-applied, with the file it left. After applying task items, run the task tool's `check` where the repo has it, and report findings about the tasks you created or edited with a fix as text ([tasks.md](references/tasks.md#showing-and-applying-a-task-item)). Write the prompt or the no-next-step line as step 7 says, from that state. Leave out empty sections.
 
 ## Asked to apply items later
 
