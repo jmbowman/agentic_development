@@ -62,6 +62,12 @@ The planned components, not yet designed:
 - review-wave orchestration with a commit gate;
 - a spec-review loop around LID's design phases.
 
+### Parallel sessions: tools per machine
+
+A developer runs several agent sessions at once, often in one repo, each in its own git worktree. They need to see which sessions are waiting on them, and to create and remove worktrees without losing work or making conflicting changes. The tools for this (a session dashboard, a worktree manager, a warning about overlapping edits) serve every repo the developer works in, so each is installed once per machine, not pinned in each repo (tenet 11).
+
+[The parallel-session prior-art note](prior-art/2026-11-18-parallel-session-and-worktree-management.md) left two candidate setups: Orca, a desktop app; and a blend of Claude Code's own agent view with Worktrunk, Clash and two small custom pieces. Orca also serves as a session and terminal manager, so it's tried first, with Clash filling its one gap that matters now; the blend is built only if Orca falls short. Until the trial settles, its setup lives in this repo and isn't shipped to consumers: the setup and check scripts are in `tools/parallel-sessions/`, and the working guide for each desktop tool is under `docs/wiki/`. Once it settles, a skill in the skills package takes over: it checks whether the chosen tools are installed, helps set them up well, and guides agents in using them in every repo.
+
 ### Outstanding work: the task backlog
 
 Each repo keeps its outstanding work in a **backlog**: one Markdown file per **task**, in Backlog.md's file format, under `backlog/` unless the repo's Backlog.md config names another directory. The backlog is the repo's record of outstanding work. Work found anywhere (a session's loose ends, a prior-art verdict, a deferred spec) becomes a task instead of staying where it was found, so the backlog is complete enough to rank. GitHub issues stay the public way in: a task links the issue it came from, and the issue is closed when its tasks are done.
@@ -126,11 +132,12 @@ Ordered: when two conflict, the higher one wins.
 3. **Reference over copy.** If a tool can pull shared config by a pinned reference, reference it, and copy only what can't be referenced.
 4. **Strict by default, divergence named.** A repo starts at the strict baseline, and each relaxation is a named exception.
 5. **Fast hooks, complete CI.** Commit-time hooks hold only checks fast enough not to interrupt work. CI runs everything.
-6. **Automerge and fix forward.** Updates to tooling and templates merge automatically once CI passes. A bad release is undone by a new release, not prevented by holding updates for human review. The prerequisites are solid test coverage and rollback maturity. For this primarily local system, automerging and fixing forward is worth it.
+6. **Automerge and fix forward.** Updates to tooling and templates merge automatically once CI passes. A bad release is undone by a new release, not prevented by holding updates for human review. The prerequisites are solid test coverage and rollback maturity. For this primarily local system, automerging and fixing forward is worth it. The tenet covers what repos pin and Renovate updates. A desktop tool installed per machine, which updates itself outside any repo, is outside it: such a tool is pinned and each upgrade vetted before it's taken.
 7. **Self-contained skills over composed ones.** A skill carries the procedures it needs (for example, how to make a read-only scratch clone) rather than depending on other skills. A helper becomes a shared dependency only once several skills need it and it has proved stable.
 8. **Portable skills by default, Claude Code features where they pay.**
 9. **Committed instructions for what agents should know, hooks for live state.** Information that is the same every session (what exists, where it is, the rules for using it) goes in the project's `AGENTS.md`, where every agent reads it and git review covers it. A SessionStart hook reports only what can change between sessions, and stays silent when nothing needs attention.
 10. **Compute what can be derived; store only facts and rulings.** Values that follow from other recorded data (a task's readiness and rank, what it unblocks, a summary view) are computed when read, not written into files, so nothing drifts and no tool writes another tool's fields.
+11. **Cross-repo tools per machine, repo tools per repo.** A tool whose work spans every repo a developer has (a session dashboard, a desktop app) is installed once per machine, and repos only check for it. A tool a repo's own checks run is pinned in that repo.
 
 ## System Design
 
@@ -182,6 +189,7 @@ Components:
 | Interactive scenarios | this repo, `evals/<skill>/interactive/` | Each skill's multi-turn, interactive checks, written as pytest tests against pytest-claude-code-evals, and this repo's pin of that plugin. They aren't shipped to consumers |
 | pytest-claude-code-evals | its own public repository, with its own design docs | The pytest plugin that drives an interactive Claude Code session for a test: typed turns, scripted answers to question dialogs, tool gating and logging, repo state at each stop, and the judge |
 | Task tracker | this repo: the `task-tracker` skill in `skills/` ([design](intent/task-tracker/task-tracker-design.md)), and the `backlog/` this repo keeps; each template's wiring lives in that template's repo | The task file format and its custom keys, readiness, ranking, the lint rules, the focus file and outbox conventions, the task tool, and the rules agents follow for tasks. Each template renders into its consumers the `tasks` task, the lint in `check`, the Backlog.md pin and the repo-owned starting files |
+| Parallel sessions | this repo: `tools/parallel-sessions/` ([design](intent/parallel-sessions/parallel-sessions-design.md)), and the per-tool guides in `docs/wiki/` | The trial setup for running parallel sessions: Orca's launcher, a verified installer and a settings check, and the Clash hook entry. Set up once per machine and not shipped to consumers; once the trial settles, a skill takes over |
 | Process hooks | this repo (planned) | Commit gates and other hooks, and how Claude Code hooks reach consumer repos. Not yet designed |
 
 Copier never edits the repo-owned reference files after the first render, and Renovate never edits template-owned files (the shared preset excludes them), so two update mechanisms never touch the same line.
@@ -245,6 +253,9 @@ Copier never edits the repo-owned reference files after the first render, and Re
   - GitHub Issues as the record (agents can't grep it offline, and nothing protects the developer's rulings);
   - shipping the task tool as its own package pinned by each template (a third release stream for a small script, and the agents' rules would still need a skill);
   - a copy of the tool owned by each template (every template layer would carry the same file, against tenet 3).
+- **Parallel-session tooling stays unshipped until its trial settles.** The trial may drop either candidate setup, and each is tied to particular desktop tools and their settings, so shipping it now would give every consumer a release to install and another to remove. Holding it in `tools/parallel-sessions/` keeps the cost of a wrong pick to this repo. *Alternatives:*
+  - a skill in the skills package from the start (every repo gets the setup at once, but carries trial-stage, tool-specific content, and needs hook delivery to consumers, which the process hooks design hasn't settled);
+  - building it as part of the process hooks component (Clash's entry is a hook, but the launcher, installer and settings check aren't, and it would pull that component's open delivery question into a trial).
 - **Conflicts never automerge.** Renovate reports a conflicted copier update as an artifact error, which blocks automerge. A conflict-marker check in each repo's `check` task is a second guard, which also covers updates run by hand.
 - **LID minor and major bumps are the one exception to automerge.** A project's `## LID` block records, as `- Version:`, the LID conventions its design docs follow. LID compares versions by major.minor, and a patch release asks nothing of a project. Moving a project to a new minor or major version needs a `/update-lid` walk of its design docs, which the bump PR can't do. Two guards hold such a bump until a person has walked it:
   - the shared preset holds Renovate's apm PRs that change LID's minor or major version in any repo whose own `apm.yml` pins it, this one included;

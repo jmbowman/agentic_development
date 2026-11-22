@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-18T12:43:00Z'
+updated_date: '2026-11-22T00:15:00Z'
 labels: []
 milestone: m-3
 dependencies: []
@@ -41,3 +42,23 @@ Related: AD-55. Done when the references record these and checks pass.
 
 **Why an agent:** the findings are stated; it's a references edit, with a harvester fix if one is chosen
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: d7b6ac42-ae0a-43d4-910b-471bd3b28ac7
+created: 2026-11-22T00:15:00Z
+
+---
+
+The 2026-11-18 parallel-session search (docs/prior-art/2026-11-18-parallel-session-and-worktree-management.md) found more route behaviour for sources.md:
+- the agent's web search tool ignored `site:`, so `site:codeberg.org` and `site:pypi.org` queries returned nothing from those sites;
+- GitHub topic lookups for broad terms (claude-code, jujutsu) returned mostly spam topics, while lookups by a candidate's name (herdr, orca) found its plugin topics;
+- jsDelivr's `resolved?specifier=main` returned `version: null` for GitHub repos, and the first tag it lists can lag the latest release;
+- proxy.golang.org resolves a Go module's bare path to its v1 line, so a module now at `/v3` looks stale;
+- libraries.io can list npm packages that have no published versions;
+- npm searches on generic words (concurrency limit, monitor, dashboard) return unrelated SDKs, while naming the agent or Claude works;
+- Hugging Face paper search results carry a `githubRepo` field, the quickest source of a paper's code link.
+
+---
+<!-- COMMENTS:END -->

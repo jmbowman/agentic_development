@@ -271,6 +271,7 @@ Could not verify:
 | [Claim Plane](https://arxiv.org/abs/2607.21909) | abstract only | experiment | preprint | borrow ideas | The abstract reports that declaring change intent before writing raised integration success from 65.6% to 96.7% |
 | [The Work Behind Delegation](https://arxiv.org/abs/2609.24234) | abstract only | qualitative study | preprint | borrow ideas | The abstract reports a 7-stage supervisory-control model of supervising coding agents |
 | [Codellaborator](https://doi.org/10.1145/3706598.3713357) | abstract only | experiment | peer-reviewed | borrow ideas | The abstract reports that proactive agents disrupted workflow, and that showing the agent's presence and context helped |
+| [Fan-out: measuring human control of multiple robots](https://doi.org/10.1145/985692.985722) (Olsen and Wood, CHI 2004) | read in full | experiment | peer-reviewed | borrow ideas | How many robots one person can keep working (fan-out) is a robot's activity time divided by the interaction time it needs per command. Interaction time has four parts: monitoring and choosing which robot needs attention, switching context, solving its problem, and giving the command. The first two grow with fan-out. In four races of 8 participants, more autonomous robots and simpler tasks raised fan-out from about 1 to 9, while interaction effort stayed roughly constant for a given interface; a worse interface raised it 25-46%. The model breaks down when fan-out falls near 1, and adding robots stops helping once the task can't use them (paper-reported) |
 | [Palantír](https://doi.org/10.1109/tse.2011.64) | abstract only | experiment | peer-reviewed | borrow ideas | The abstract reports early, unobtrusive notice of same-file changes across private workspaces |
 | [Crystal: proactive conflict detection](https://doi.org/10.1145/2025113.2025139) | abstract only | weak experiment | peer-reviewed | borrow ideas | The abstract reports speculative merging of developers' copies to catch conflicts early, the method Clash applies |
 | [Cassandra](https://doi.org/10.1109/icse.2013.6606619) | abstract only | experiment | peer-reviewed | borrow ideas | The abstract reports ordering tasks to minimize conflicts |
@@ -284,13 +285,14 @@ The literature supports the blend's shape:
 - warn about overlap early, which is the Palantír and Crystal line of work and what Clash implements;
 - stay near 2 to 4 concurrent agents, which is what the N3 threshold encodes (CAID, ParallelPilot).
 
+Fan-out suggests the threshold shouldn't be fixed. The number of sessions one person can keep working rises with how long each session runs unattended between prompts, and falls with the time each prompt or review takes. The dashboard's job is to cut the parts of that time that grow with the number of sessions: monitoring, choosing which session needs you, and switching context. Carrying the robot model over to coding agents is this note's reading, not a finding of the paper.
+
 Coordination by declared intent (Claim Plane, NP-Bench) is the next step if overlap warnings prove too late.
 
 ## Worth retrieving manually
 
-- **[Palantír](https://doi.org/10.1109/tse.2011.64)** (doi:10.1109/tse.2011.64). Controlled evidence on whether workspace-awareness notices reduce conflicts, which is the claim behind Clash. Ways to get it: the authors' institutional pages, IEEE Xplore through a library, or a request to the authors.
-- **[Fan-out: measuring human control of multiple robots](https://doi.org/10.1145/985692.985722)** (doi:10.1145/985692.985722). A model of how many agents one person can supervise, which bears on N3's threshold. Ways to get it: the ACM Digital Library (OpenTOC or the authors' pages), a library, or the authors.
-- **"Informed but Still Colliding"** (no link found; replication package doi:10.5281/zenodo.23113537). A direct test of whether awareness reduces merge conflicts between parallel LLM agents. Ways to get it: the open Zenodo record (check whether it includes the manuscript), or the authors.
+- **[Palantír](https://doi.org/10.1109/tse.2011.64)** (doi:10.1109/tse.2011.64). Controlled evidence on whether workspace-awareness notices reduce conflicts, which is the claim behind Clash. Ways to get it: the authors' institutional pages, IEEE Xplore through a library, or a request to the authors. The developer plans to get a library copy.
+- **"Informed but Still Colliding"** (no link found; replication package doi:10.5281/zenodo.23113537). A direct test of whether awareness reduces merge conflicts between parallel LLM agents. Ways to get it: the authors, once the manuscript is out. As of 2026-11-21 it doesn't appear to be available yet.
 
 ## Coverage ledger
 
