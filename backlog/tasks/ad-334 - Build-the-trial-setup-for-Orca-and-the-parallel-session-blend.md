@@ -4,7 +4,7 @@ title: Build the trial setup for Orca and the parallel-session blend
 status: In Progress
 assignee: []
 created_date: '2026-11-20T13:51:00Z'
-updated_date: '2026-11-22T15:33:00Z'
+updated_date: '2026-11-22T22:04:00Z'
 labels: []
 milestone: m-6
 dependencies: []
@@ -43,6 +43,15 @@ created: 2026-11-22T15:33:00Z
 ---
 
 2026-11-22: the design is now pruned to Orca's option: the launcher and menu entry, the installer, the settings check, Clash's hook, and setup for those. This task builds all of it. The blend's custom pieces are cut from the design; AD-348 holds them in case Orca falls short.
+
+---
+
+author: 37563844-7324-4e49-be68-9162b08ccf52
+created: 2026-11-22T22:04:00Z
+
+---
+
+For the trial setup: the developer's global git-state guard hook blocks every `git worktree` subcommand except `list`, so an agent can't create or remove a worktree through Bash; on 2026-11-15 the developer created the docs-site worktree by hand. Unchecked: a worktree session's handoff kept its rows for append-only files (docs/review-log.md) in tmp/pending-review-log-rows.md until the main checkout's staged work was committed, to avoid merge conflicts; whether that worked wasn't checked.
 
 ---
 <!-- COMMENTS:END -->

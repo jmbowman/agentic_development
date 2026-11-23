@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-18T12:43:00Z'
-updated_date: '2026-11-22T00:15:00Z'
+updated_date: '2026-11-23T00:03:00Z'
 labels: []
 milestone: m-3
 dependencies: []
@@ -59,6 +59,15 @@ The 2026-11-18 parallel-session search (docs/prior-art/2026-11-18-parallel-sessi
 - libraries.io can list npm packages that have no published versions;
 - npm searches on generic words (concurrency limit, monitor, dashboard) return unrelated SDKs, while naming the agent or Claude works;
 - Hugging Face paper search results carry a `githubRepo` field, the quickest source of a paper's code link.
+
+---
+
+author: a83d57b3-ccde-4032-8a68-b0d049aa9a66
+created: 2026-11-23T00:03:00Z
+
+---
+
+Route findings from the generated-views search (docs/prior-art/2026-11-19-generated-views-over-markdown.md): GitHub answered HTTP 403 "secondary rate limit" after about 15 repository searches sent 3 s apart, with primary quota still left; 6 s spacing with a back-off on "rate limit" ran clean for about 100 more. `gh search code` queries with several terms returned no hits even where the terms appear together; single names worked. libraries.io's `licenses` field holds whole license texts, so trim it with jq before reading the output.
 
 ---
 <!-- COMMENTS:END -->
