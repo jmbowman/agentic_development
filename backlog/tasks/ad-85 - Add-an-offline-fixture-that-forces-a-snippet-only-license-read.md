@@ -9,12 +9,12 @@ labels:
 milestone: m-3
 dependencies: []
 references:
-  - docs/review-log.md:98
+  - docs/review-log/history-to-2026-11-22.md:98
   - docs/intent/prior-art-search/prior-art-search-specs.md:248-249
   - PRIOR-LIC-009
   - PRIOR-LIC-010
   - docs/intent/prior-art-search/prior-art-search-specs.md:248
-  - docs/review-log.md:96
+  - docs/review-log/history-to-2026-11-22.md:96
   - evals/prior-art-search
 priority: medium
 type: feature

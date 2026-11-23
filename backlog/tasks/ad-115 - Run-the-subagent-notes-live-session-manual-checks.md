@@ -32,7 +32,7 @@ sessions:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Specs NOTES-LIVE-001, -002 and -003 are manual: in an attended session a finished subagent's report reaches the main agent unchanged and its notes file appears before the turn ends; in a `-p` run the result is the main agent's own last message; with hooks registered both by the plugin and in .claude/settings.json each subagent is asked exactly once. Run them on the current Claude Code, record results in docs/review-log.md as the repo rule says, and tick the specs.
+Specs NOTES-LIVE-001, -002 and -003 are manual: in an attended session a finished subagent's report reaches the main agent unchanged and its notes file appears before the turn ends; in a `-p` run the result is the main agent's own last message; with hooks registered both by the plugin and in .claude/settings.json each subagent is asked exactly once. Run them on the current Claude Code, record results in docs/review-log/ as the repo rule says, and tick the specs.
 
 **Why it matters:** Confirms the shipped hooks behave in real sessions.
 

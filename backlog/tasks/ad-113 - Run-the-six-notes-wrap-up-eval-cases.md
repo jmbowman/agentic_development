@@ -25,7 +25,7 @@ sessions:
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Run the six new eval cases under evals/session-wrap-up/notes-* (written for slice 6, reading subagent notes) with the exact command given by the agent (model claude-sonnet-5-5, judge, --no-publish, --keep-temp, one --case per run, TMPDIR prefix). Triage the pasted output, then tick the WRAP-NOTES specs that pass. Done when each case has a recorded result in docs/review-log.md and evals/session-wrap-up/latest-results.md.
+Run the six new eval cases under evals/session-wrap-up/notes-* (written for slice 6, reading subagent notes) with the exact command given by the agent (model claude-sonnet-5-5, judge, --no-publish, --keep-temp, one --case per run, TMPDIR prefix). Triage the pasted output, then tick the WRAP-NOTES specs that pass. Done when each case has a recorded result in docs/review-log/ and evals/session-wrap-up/latest-results.md.
 
 **Why it matters:** Moves the slice 6 eval-only specs from [ ] to [x].
 

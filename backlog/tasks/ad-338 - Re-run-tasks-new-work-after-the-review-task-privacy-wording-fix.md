@@ -10,7 +10,7 @@ milestone: m-4
 dependencies: []
 references:
   - evals/session-wrap-up/tasks-new-work
-  - docs/review-log.md
+  - docs/review-log/README.md
 priority: low
 type: eval
 ordinal: 29000
@@ -32,5 +32,5 @@ The last session-wrap-up eval round failed `review-task-screened` in one of thre
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 A three-run round of tasks-new-work on the current skill text is in docs/review-log.md and evals/session-wrap-up/latest-results.md
+- [ ] #1 A three-run round of tasks-new-work on the current skill text is in docs/review-log/ and evals/session-wrap-up/latest-results.md
 <!-- AC:END -->

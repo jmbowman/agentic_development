@@ -19,3 +19,4 @@ convention = "google"
 "skills/*/hooks/*.py" = ["INP001"]  # hook scripts Claude Code runs alone with python3 -I
 # Scripts uv runs alone; a PEP 723 git pin can't be wrapped, and comments can't carry a noqa there.
 "skills/*/scripts/*.py" = ["INP001", "E501"]
+"tools/*/*.py" = ["INP001"]  # scripts uv runs alone, and the module they share from their directory

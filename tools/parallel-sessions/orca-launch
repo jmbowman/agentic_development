@@ -1,0 +1,20 @@
+#!/bin/sh
+# Starts Orca with its usage reporting off: Orca sends anonymous usage data unless one of these
+# variables is set, and locks its in-app toggle while one is.
+# Runs $ORCA_APPIMAGE when it's set, and otherwise orca.AppImage in the install directory, which
+# setup writes into the copy it installs. Uses only shell built-ins until it starts Orca.
+# @spec PAR-LAUNCH-001, PAR-LAUNCH-002, PAR-LAUNCH-003, PAR-LAUNCH-004
+
+install_dir="$HOME/Applications/orca"
+package="${ORCA_APPIMAGE:-$install_dir/orca.AppImage}"
+
+DO_NOT_TRACK=1
+ORCA_TELEMETRY_DISABLED=1
+export DO_NOT_TRACK ORCA_TELEMETRY_DISABLED
+
+if [ ! -f "$package" ] || [ ! -x "$package" ]; then
+    printf 'orca-launch: %s is not an executable file\n' "$package" >&2
+    exit 1
+fi
+
+exec "$package" "$@"

@@ -10,7 +10,7 @@ milestone: m-3
 dependencies: []
 references:
   - docs/tool-feedback/paper-search-mcp.md:3
-  - docs/review-log.md:88-90
+  - docs/review-log/history-to-2026-11-22.md:88-90
   - https://github.com/jmbowman/agentic_development/issues/157
 priority: medium
 type: review

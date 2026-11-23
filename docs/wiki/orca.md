@@ -2,7 +2,7 @@
 
 [Orca](https://github.com/stablyai/orca) is a desktop app for running several coding agents (Claude Code among them) at once, each in its own git worktree. It shows which agents are working, done or waiting on you, and creates and deletes worktrees for them. It's MIT-licensed, ships for macOS, Windows and Linux, and releases about once a day.
 
-This page is a working guide. Checked against Orca's source and docs at v1.4.269 (2026-11-22), and tried on Linux. The macOS and Windows notes come from Orca's docs and haven't been tried; corrections from those platforms are welcome.
+This page is a working guide. Checked against Orca's source and docs at v1.4.269 (2026-11-22), and tried on Linux. The macOS and Windows notes come from Orca's docs and haven't been tried; corrections from those platforms are welcome. This repo's scripts in `tools/parallel-sessions/` (Linux only) were tried on Linux x86_64 with Orca 1.4.269 on 2026-11-22: setup with and without `--apply`, the installer recording an existing hand-made install, the settings check, and starting Orca from the menu entry. Their Clash steps and arm64 haven't been tried.
 
 ## Why use it
 
@@ -53,6 +53,8 @@ chmod +x ~/Applications/orca/orca-1.4.269.AppImage
 ln -sfn orca-1.4.269.AppImage ~/Applications/orca/orca.AppImage
 ```
 
+On Linux, `uv run --script tools/parallel-sessions/orca_install.py orca-linux.AppImage --tag v1.4.269` from this repo builds this layout for you, after the checks in [Verify the download](#verify-the-download): it refuses a prerelease, a release younger than 3 days (`--allow-young` skips that), and a file whose size or sha512 differs from the release's manifest. It also saves Orca's icon for the menu entry. To install somewhere other than `~/Applications/orca`, or to change the 3-day minimum, create `~/.config/parallel-sessions/config.toml` with `install_dir = "~/somewhere/orca"` or `min_release_age_days = 7`; every script in `tools/parallel-sessions/` reads it, and none writes it.
+
 To move to a new version, add its file and repoint the link. To roll back, point the link at the old file. Orca says it won't force-downgrade your worktree data if you go back. Don't use Orca's in-app **Update** with this layout: it replaces the running file in place, which through the link rewrites a versioned file with another version.
 
 ### macOS and Windows
@@ -100,10 +102,12 @@ Start it with telemetry off, every time. While `DO_NOT_TRACK=1` (or `ORCA_TELEME
 DO_NOT_TRACK=1 ~/Applications/orca/orca.AppImage
 ```
 
-[AD-334](../../backlog/tasks/ad-334%20-%20Build-the-trial-setup-for-Orca-and-the-parallel-session-blend.md) builds a Linux launcher and menu entry that do this. Alternatively, set `DO_NOT_TRACK=1` for your whole desktop session, so every way of starting Orca gets it. That also tells every other program that reads `DO_NOT_TRACK` not to send usage data, which you may or may not want. Ways to set it session-wide (not tried here):
+On Linux, this repo's `tools/parallel-sessions/setup.py` installs a launcher, `~/.local/bin/orca-launch`, and a menu entry that starts Orca through it, so every start from the menu or dock gets the variables. Run `uv run --script tools/parallel-sessions/setup.py` to see the changes, and add `--apply` to make them; it backs up any file it changes under `~/.local/state/parallel-sessions/backups/`. It also adds a [Clash](https://github.com/clash-sh/clash) hook to `~/.claude/settings.json` when `clash` is on `PATH`. Alternatively, set `DO_NOT_TRACK=1` for your whole desktop session, so every way of starting Orca gets it. That also tells every other program that reads `DO_NOT_TRACK` not to send usage data, which you may or may not want. Ways to set it session-wide (not tried here):
 - **Linux** with a systemd user session: a file in `~/.config/environment.d/`, such as `telemetry.conf` holding `DO_NOT_TRACK=1`, read at your next login.
 - **macOS:** apps started from Finder or the Dock don't see your shell's variables. `launchctl setenv DO_NOT_TRACK 1` sets it for apps started afterwards, until you log out, so it needs to run at each login.
 - **Windows:** a user environment variable, set in System Properties → Environment Variables, which apps started afterwards see.
+
+To confirm Orca saw the variable, open **Settings → Privacy**: the **Share anonymous usage data** toggle is locked. On Linux, don't check with `/proc/<pid>/environ` of an `orca-ide` process. Chromium overwrites that memory to set its process titles, so it reads as empty whatever Orca was started with (seen with 1.4.269). The AppImage runtime, the process named `orca.AppImage`, keeps its environment readable there, and shows what the launcher passed on.
 
 If the AppImage fails to start, there are two common causes on recent Ubuntu (not yet seen with Orca itself):
 - **A FUSE error:** install `libfuse2t64`, or run it with `--appimage-extract-and-run`.
@@ -125,7 +129,7 @@ On first launch Orca asks for access to your home directory and offers to import
 | Delete agent history when a workspace is deleted (`deleteChatHistoryWithWorkspace`) | off | leave off: on, workspace cleanup also deletes Claude Code chats of removed workspaces | Settings → Agents |
 | Always force-delete worktrees (`alwaysForceDeleteWorktrees`), always force-delete preserved branches (`alwaysForceDeletePreservedBranches`), skip the delete confirmation (`skipDeleteWorktreeConfirm`) | off | leave off: each lets a delete remove more than you've seen | set from delete dialogs and Settings |
 
-Orca keeps these in a SQLite profile database that it locks and migrates (on Linux, `~/.config/orca/profiles/local-default/profile-state.db`), and it has no command-line way to change settings, so set them in the app. Settings migrations can rewrite defaults on upgrade, so check the table again after each upgrade. A script to do that check is part of [AD-334](../../backlog/tasks/ad-334%20-%20Build-the-trial-setup-for-Orca-and-the-parallel-session-blend.md).
+Orca keeps these in a SQLite profile database that it locks and migrates (on Linux, `~/.config/orca/profiles/local-default/profile-state.db`), and it has no command-line way to change settings, so set them in the app. Settings migrations can rewrite defaults on upgrade, so check the table again after each upgrade. On Linux, `uv run --script tools/parallel-sessions/orca_settings_check.py`, run with Orca closed, does that check. It also checks the installed packages against the installer's record, and Orca's hook entries in `~/.claude/settings.json` against those Orca 1.4.269 installs for your Claude Code version, missing or extra. It exits 0 when everything matches, 1 when something differs, and 2 when it couldn't check something, such as an Orca version whose defaults it doesn't know yet.
 
 ### Register the CLI
 
@@ -137,6 +141,7 @@ Register the CLI from **Settings → General → Orca CLI**. On Linux it's `orca
 - **Your Claude login:** Orca uses your existing Claude Code login to fetch usage and rate-limit figures for its status bar.
 - **The network:** a daily update check against GitHub releases, a download of state-detection rules from GitHub every 4 hours, and telemetry unless turned off.
 - **Worktrees:** Orca creates them under its own workspace directory (`workspaceDir`), not under `.claude/worktrees/`.
+- **A background process:** Orca's terminals, and the agents running in them, live in a daemon that keeps running after you quit Orca, so they survive a restart (`src/main/daemon/providers/adapter/daemon-pty-event-subscriptions.ts`). On Linux its process is named `orca-agents` (`src/main/daemon/daemon-process-name.ts`). A relaunched Orca reattaches to the running daemon, so its terminals keep the environment of the launch that started it. If that launch wasn't through the launcher, quit Orca and end the daemon (`pkill -x orca-agents`) before relaunching. That also ends every session running in Orca's terminals. The settings check doesn't count the daemon as Orca running, because the daemon doesn't hold the profile database.
 
 ## Key usage notes
 

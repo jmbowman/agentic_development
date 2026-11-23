@@ -11,7 +11,7 @@ milestone: m-3
 dependencies: []
 references:
   - docs/intent/prior-art-search/prior-art-search-specs.md:122
-  - docs/review-log.md:61
+  - docs/review-log/history-to-2026-11-22.md:61
   - skills/prior-art-search/scripts/harvest.py
 priority: medium
 type: feature

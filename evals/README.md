@@ -40,7 +40,7 @@ Runner details worth knowing:
 - `--case` takes one name; given more than once, only the last applies. Loop over names to run several.
 - Each run gets its own sandboxed home and config directories, and its system prompt states a memory directory inside that sandbox. A case can't make a run with no memory location. The sandbox home is itself a git repo, so a case can't run outside git either.
 - `--keep-temp` keeps each run's directory; its `out/trace.jsonl` lists every tool call. The rest is sealed (mode 000); don't run git inside it.
-- `results/` folders are named by UTC time, so sort them by name, not by a date prefix; `docs/review-log.md` dates are local. Each runner invocation writes its own folder, and one folder can hold several runs (`.cases[].arms.with[]`), so total a wave by adding up its folders for each case, matched to the wave by run-time gaps and the row's text, not by date.
+- `results/` folders are named by UTC time, so sort them by name, not by a date prefix; review-log dates are local. Each runner invocation writes its own folder, and one folder can hold several runs (`.cases[].arms.with[]`), so total a wave by adding up its folders for each case, matched to the wave by run-time gaps and the row's text, not by date.
 - Without `--no-publish`, the report is published to claude.ai (private to you).
 - The default judge is Haiku; `--judge-model` changes it. `--model` sets the model under test.
 - A `tool_used` grader's "called Nx" counts only calls that match its `input_match`, so 0x doesn't show that the tool went unused or that the sandbox failed.
@@ -66,7 +66,7 @@ Behavior an eval can't reach (an interactive run, another live session, a real c
 
 ## Latest results
 
-Each skill's `latest-results.md` has one row per eval case (and per interactive scenario), giving its most recent triaged run: the date, Claude Code version, model, runs and failures, and the `docs/review-log.md` row that reported it (its Date, Component, Phase and Wave), or `never run`. Runs whose failure triage traced to the grader or the case, not the skill, are left out of both counts. After triaging a run, update the rows it covered in the same change as its review-log row. `tests/test_interactive_scenarios.py` fails when a case or scenario has no row, a row names something that doesn't exist, or a row is malformed.
+Each skill's `latest-results.md` has one row per eval case (and per interactive scenario), giving its most recent triaged run: the date, Claude Code version, model, runs and failures, and the review-log row that reported it (its Date, Component, Phase and Wave), or `never run`. Runs whose failure triage traced to the grader or the case, not the skill, are left out of both counts. After triaging a run, update the rows it covered in the same change as its review-log row. `tests/test_interactive_scenarios.py` fails when a case or scenario has no row, a row names something that doesn't exist, or a row is malformed.
 
 ## Writing graders
 
