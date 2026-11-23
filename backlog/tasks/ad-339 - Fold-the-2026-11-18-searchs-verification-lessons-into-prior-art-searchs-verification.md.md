@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T00:15:00Z'
+updated_date: '2026-11-23T00:03:00Z'
 labels:
   - loose-end
 milestone: m-3
@@ -42,3 +43,16 @@ The parallel-session search (docs/prior-art/2026-11-18-parallel-session-and-work
 - [ ] #1 verification.md covers retrying a forge 404 before classifying, checking renames, comparing a license with its canonical text, and what an absence-of-action listing must cover
 - [ ] #2 mise run check passes
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: a83d57b3-ccde-4032-8a68-b0d049aa9a66
+created: 2026-11-23T00:03:00Z
+
+---
+
+The generated-views search (docs/prior-art/2026-11-19-generated-views-over-markdown.md) made two absence claims that its review overturned. mdsmith "has no command that prints a view" rested on a listing of `docs/reference/cli/` whose scope covered `export.md`, which does exactly that. "mq queries can run commands" missed the default sandbox described further down the same CLI help. Both surfaced only when a reviewer read the tool's whole command and flag reference. For acceptance criterion #1: an absence listing is read in full, not only searched for the expected names.
+
+---
+<!-- COMMENTS:END -->

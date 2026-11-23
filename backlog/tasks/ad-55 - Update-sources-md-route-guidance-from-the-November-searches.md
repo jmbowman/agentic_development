@@ -4,6 +4,7 @@ title: Update sources.md route guidance from the November searches
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-22T22:04:00Z'
 labels:
   - issue
   - partly-done
@@ -34,3 +35,16 @@ Issue #158 and comments list route behavior to fold into skills/prior-art-search
 
 **Status when filed (partly-done):** commits 2d835c7 and aec8b25 changed sources.md; lib.rs, aitoolnet trigger and marketplaces rows already exist, but arXiv HTML reference workaround and Zenodo guidance were not found by grep
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: 37563844-7324-4e49-be68-9162b08ccf52
+created: 2026-11-22T22:04:00Z
+
+---
+
+Also fold in the tactic from the 2026-11-15 comment on #158 (https://github.com/jmbowman/agentic_development/issues/158#issuecomment-6902121974): begin each web route (general web search, awesome lists, alternatives pages) with a short, broad query, then narrow it with the vocabulary the first results use. It adds to the 2-3 differently worded queries rule. Source: https://www.anthropic.com/engineering/multi-agent-research-system
+
+---
+<!-- COMMENTS:END -->
