@@ -10,7 +10,7 @@ labels:
 milestone: m-3
 dependencies: []
 references:
-  - docs/review-log.md:90
+  - docs/review-log/history-to-2026-11-22.md:90
   - evals/prior-art-search/latest-results.md
   - evals/prior-art-search/harvester-literature
 priority: high

@@ -11,7 +11,7 @@ dependencies:
   - AD-83
 references:
   - docs/intent/prior-art-search/prior-art-search-specs.md:252-269
-  - docs/review-log.md
+  - docs/review-log/README.md
 priority: medium
 type: review
 performer: agent

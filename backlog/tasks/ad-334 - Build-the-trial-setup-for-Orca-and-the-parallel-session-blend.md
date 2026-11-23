@@ -4,7 +4,7 @@ title: Build the trial setup for Orca and the parallel-session blend
 status: In Progress
 assignee: []
 created_date: '2026-11-20T13:51:00Z'
-updated_date: '2026-11-22T22:04:00Z'
+updated_date: '2026-11-23T12:08:00Z'
 labels: []
 milestone: m-6
 dependencies: []
@@ -52,6 +52,15 @@ created: 2026-11-22T22:04:00Z
 ---
 
 For the trial setup: the developer's global git-state guard hook blocks every `git worktree` subcommand except `list`, so an agent can't create or remove a worktree through Bash; on 2026-11-15 the developer created the docs-site worktree by hand. Unchecked: a worktree session's handoff kept its rows for append-only files (docs/review-log.md) in tmp/pending-review-log-rows.md until the main checkout's staged work was committed, to avoid merge conflicts; whether that worked wasn't checked.
+
+---
+
+author: 27e13044-1d02-40c4-90d7-0134d1214b1d
+created: 2026-11-23T12:08:00Z
+
+---
+
+2026-11-23: the Orca setup is built (tools/parallel-sessions/), has passed its tests and code review waves, and was tried on Linux x86_64 with Orca 1.4.269 on 2026-11-22: setup, the installer recording the existing install, the settings check, and starting Orca from the menu entry. Clash's two-worktree smoke test hasn't been run. The review-log workaround in the comment above is superseded: each wave now gets its own file in docs/review-log/. Whether this task is Done is the developer's call.
 
 ---
 <!-- COMMENTS:END -->

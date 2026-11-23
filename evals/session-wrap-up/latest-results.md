@@ -1,6 +1,6 @@
 # Latest results: session-wrap-up
 
-Each eval case's and interactive scenario's most recent triaged run: the run a row of `docs/review-log.md` reports, named here by that row's Date, Component, Phase and Wave. Runs and Failed leave out runs whose failure triage traced to the grader or the case rather than the skill. Update a row with each new review-log row that covers it.
+Each eval case's and interactive scenario's most recent triaged run: the run a row of the review log (`docs/review-log/`) reports, named here by that row's Date, Component, Phase and Wave. Runs and Failed leave out runs whose failure triage traced to the grader or the case rather than the skill. Update a row with each new review-log row that covers it.
 
 | Case or scenario | Date | Claude Code | Model | Runs | Failed | Log date | Log component | Log phase | Log wave |
 |---|---|---|---|---|---|---|---|---|---|

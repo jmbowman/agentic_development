@@ -53,7 +53,7 @@ What the scenarios need the plugin to provide is listed in the design for the pl
 
 ## Latest results
 
-A **triaged run** of an eval case or scenario is the run that a row of `docs/review-log.md` reports; its **row** is that review-log row, identified by the row's Date, Component, Phase and Wave columns. A run **counts** unless triage traced its failure to the grader or the case rather than the skill.
+A **triaged run** of an eval case or scenario is the run that a row of the review log reports (a file in `docs/review-log/`, or a row of its history file before 2026-11-23); its **row** is that review-log row, identified by the row's Date, Component, Phase and Wave columns. A run **counts** unless triage traced its failure to the grader or the case rather than the skill.
 
 - [x] **IEVAL-STAT-001**: For each skill that has an eval case or a scenario, `evals/<skill>/latest-results.md` shall hold one Markdown table, with a header row and exactly one body row for each of the skill's eval cases and scenario functions, and no other body rows.
 - [x] **IEVAL-STAT-002**: Each body row of a latest-results table shall hold, in order: the eval case's directory name or the scenario's `<module file>::<function>`; and, for its latest triaged run, the run's date, the Claude Code version, the model under test (not the judge), the number of its runs in that triaged run that count, the number of those that failed, and the review-log row's Date, Component, Phase and Wave; dates shall be written `YYYY-MM-DD`, and the two counts as whole numbers with the failures no more than the runs. A case or scenario with no triaged run shall hold `never run` in each of those cells.

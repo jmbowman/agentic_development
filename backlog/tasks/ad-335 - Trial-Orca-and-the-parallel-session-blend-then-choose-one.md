@@ -4,7 +4,7 @@ title: Trial Orca and the parallel-session blend, then choose one
 status: To Do
 assignee: []
 created_date: '2026-11-20T13:51:00Z'
-updated_date: '2026-11-22T15:33:00Z'
+updated_date: '2026-11-23T12:08:00Z'
 labels: []
 milestone: m-6
 dependencies:
@@ -34,6 +34,15 @@ created: 2026-11-22T15:33:00Z
 ---
 
 2026-11-22: the developer chose to try Orca first, since it also serves as a session and terminal manager. The blend is built (AD-348) only if Orca falls short, so this trial is now: use Orca with Clash, then decide whether it's good enough or the blend is needed.
+
+---
+
+author: 27e13044-1d02-40c4-90d7-0134d1214b1d
+created: 2026-11-23T12:08:00Z
+
+---
+
+2026-11-23: Orca's side of the trial can start. Orca 1.4.269 is installed through tools/parallel-sessions/ and starts from its menu entry with usage reporting off; Clash 0.2.0 is installed and its PreToolUse entry is in ~/.claude/settings.json. Still to do first: a smoke test (edit a file in one worktree, then have an agent edit it in another, and expect a prompt naming the first), and run `mise run skills` in each new worktree until AD-349. The blend's custom pieces are now AD-348.
 
 ---
 <!-- COMMENTS:END -->

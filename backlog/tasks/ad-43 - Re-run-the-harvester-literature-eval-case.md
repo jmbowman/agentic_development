@@ -12,13 +12,13 @@ dependencies:
   - AD-41
 references:
   - docs/intent/prior-art-search/prior-art-search-specs.md:225-237
-  - docs/review-log.md:88-90
+  - docs/review-log/history-to-2026-11-22.md:88-90
   - evals/prior-art-search/latest-results.md
   - PRIOR-SCR-100
   - PRIOR-SCR-110
   - PRIOR-SCR-120
   - PRIOR-SCR-121
-  - docs/review-log.md:61
+  - docs/review-log/history-to-2026-11-22.md:61
 priority: high
 type: eval
 performer: human

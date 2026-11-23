@@ -12,7 +12,7 @@ dependencies:
 references:
   - docs/intent/prior-art-search/prior-art-search-specs.md:58-70
   - docs/intent/prior-art-search/prior-art-search-specs.md:82-83
-  - docs/review-log.md
+  - docs/review-log/README.md
 priority: medium
 type: review
 performer: agent

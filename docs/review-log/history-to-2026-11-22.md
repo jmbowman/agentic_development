@@ -1,6 +1,6 @@
 # Review log
 
-The yield and cost of each review wave, so that the point of diminishing returns can be judged from data. The agent that runs a wave adds its row when it has triaged the findings. Rows are in the order the waves ran.
+The yield and cost of each review wave up to 2026-11-22, in the order the waves ran, so that the point of diminishing returns can be judged from data. This table isn't added to: each later wave has its own file in this directory, as [README.md](README.md) says, so that sessions in parallel worktrees don't edit the same file.
 
 *Found* counts findings after removing duplicates. *Applied* counts those acted on. *Forks* counts those put to the developer as a choice between readings. *Wrong* counts findings that failed verification against the text or its sources. Tokens and time are the reviewing subagents' totals; parallel reviewers' times are not added. For eval rows, the cost column is the runner's reported dollars instead of tokens.
 

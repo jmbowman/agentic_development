@@ -31,7 +31,7 @@ The pilot supports Linux on x86_64 and arm64. Each platform-specific fact is one
 | Orca's user-data directory | `$XDG_CONFIG_HOME/orca` (default `~/.config/orca`) | same |
 | Orca's profile database | `<user-data directory>/profiles/<profile>/profile-state.db`, with the profile `local-default` unless another is created | same |
 | Orca's icon, at the release's tag | `resources/build/icon.png` in Orca's repository | same |
-| Orca's process name | `orca-ide` | same |
+| Orca's process name (the command name of the process holding the profile database, seen on a running 1.4.269) | `orca-ide` | same |
 
 On any other platform, each script that needs a platform fact stops with an error naming the platform, rather than guessing. macOS and Windows are planned (AD-347). Orca ships for both, with a different package on each (a `.dmg` or Homebrew cask on macOS, an installer on Windows), and a different way to give a desktop app an environment variable. Adding them means filling a column per platform and, where the install model differs, an install step per package type.
 
@@ -43,8 +43,9 @@ On any other platform, each script that needs a platform fact stops with an erro
 | `tools/parallel-sessions/orca_install.py` | Verifies and installs a downloaded Orca package |
 | `tools/parallel-sessions/orca_settings_check.py` | Reports Orca settings, installed files and hook entries that differ from the expected state |
 | `tools/parallel-sessions/setup.py` | Shows, then applies, the machine-level setup |
+| `tools/parallel-sessions/parallel_sessions_common.py` | What the three scripts share: the platform table, the config file, exit statuses |
 
-The Python scripts are single files with inline script metadata, run with `uv run --script` from a checkout of this repo, use only the standard library, and pass this repo's strict lint profile.
+The Python scripts carry inline script metadata, run with `uv run --script` from a checkout of this repo, use only the standard library, and pass this repo's strict lint profile. Each imports the shared module from its own directory, which `uv run --script` puts on the import path; that keeps the platform table in one place.
 
 ```mermaid
 flowchart TD
@@ -94,13 +95,15 @@ Then it installs:
 - It copies the file to `orca-<version>.AppImage` there, through a temporary file renamed into place, and makes it executable.
   - If `orca-<version>.AppImage` already exists with the same content, nothing is copied.
   - If it exists with different content, the install stops.
-- It records the version's sha512 in a manifest file in the install directory, so the settings check can later tell whether a version's file has been replaced.
-- It saves Orca's icon from Orca's repository at the same tag (see Platforms) as `icon.png` in the install directory, for the desktop entry. Failing to fetch the icon doesn't stop the install; it says so, and the desktop entry goes without an icon.
+- It records the version's sha512 in an install record, `install-record.json` in the install directory, so the settings check can later tell whether a version's file has been replaced.
 - It repoints `orca.AppImage` at the new file, as a relative link, by replacing the link atomically.
+- It saves Orca's icon from Orca's repository at the same tag (see Platforms), fetched from `raw.githubusercontent.com`, as `icon.png` in the install directory, for the desktop entry. Failing to fetch or write the icon doesn't fail the install, which is complete by then; it says so, and the desktop entry keeps whatever icon it had, or none.
+
+Every request is HTTPS, and a redirect that leaves HTTPS counts as a request that failed. A tag with characters no release tag has stops the installer before it makes a request.
 
 It never deletes an earlier version, so rolling back is repointing the link. It ends by telling the developer to quit Orca if it's running, re-run setup (which adds the icon to the menu entry once there is one), relaunch Orca, and run the settings check.
 
-Orca's in-app **Update** replaces the running package file in place. Through the link, that rewrites a versioned file with another version's content. The Orca guide says to upgrade with the installer instead, and the settings check reports a versioned file whose sha512 no longer matches the manifest.
+Orca's in-app **Update** replaces the running package file in place. Through the link, that rewrites a versioned file with another version's content. The Orca guide says to upgrade with the installer instead, and the settings check reports a versioned file whose sha512 no longer matches the install record.
 
 ```mermaid
 flowchart TD
@@ -118,7 +121,7 @@ flowchart TD
 `orca_settings_check.py` reports, without changing anything, where Orca's installed state differs from the expected state. It runs after the first launch and after every upgrade, because Orca's settings migrations can rewrite defaults. It exits:
 - **0** when everything matches;
 - **1** when something differs;
-- **2** when it couldn't check. That covers: Orca running, the profile database not found or ambiguous (several profiles), the `settings` row missing or split across parts, and any other error.
+- **2** when it couldn't check. That covers: Orca running, Orca not having closed its database cleanly, the profile database not found or ambiguous (several profiles), the `settings` row missing or split across parts, a Claude Code version it can't read, and any other error.
 
 It covers three things.
 
@@ -142,11 +145,13 @@ It covers three things.
 
 The last four keep deleting a workspace from deleting more than the developer has seen: Claude Code chats, worktrees removed without a check, unmerged branches, or a removal with no confirmation dialog listing what's at risk.
 
-A setting missing from the stored JSON takes Orca's default. The check holds a table of defaults for each Orca version whose source has been read. For any other version, a missing setting can't be judged, so the check reports it as "unset, default unknown" and exits 2. That tells the developer the table needs the new version's defaults. A setting with a value of the wrong type is a difference.
+A setting missing from the stored JSON takes Orca's default. The check holds a table of defaults for each Orca version whose source has been read. For any other version, a missing setting can't be judged, so the check reports it as "unset, default unknown" and exits 2. That tells the developer the table needs the new version's defaults. A setting with a value of the wrong type, JSON `null` included, is a difference.
 
-**Orca's entries in `~/.claude/settings.json`.** The check lists which Claude Code events have Orca's hook entry, and reports any expected event that lacks the script the table expects for it. Which events and scripts to expect comes from the same per-version table, so for any other version the check reports that it couldn't check them, and exits 2.
+**Orca's entries in `~/.claude/settings.json`.** Orca installs a hook entry only for the Claude Code events the installed Claude Code supports: each event has a first Claude Code version, and some events a later floor of Orca's own. When it knows the Claude Code version, it also removes its entries for events that version doesn't take. So the expected set depends on both versions. The check reads the Claude Code version from `claude --version`, takes the events Orca would install for it from the per-version table, and reports both directions of difference: an expected event that lacks Orca's script, and an Orca entry under an event that isn't expected. Either means the set of hooks changed in a way the table doesn't explain. A prerelease of Claude Code ranks below its release, as Orca ranks it, so `2.1.261-beta` doesn't reach a floor of 2.1.261. For an Orca version the table doesn't have, a Claude Code version it can't read, or a Claude settings file that isn't a JSON object with an object of hooks, the check reports that it couldn't check the hook entries, and exits 2.
 
-The check opens the profile database as an immutable SQLite file, which is safe once no Orca process is running and creates no lock or journal files beside it.
+An entry counts as Orca's when its command runs one of Orca's managed hook scripts by file name, as a whole path component. Orca manages scripts for several Claude-compatible CLIs, and one name can end another's (`openclaude-hook.sh` ends with `claude-hook.sh`).
+
+The check opens the profile database as an immutable SQLite file, which is safe once no Orca process is running and creates no lock or journal files beside it. Orca keeps the database in write-ahead-log mode, and an immutable open ignores the log, so while a non-empty `profile-state.db-wal` sits beside the database, the main file may not hold the current settings. SQLite folds the log back in when Orca closes the database cleanly; a log left behind means it didn't, and the check says to start and quit Orca, and exits 2, rather than read settings that may be stale.
 
 ## Clash's hook
 
@@ -157,18 +162,18 @@ Setup adds the entry only when:
 - no equivalent entry exists;
 - Clash's own plugin isn't enabled.
 
-When the entry exists but `clash` is no longer on `PATH`, setup reports it and leaves it in place.
+When the entry exists but `clash` is no longer on `PATH`, setup reports it and leaves it in place. When Clash's plugin is enabled but `clash` isn't on `PATH`, the plugin's hook can't run, so setup reports that too. Either makes the setup incomplete.
 
 ## Machine setup
 
 `setup.py` brings one machine to the setup above.
 
-**Showing.** By default it changes nothing: it prints each change it would make, as a unified diff for files and as a line for links.
+**Showing.** By default it changes nothing: it prints each change it would make, as a unified diff for a file's content and as a line for a change of permissions. When a target is a symbolic link, the diff names the file it points to as well, and says when the link will be replaced.
 
 **Applying.** `setup.py --apply` computes the changes again, prints them, and then makes those exact changes:
 - It writes each file through a temporary file renamed into place, and only if the file hasn't changed since it read it, checked again just before the rename. If another program (Orca or Claude Code, which both write `~/.claude/settings.json`) changed the file in between, it leaves that file alone and says so. A write landing between that last check and the rename can still be lost; the window is a few milliseconds, and it's accepted.
 - Before changing an existing file, it copies it into one backup directory, `parallel-sessions/backups/` under `$XDG_STATE_HOME` (default `~/.local/state`), named for the file and the run's UTC timestamp. The directory and copies are readable only by the developer, and copies carry no execute permission. Keeping backups there keeps secret-bearing copies of `settings.json` out of a dotfiles repository, and old launchers off `PATH`.
-- A file reached through a symbolic link, as with managed dotfiles, is written through the link: the temporary file goes beside the file the link points to, and the link stays in place.
+- A `settings.json` reached through a symbolic link, as with managed dotfiles, is written through the link: the temporary file goes beside the file the link points to, and the link stays in place. The launcher and the desktop entry are setup's own files, so a link there is replaced by a regular file and what it pointed to is left alone. That keeps `--apply` from rewriting a file elsewhere, such as this repo's own launcher when `~/.local/bin/orca-launch` links to it.
 - When one write fails, it carries on with the remaining files, then reports.
 - Running it again with nothing to change changes nothing, and makes no backups. A change is judged on content (for `settings.json`, on the parsed JSON) and on permissions.
 
@@ -177,15 +182,15 @@ Claude Code sessions don't need to be closed while it runs.
 **The changes:**
 - **The launcher:** an installed copy at `~/.local/bin/orca-launch`, with the install directory written in, so the menu entry doesn't depend on where, or on which branch, a checkout of this repo is.
 - **The desktop entry.**
-- **Clash's `PreToolUse` entry** in `~/.claude/settings.json`, appended. Setup writes the file as 2-space-indented JSON, keeping key order, and every other key and entry as it is, including Orca's. A missing file is created.
+- **Clash's `PreToolUse` entry** in `~/.claude/settings.json`, appended. Setup writes the file as 2-space-indented JSON, keeping key order, and every other key and entry as it is, including Orca's. Writing it again as JSON also normalizes what JSON leaves open (number forms, duplicate keys, a byte-order mark); the diff shows any such change. A missing file is created.
 
 **Prerequisites.** Before showing anything, setup checks that `git`, `uv` and `claude` are on `PATH`, and stops if any is missing. It reports whether `clash` is. It doesn't install Clash: it's pinned per machine in mise's global config, and setup prints the `mise use -g` command when it's missing. Without it, setup makes no Clash change.
 
-**Outcome.** Setup exits 0 when it has made or shown every change, 1 when its summary names the setup as incomplete (a change skipped for a missing tool, a stale Clash entry, or a file left alone because it changed underneath), and 2 on any other failure.
+**Outcome.** Setup exits 0 when it has made or shown every change, 1 when its summary names the setup as incomplete (a change skipped for a missing tool, a stale Clash entry, Clash's plugin without `clash`, or a file left alone because it changed underneath), and 2 on any other failure.
 
 ## Testing
 
-Tests use pytest, run each script as a subprocess, and isolate it from the developer's machine. Each test points `HOME` and `XDG_CONFIG_HOME` at temporary directories, and runs in its temporary directory as working directory.
+Tests use pytest, run each script as a subprocess, and isolate it from the developer's machine. Each test builds the script's environment from scratch, with `HOME` and `XDG_CONFIG_HOME` pointing at temporary directories and `PATH` holding only stand-in commands, so nothing from the developer's environment (an `XDG_STATE_HOME`, a token) reaches it, and runs it in its temporary directory as working directory.
 
 - **Installer:** the release URLs can be redirected to local fixture files, so no test touches the network.
 - **Settings check:** reads a fixture database built with Orca's schema.
@@ -195,6 +200,8 @@ Tests use pytest, run each script as a subprocess, and isolate it from the devel
   - that unrelated keys survive;
   - that a file changed between reading and writing is left alone.
 - **Launcher:** run with a stand-in package that records its environment, arguments and exit status.
+
+The Python scripts run on the interpreter the project venv was made from, so an import outside the standard library fails as it would under `uv run --script`. A shim (`tests/parallel_sessions_shim.py`) replaces each script's boundaries with the machine's: the platform, `urllib.request.urlopen`, and the list of running processes. That asks three things of the scripts, which its docstring lists: a `main(argv)` entry point, a `running_command_names()` function in the settings check, and writes that rename a temporary file into place.
 
 ## Related segments
 
@@ -213,8 +220,11 @@ Tests use pytest, run each script as a subprocess, and isolate it from the devel
 | Language | Python standard-library scripts run with `uv`, and a POSIX `sh` launcher | All shell; all Python | Parsing JSON, TOML and SQLite and testing them is plain in Python. The launcher only sets variables and runs one program, so `sh` keeps it free of `uv` |
 | Clash's install | Pinned per machine in mise's global config, at the version the scripts were tested with; setup only checks for it | Setup installs it; per-repo pins | Tenet 11: tools that span repos are installed per machine, and repos check for them |
 | Where setup's backups go | One backup directory under `$XDG_STATE_HOME`, private, with no execute permission | Beside each changed file | Beside the file, a backup of a symlinked `settings.json` lands in a dotfiles repository with its secrets, and a backed-up launcher stays runnable on `PATH` |
+| A setup target that is a symbolic link | Write `settings.json` through its link; replace a linked launcher or desktop entry with a regular file | Write every target through its link; refuse when a link points into a git checkout | Dotfile managers link `settings.json`, and writing through keeps the link. The launcher and desktop entry belong to setup, and a link there most likely points at a source file, such as this repo's launcher, which writing through would rewrite |
 | The config file | Holds only the developer's choices; no script writes it | Setup writes every default into it | Tenet 10: a default written into the file would never pick up a later change to the default |
 | An Orca version whose source hasn't been read | An unset setting, and the hook entries, count as "couldn't check" (exit 2) | Count them as differences (exit 1) | Fail closed: what can't be judged isn't a difference, and exit 2 says the table needs the new version |
+| Which hook events the check expects | The events Orca would install for the installed Claude Code version, read from `claude --version`; entries missing and entries unexpected are both reported | Only the events Orca installs for every Claude Code version; all the events Orca knows | The check exists to catch any unexpected change in the set of hooks. A fixed set either misses a gated event that vanished or reports one an older Claude Code never had |
+| A write-ahead log left beside the profile database | "Couldn't check" (exit 2), saying to start and quit Orca | Read a temporary copy of the database and its log; open it read-only without `immutable` | The copy writes files the check promises not to write, and a non-immutable open can create a shared-memory file beside Orca's database. A clean quit folds the log in, so asking for one is cheap |
 | Credentials for GitHub | None: anonymous HTTPS requests | Use `GITHUB_TOKEN` or `gh`'s token when present | An install needs three requests, well within GitHub's anonymous limit, and no credentials leave the machine |
 | Orca release vetting | sha512 and size against the release's manifest, a stable published release, and a minimum release age | Taking whatever is latest; also checking a signature | Orca publishes no signature or build attestation for Linux. Age and integrity are what's available until AD-333 finds better |
 

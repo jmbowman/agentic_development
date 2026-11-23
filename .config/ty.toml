@@ -4,3 +4,8 @@ all = "error"
 
 [analysis]
 respect-type-ignore-comments = false
+
+[environment]
+# The parallel-sessions scripts import their shared module from their own directory, where
+# `uv run --script` puts it on the import path.
+extra-paths = ["tools/parallel-sessions"]
