@@ -4,6 +4,7 @@ title: Trim the subagent-notes replies to the notes only
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-24T05:41:00Z'
 labels:
   - issue
   - partly-done
@@ -32,3 +33,16 @@ Comment on issue #160: in 4 of 8 notes files the reply to the fixed question rep
 
 **Status when filed (partly-done):** hooks and wrap-up collection landed (fdc28f7, cfe5924); the reply-size observation is the remaining follow-up
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: 5129029a-6c2e-4c0b-bd91-f3da2e301b01
+created: 2026-11-24T05:41:00Z
+
+---
+
+Happened again on 2026-11-23: one notes file of one, for a review subagent. The reply to the fixed question came back through SubagentHandback as the whole report again, with the notes appended under a "## Process notes (requested by the coordinator)" heading, so the notes file held about 80 lines of report before 5 lines of notes. A heading of that kind is what a keep-only-the-notes rule in the hook would cut at, but its wording was the subagent's own, not fixed.
+
+---
+<!-- COMMENTS:END -->

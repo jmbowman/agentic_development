@@ -175,13 +175,13 @@ Both were read at source: [musthold](https://github.com/RachidChabane/musthold) 
 **Close to LID:**
 - Shallnot's Markdown declaration grammar reads LID's spec lines as they are written: a list marker, an optional `[ ]`/`[x]` checkbox, optional `**` emphasis, then `ID:` (`internal/adapters/spec/markdown.go:14`).
 - It recommends EARS wording (`docs/spec-format.md:40-45`). Its ID pattern is configurable (`docs/spec-format.md:48-70`).
-- musthold's per-mutant kill vectors (`musthold-dp facts show`) are exactly the data that per-spec test reduction (custom piece 2) needs.
+- musthold's per-mutant kill vectors (`musthold-dp facts show`, for a requirement proved with `prove`) are exactly the data that per-spec test reduction (custom piece 2) needs.
 
 **Gaps against LID and these repos:**
 - *Citation form.* A test cites a requirement in its name or a pytest marker as `[verifies ID~REV]`, and every citation needs a revision. A tag inside a comment never binds (`docs/binding.md:15-16,23-30`). LID's `@spec ID` comments carry no revision. Using Shallnot would mean either a second citation per test or a Shallnot mode that reads `@spec` comments and treats the missing revision as 1.
 - *ID shape.* The default pattern `[A-Z][A-Z0-9]*-[0-9]+…` doesn't match multi-segment IDs such as `ROW-DB-001`, so a custom `id_pattern` is needed (configurable; not tested).
 - *Deferred specs.* `[D]` isn't an accepted checkbox (`markdown.go:14`), so a deferred line isn't read as a declaration at all. That is probably the right outcome for LID, but only by accident.
-- *Subprocess tests.* The pytest adapter traces what each test reaches in process only. `scripts/coverage_plugin.py` uses `sys.settrace`/monitoring, and `grep -n "subprocess\|fork"` over it finds nothing. copier-python's scanner tests run their code through `subprocess.run`, so the footprint would come out empty. That consequence is inferred, not run.
+- *Subprocess tests.* The pytest adapter traces what each test reaches in process only. `scripts/coverage_plugin.py` uses `sys.settrace`/monitoring, and `grep -n "subprocess\|fork"` over it finds nothing. copier-python's scanner tests run their code through `subprocess.run`, so the footprint would come out empty. The [scan trial](#musthold-dp-scan-trial-2026-11-23) bears this out: no mutant landed in a file this repo's tests reach only through a subprocess.
 - *No C++.* musthold covers pytest, Go, Jest, Vitest and JUnit 5 (`discpower.md:124-140`). A QTest/qmake ecosystem would need:
   - an ecosystem adapter: build, select tests, read JUnit XML, record per-test coverage. The pytest adapter is about 1,600 lines of Go, and the Node one about 4,000.
   - a C++ mutation adapter. The Python one is about 1,000 lines, and C++ needs a real parser. QTest's JUnit output would also have to carry the citation, for example in a data-row name, which is untested.
@@ -189,8 +189,56 @@ Both were read at source: [musthold](https://github.com/RachidChabane/musthold) 
 
 **Assessment.**
 - Shallnot is the more reusable piece: small, focused, and close to LID's spec format. Two upstream proposals would let it read LID repos without a fork: `@spec`-comment binding with an implicit revision, and multi-segment ID examples in the docs.
-- musthold's discriminating-power proof is the strongest test-adequacy check found, but it is too heavy and too young to depend on yet. Try `musthold-dp scan`, which needs no spec, on a pytest repo whose tests run in process (7 of agentic_development's 12 test files don't use `subprocess`) before deciding whether to contribute, fork or borrow.
+- musthold's discriminating-power proof is the strongest test-adequacy check found, but it is too heavy and too young to depend on yet. `musthold-dp scan`, which needs no spec, was tried on this repo: see the [scan trial](#musthold-dp-scan-trial-2026-11-23), which settled on borrowing.
 - Contributing C++ support would be a large change to a single-author codebase with strict process rules. Ask the author first.
+
+## musthold-dp scan trial (2026-11-23)
+
+`musthold-dp scan` was run on this repo's tests at 08d178f, to see whether its per-test kill data could feed spec-grouped review and test right-sizing.
+
+**Verdict.** The kill data is real and readable, but it covers too little of this repo to build on. Borrow the method (prove a mutant changes behaviour before counting it against a test); don't depend on the tool.
+
+**Setup.**
+- Release `discpower/v0.1.1` (commit 0a9f387), the `linux_amd64` archive. Its SHA-256 matched `SHA256SUMS`, and `gh attestation verify` passed. The cosign signature of `SHA256SUMS` wasn't checked (no cosign installed).
+- Run under bubblewrap 0.11.1 on a clone of the repo: no network; of the home directory, only the pinned tool installs and the Python interpreter, read-only; write access to the clone, a scratch home and a private `/tmp`. Tried on Linux x86-64 only.
+- In that sandbox 2,967 of 3,018 tests were green three runs out of three. The other 51 need the network or tools the sandbox left out, and the scan ignores them.
+
+**Results.**
+
+| | Quick scan (default) | `--full` |
+|---|---|---|
+| Time | 3m0s | 24m22s |
+| Tests sampled | 12 | 40 |
+| Mutants run | 0 of 76 | 158 of 158 |
+| Caught at least one change | 0 | 9 |
+| Verify nothing | 0 | 0 |
+| Unproven | 12 | 31 |
+
+- *The quick scan judges nothing here.* Its three reference runs of the suite took 2m7s, longer than the whole 90-second budget, so no mutant ran. A result needs `--full` or a budget of several minutes.
+- *Most tests can't be judged.* All 31 unproven tests "ran no drawn mutant". The scan draws mutants on the lines each sampled test owns (`docs/usage/discpower.md:212-215`), so these tests own no line it can mutate. The scan doesn't write per-test coverage, so the reasons below are read from the tests, not from the scan. They are of three kinds:
+  - tests of files that aren't Python (workflows, skill Markdown, eval cases, the README), which the scan has no mutants for;
+  - tests that run a script through `subprocess`, whose lines the in-process trace doesn't record. No mutant landed in any file that tests reach only that way;
+  - tests of Python logic that lives under `tests/`, such as the rule checks in `tests/interactive_rules.py`. The scan never mutates a file in a test directory (`discpower/internal/domain/scanscope/never.go:25,39-48`), so these can't be judged whatever the sample.
+- *Mutants landed in 4 of the repo's 10 Python files outside `tests/`:* `tasks.py`, `harvest.py`, `subagent_notes.py` and `verify_check.py`. Of the other six:
+  - `run_evals.py`, `collect_scenarios.py`, `orca_install.py` and `parallel_sessions_common.py` are reached only through subprocesses;
+  - `orca_settings_check.py` and `setup.py` are each imported by a few tests, none of which was sampled.
+- *356 tests killed a mutant*, 274 of them in `test_harvester.py`. That counts the tests reaching the lines the 9 judged tests own, not the suite. `test_subagent_notes_hooks.py` has 190 tests and 8 killers, since most of its tests start the hook as a process.
+- *128 of the 158 mutants were proven*, every one by a killing test. Of the other 30:
+  - 8 are sentinels, edits that change no behaviour, and no test failed one;
+  - 22 were killed by no test: 10 in `harvest.py`, 8 in `subagent_notes.py`, 4 in `tasks.py`. Each is either a test gap or an equivalent mutant. The scan's own differential search, which needs no model (`docs/usage/discpower.md:240-244`), proved none of them, and `scan.json` doesn't record what that search did. Settling them takes a host model or a person.
+- *One worker.* The scan chose one worker on an 8-processor machine with 10 GiB of 31 available, which matches its documented memory guard (`docs/usage/discpower.md:225-228`).
+- *Not tried:* `--workers`, `--sample`, `--host`, and `--base REV`, which judges only the tests that run functions changed since a revision (`docs/usage/discpower.md:211-212`) and so is the mode closest to reviewing a slice.
+
+**What the kill data holds** (`.musthold/scan/<commit>/scan.json`, schema in `format/scan.go:145-315` @0a9f387):
+- each mutant has its edit, its lines and one `killed_by_test` route per test that killed it, across the whole suite under `--full`;
+- each *sampled* test has a killed or survived outcome per proven mutant on its lines. Here that is 282 outcomes (153 killed, 129 survived) for the 9 judged tests;
+- per-test coverage isn't written, so for a test outside the sample a missing kill can't be told from never running the line;
+- `musthold-dp facts show` takes a requirement (`ID~REV`) and reads a `prove` Statement (`docs/usage/commands.md:176-188`), so it shows nothing for a scan. The fuller kill vectors need the spec-bound `prove` flow, with Shallnot's citations and a host model.
+
+**Is it usable?**
+- *For test right-sizing: as a hint only.* The routes show heavy overlap. The 27 proven mutants in `harvest.py` are killed by 274 tests, and a greedy pick of 9 tests kills them all. For `verify_check.py`, 4 of 35 tests kill its 34 mutants; for `tasks.py`, 11 of 39 kill its 41. But mutants are drawn only on the lines the sampled tests own, so this shows that overlap exists, not which tests are safe to drop. A whole-suite matrix would need every test sampled and many more mutants drawn (`--sample`, `--mutants`). Mutants cost about 8 seconds each with one worker, before the scan's confirmation runs for each test it names.
+- *For spec-grouped review: not as it stands.* The scan knows no requirement. Its test IDs are pytest node IDs, which would have to be joined to `lidc`'s `@spec` links, and it is silent on the tests of non-Python files, subprocess-run scripts and test helpers, which are most of this repo's suite. `--base REV` is the mode to try if this is revisited.
+- *For copier-python:* its scanner tests run through `subprocess`, so the scan would judge none of them. cosmic-ray, which mutates files on disk, remains the choice there.
 
 ## Follow-up quick passes (2026-10-28)
 
