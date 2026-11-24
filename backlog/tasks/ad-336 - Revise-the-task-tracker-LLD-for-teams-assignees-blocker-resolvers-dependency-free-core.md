@@ -3,9 +3,10 @@ id: AD-336
 title: >-
   Revise the task-tracker LLD for teams: assignees, blocker resolvers,
   dependency-free core
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-21T00:45:00Z'
+updated_date: '2026-11-24T06:13:00Z'
 labels: []
 milestone: m-1
 dependencies: []
@@ -21,6 +22,10 @@ sessions:
     id: febc0a58-71fe-4ef9-b3c7-3cc6205db7f4
     role: created
     date: '2026-11-21'
+  - agent: claude-code
+    id: d5de0f02-d865-48c6-82a7-a60f7b5669eb
+    role: worked
+    date: '2026-11-23'
 ---
 
 ## Description
@@ -34,3 +39,9 @@ A review of the task-tracker specs for use by a team of several developers raise
 - [ ] #1 The LLD and specs cover assignees, blocker resolvers and the dependency policy, approved at their LID stops
 - [ ] #2 The LLD Decisions table has a row comparing outbox drafts with filing issues on the receiving repo
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Proposal (3), the dependency-free core, is ruled and through its LID stops (LLD, EARS, edge audit, review wave): the tool vendors oneyaml (kept current by vendir and Renovate lock-file maintenance), declares no dependencies and has no lock file; every lint rule is in code; repo schema.json support is dropped (AD-353 parks custom per-repo rules). See the task-tracker LLD: Lint (Rules in code), Reading YAML, Commands and the Decisions rows. AD-354 implements it; AD-26 closed. Proposals (1) assignees, (2) blocker resolvers and (4) the outbox Decisions row remain.
+<!-- SECTION:NOTES:END -->
