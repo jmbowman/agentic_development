@@ -4,13 +4,14 @@ title: Draft the upstream issues for Worktrunk feedback
 status: To Do
 assignee: []
 created_date: '2026-11-22T00:16:00Z'
+updated_date: '2026-11-24T03:06:00Z'
 labels:
   - tool-feedback
   - upstream
   - loose-end
 milestone: m-9
 dependencies:
-  - AD-335
+  - AD-348
 references:
   - docs/tool-feedback/worktrunk.md
   - docs/prior-art/2026-11-18-parallel-session-and-worktree-management.md

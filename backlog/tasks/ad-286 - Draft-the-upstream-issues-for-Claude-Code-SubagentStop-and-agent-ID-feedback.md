@@ -4,6 +4,7 @@ title: Draft the upstream issues for Claude Code SubagentStop and agent-ID feedb
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-24T00:01:00Z'
 labels:
   - tool-feedback
   - upstream
@@ -29,3 +30,16 @@ Draft issues for Claude Code from docs/tool-feedback/claude-code.md entries 1-4:
 
 **Why an agent:** text from recorded probe evidence
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: 27e13044-1d02-40c4-90d7-0134d1214b1d
+created: 2026-11-24T00:01:00Z
+
+---
+
+Entry 5 joins this: a PreToolUse hook's "ask" prompt doesn't show its permissionDecisionReason (2.1.331, found with Clash 0.2.0 on 2026-11-23). Before drafting, check whether Claude Code's hooks docs promise to show the reason for "ask"; the issue is a bug if they do, a request if not.
+
+---
+<!-- COMMENTS:END -->

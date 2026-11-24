@@ -4,6 +4,7 @@ title: Give this repo's worktrees the gitignored skills and settings they need
 status: To Do
 assignee: []
 created_date: '2026-11-22T22:03:00Z'
+updated_date: '2026-11-24T00:17:00Z'
 labels: []
 milestone: m-2
 dependencies: []
@@ -11,11 +12,11 @@ references:
   - docs/intent/parallel-sessions/parallel-sessions-design.md
 priority: medium
 type: feature
+ordinal: 40000
 performer: agent
 agent_tier: strong
 effort: M
 priority_set_by: agent
-ordinal: 40000
 ---
 
 ## Description
@@ -29,3 +30,16 @@ A new worktree of this repo, made by Orca, Claude Code's --worktree or git, has 
 - [ ] #1 A new Orca worktree and a new claude --worktree worktree of this repo both load the APM-installed skills and see .config/prior-art-sources.toml
 - [ ] #2 The repo-setup design and specs cover the files, and mise run check passes
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: 27e13044-1d02-40c4-90d7-0134d1214b1d
+created: 2026-11-24T00:17:00Z
+
+---
+
+On the developer's machine Orca's worktree setup command is set locally (mise trust, then mise run skills) with Command source "Local only", so Orca ignores orca.yaml. When this task commits a shared orca.yaml, tell the developer to switch Command source to "orca.yaml only" (deleting the local script) or "Run both", or the shared setup won't run there.
+
+---
+<!-- COMMENTS:END -->
