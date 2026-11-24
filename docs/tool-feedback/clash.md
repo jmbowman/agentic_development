@@ -15,3 +15,10 @@ Feedback for [Clash](https://github.com/clash-sh/clash), part of the recommended
 - **What:** watch mode reacts only to paths containing `/.git/index`, `/.git/HEAD` and `/.git/refs/`, so a linked worktree's own index and HEAD under `.git/worktrees/<id>/` don't trigger it. It also filters events through the main worktree's root `.gitignore`, which drops events from worktrees under an ignored directory such as `.claude/worktrees/`.
 - **Evidence:** read in source.
 - **Suggested fix:** watch each worktree's git directory, and filter each event against the ignore rules of the worktree that contains it.
+
+## The hook flags a gitignored, untracked file
+
+- **Where:** the Claude Code hook and `clash check <file>`, Clash 0.2.0. Not read in source.
+- **What:** in a linked worktree, a write to `commit-message.md`, which is gitignored and untracked there, was flagged as conflicting with the main worktree. A file git doesn't track can't produce a merge conflict, so the prompt interrupts every session that drafts one.
+- **Evidence:** seen in use on 2026-11-23. The edit's result read "Conflicts on commit-message.md with 1 worktree(s): main [main]: active changes". `clash check commit-message.md` then reported the main worktree with `has_active_changes: true` and `has_merge_conflict: false`. Whether the main worktree held its own copy of the file wasn't checked.
+- **Suggested fix:** skip a file that the current worktree's ignore rules exclude, or report only files with a merge conflict.
