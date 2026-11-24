@@ -5,7 +5,16 @@ all = "error"
 [analysis]
 respect-type-ignore-comments = false
 
+[src]
+# Third-party code vendored by vendir, kept as upstream wrote it. A run that names files must
+# pass --force-exclude for this to hold.
+exclude = ["skills/task-tracker/scripts/_vendor/"]
+
 [environment]
 # The parallel-sessions scripts import their shared module from their own directory, where
-# `uv run --script` puts it on the import path.
-extra-paths = ["tools/parallel-sessions"]
+# `uv run --script` puts it on the import path. The task tool puts its vendored parser's src/
+# first on its import path at run time, which ty doesn't follow.
+extra-paths = [
+    "tools/parallel-sessions",
+    "skills/task-tracker/scripts/_vendor/oneyaml-python/src",
+]

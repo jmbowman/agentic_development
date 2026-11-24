@@ -1,9 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.12"
-# dependencies = [
-#     "pyyaml==6.0.3",
-# ]
+# requires-python = ">=3.11"
+# dependencies = []
 # ///
 """Task tool: lint, rank and view a backlog kept as Backlog.md-format Markdown files.
 
@@ -11,15 +9,20 @@ Reads `backlog/tasks/` (this repo's tasks), `backlog/outbox/<repo>/` (tasks draf
 repos) and `backlog/focus.yml` (the developer's pins and weights), and never writes a task file.
 Run it as `uv run --script tasks.py <command>`; `help` lists the commands. The task-tracker
 skill's `references/task-format.md` describes the files it reads.
+
+It needs only the standard library and the YAML parser vendored beside it in `_vendor/`, so it
+also runs as `python3 tasks.py <command>` on Python 3.11 or later.
 """
 
 from __future__ import annotations
 
 import argparse
 import datetime as dt
+import functools
 import json
 import math
 import os
+import platform
 import re
 import subprocess
 import sys
@@ -29,10 +32,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-import yaml
-
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
+    from types import ModuleType
+
+# The vendored parser's source directory; vendir.yml at this repo's root keeps it in sync.
+VENDORED_PARSER = Path(__file__).resolve().parent / "_vendor" / "oneyaml-python" / "src"
 
 DONE = "Done"
 ACTIVE = "In Progress"
@@ -122,18 +127,69 @@ def as_date(value: object) -> dt.date | None:
         return None
 
 
+class SetupError(Exception):
+    """The tool can't run here: the interpreter is too old, or the parser won't import."""
+
+
+class YAMLRejectedError(Exception):
+    """A YAML document the vendored parser rejected, for its syntax or for exceeding a limit."""
+
+
+# @spec TASK-YAML-004, TASK-YAML-005, TASK-YAML-007
+@functools.cache
+def yaml_parser() -> ModuleType:
+    """Import the vendored YAML parser, ahead of any other copy, with its pure-Python backend.
+
+    Called only once a command needs YAML, so `help` works without the parser.
+
+    Raises:
+        SetupError: Python is older than 3.11, or the parser can't be imported.
+    """
+    # Ruff reads the project's 3.12 target, but `python3 tasks.py` may run on any interpreter.
+    if sys.version_info < (3, 11):  # noqa: UP036
+        message = f"tasks.py needs Python 3.11 or later; this is {platform.python_version()}"
+        raise SetupError(message)
+    # The library's only public switch; an invalid or `native` value found here would stop the
+    # import, since only the pure backend is vendored.
+    os.environ["ONEYAML_BACKEND"] = "pure"
+    sys.path.insert(0, str(VENDORED_PARSER))
+    # Imported here, after the path and backend are set, and only when a command needs it. Any
+    # failure is a setup problem, such as a vendored copy using syntax this Python lacks.
+    try:
+        import oneyaml  # noqa: PLC0415
+    except Exception as error:
+        reason = f"{type(error).__name__}: {error}"
+        message = f"can't import the vendored YAML parser oneyaml from {VENDORED_PARSER} ({reason})"
+        raise SetupError(" ".join(message.split())) from error
+    return oneyaml
+
+
+# @spec TASK-YAML-001, TASK-YAML-002, TASK-YAML-003
+def parse_yaml(text: str) -> Any:  # noqa: ANN401 - a document's value has any shape; callers check
+    """Parse one YAML document as YAML 1.2 under the core schema, with the untrusted limits.
+
+    Raises:
+        YAMLRejectedError: The parser rejected the document. Any other exception propagates.
+    """
+    oneyaml = yaml_parser()
+    try:
+        return oneyaml.loads(text, limits=oneyaml.Limits.untrusted())
+    except oneyaml.YAMLError as error:
+        raise YAMLRejectedError(str(error)) from error
+
+
 def split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     """Split a Markdown file into its YAML frontmatter and its body.
 
     Raises:
-        yaml.YAMLError: The frontmatter isn't valid YAML.
+        YAMLRejectedError: The frontmatter isn't valid YAML.
     """
     if not text.startswith("---\n"):
         return {}, text
     head, sep, body = text[4:].partition("\n---\n")
     if not sep:
         return {}, text
-    meta = yaml.safe_load(head)
+    meta = parse_yaml(head)
     return (meta if isinstance(meta, dict) else {}), body
 
 
@@ -141,7 +197,7 @@ def read_task(backlog: Backlog, path: Path) -> tuple[dict[str, Any], str] | None
     """Read one task file, recording unreadable frontmatter as a problem."""
     try:
         return split_frontmatter(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as error:
+    except YAMLRejectedError as error:
         reason = str(error).splitlines()[0]
         backlog.problems.append(f"{path.name}: frontmatter isn't valid YAML ({reason})")
         return None
@@ -150,7 +206,7 @@ def read_task(backlog: Backlog, path: Path) -> tuple[dict[str, Any], str] | None
 def read_focus(root: Path, problems: list[str]) -> tuple[list[str], dict[str, float]]:
     """Read the developer's pins and weight overrides from focus.yml."""
     focus_file = root / "focus.yml"
-    focus = yaml.safe_load(focus_file.read_text(encoding="utf-8")) if focus_file.exists() else {}
+    focus = parse_yaml(focus_file.read_text(encoding="utf-8")) if focus_file.exists() else {}
     if not isinstance(focus or {}, dict):
         problems.append("focus.yml: must be a mapping with `pins` and `weights`")
         return [], {}
@@ -175,7 +231,7 @@ def load(root: Path, today: dt.date | None = None, *, private: bool = False) -> 
         today: The date readiness and deadlines are judged against; defaults to now.
         private: Also load the gitignored drafts under `private/outbox/`.
     """
-    config = yaml.safe_load((root / "config.yml").read_text(encoding="utf-8")) or {}
+    config = parse_yaml((root / "config.yml").read_text(encoding="utf-8")) or {}
     home = str(config.get("project_name", root.resolve().parent.name))
     problems: list[str] = []
     pins, weights = read_focus(root, problems)
@@ -554,6 +610,7 @@ def waiting_sections(
     return out
 
 
+# @spec TASK-CMD-017
 def board(backlog: Backlog, root: Path, base: Path | None = None) -> str:
     """Render the whole backlog as one Markdown page.
 
@@ -694,6 +751,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "help":
         parser.print_help()
         return 0
+    try:
+        yaml_parser()
+    except SetupError as error:
+        sys.stderr.write(f"tasks: {error}\n")
+        return 2
 
     backlog = load(args.root, private=args.private)
     cache = args.root / ".cache" / "github.json"
@@ -715,7 +777,6 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "why":
         output = why(backlog, args.id)
     elif args.command == "board":
-        # @spec TASK-CMD-017
         output = board(backlog, args.root, Path.cwd())
     else:
         output = brief(backlog)

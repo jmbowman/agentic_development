@@ -1,0 +1,47 @@
+# Checks that the vendored third-party code is exactly what vendir.yml and vendir.lock.yml give.
+# It needs the network, so it isn't part of `mise run check`, and runs only on changes to them.
+# Design: docs/intent/task-tracker/task-tracker-design.md (Reading YAML)
+name: vendor
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - vendir.yml
+      - vendir.lock.yml
+      - skills/task-tracker/scripts/_vendor/**
+  pull_request:
+    paths:
+      - vendir.yml
+      - vendir.lock.yml
+      - skills/task-tracker/scripts/_vendor/**
+
+permissions:
+  contents: read
+
+jobs:
+  vendir-sync:
+    runs-on: ubuntu-26.04
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: mise
+        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+        with:
+          version: 2026.11.11
+          install_args: vendir
+      - id: sync
+        shell: bash
+        run: vendir sync --locked
+      - id: compare
+        shell: bash
+        run: |
+          changed="$(git status --porcelain -- vendir.yml vendir.lock.yml skills/task-tracker/scripts/_vendor)"
+          if [[ -n "$changed" ]]; then
+            echo "error: vendir sync --locked changed the vendored files; run vendir sync and commit:" >&2
+            echo "$changed" >&2
+            exit 1
+          fi

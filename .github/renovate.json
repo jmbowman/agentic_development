@@ -1,6 +1,14 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["local>jmbowman/agentic_development//renovate/default"],
+  "packageRules": [
+    {
+      "description": "The task tool's vendored YAML parser follows oneyaml's main branch, so lock-file maintenance (vendir sync) is how it updates; keep it on even if a preset turns it off for vendir files.",
+      "matchManagers": ["vendir"],
+      "matchFileNames": ["vendir.yml"],
+      "lockFileMaintenance": { "enabled": true }
+    }
+  ],
   "customManagers": [
     {
       "description": "The cloud-session hook's mise, kept on the same dependency as mise-action's version input so one PR bumps both.",

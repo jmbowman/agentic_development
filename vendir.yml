@@ -1,0 +1,23 @@
+# Third-party code vendored into this repo; `vendir sync` refreshes it and vendir.lock.yml, and
+# Renovate's lock-file maintenance runs that sync weekly. vendir replaces each directory below
+# whole, so nothing else may live in it.
+apiVersion: vendir.k14s.io/v1alpha1
+kind: Config
+directories:
+  # The task tool's YAML parser. oneyaml publishes no releases or tags, so this follows main and
+  # the lock records the commit vendored. The license files are listed, since vendir's default
+  # legal-file patterns don't match LICENSE-MIT or LICENSE-APACHE; compat/ (stand-ins for other
+  # YAML libraries' interfaces) is left out, since the tool doesn't use it.
+  - path: skills/task-tracker/scripts/_vendor
+    contents:
+      - path: oneyaml-python
+        git:
+          url: https://github.com/recursive-ai-oss/oneyaml-python
+          ref: origin/main
+        includePaths:
+          - src/oneyaml/**/*
+        excludePaths:
+          - src/oneyaml/compat/**/*
+        legalPaths:
+          - LICENSE-MIT
+          - LICENSE-APACHE

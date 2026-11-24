@@ -1,10 +1,10 @@
 ---
 id: AD-354
 title: Vendor oneyaml and make the task tool dependency-free
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-11-24T05:16:00Z'
-updated_date: '2026-11-24T06:11:00Z'
+updated_date: '2026-11-24T12:47:00Z'
 labels: []
 milestone: m-1
 dependencies: []
@@ -20,6 +20,10 @@ sessions:
     id: d5de0f02-d865-48c6-82a7-a60f7b5669eb
     role: created
     date: '2026-11-24'
+  - agent: claude-code
+    id: 3db836d3-b908-46e0-9723-e32403b8aa4e
+    role: worked
+    date: '2026-11-24'
 ---
 
 ## Description
@@ -30,13 +34,21 @@ Implement the dependency-free core settled in AD-336: replace PyYAML with the ve
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Every task tool command runs under python3 -I on the interpreter the project venv was made from, with only the standard library and the vendored parser, and the skill has no tasks.py.lock
+- [x] #1 Every task tool command runs under python3 -I on the interpreter the project venv was made from, with only the standard library and the vendored parser, and the skill has no tasks.py.lock
 - [ ] #2 A vendir sync --locked in CI leaves the committed _vendor/ copy unchanged, and fails the build when it doesn't
-- [ ] #3 Each spec in scope has a test that cites it and passes, and mise run check passes
+- [x] #3 Each spec in scope has a test that cites it and passes, and mise run check passes
 <!-- AC:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 README.md (the skills/task-tracker/ row) still says the tool needs uv and that uv installs PyYAML; update it in this change to say the tool needs only uv and Python 3.11 or later (which uv can provide). The project itself targets 3.12, so add a test that runs the tool under Python 3.11 (for example uv run --python 3.11 --script), so the 3.11 floor can't creep up unnoticed. PyYAML stays a dev dependency for five test files, so the Dependency Dashboard abandonment warning remains until they move to the vendored parser too.
+
+Vendored oneyaml f41c222 with vendir (vendir.yml, vendir.lock.yml); copy byte-identical to upstream src/oneyaml without compat/, plus both licenses.
+
+Developer rulings 2026-11-24: TASK-REPO-011 runs on pull requests and pushes to main only (spec and design reworded); bad YAML in config.yml, focus.yml and milestones stays with TASK-LAYOUT-004, FOCUS-002, LINT-034, MS-008 and LINT-048, so those still raise until their tasks land.
+
+Tests reviewed by a review wave before code; nine fixes applied. mise run check passes (3078 tests), including real Python 3.10 and 3.11 runs.
+
+Code review wave: two more rulings applied (any exception importing the parser is a setup error, TASK-YAML-004 reworded; HLD names the _vendor/ lint exception). A scratch Renovate 44.257.6 dry run extracts the git-sourced vendir.yml and plans lock-file maintenance. mise run check passes (3080 tests). AC #2 waits on the vendor workflow running in CI on the pull request: locally, vendir sync --locked left the copy byte-identical to upstream f41c222, and step tests cover the compare script.
 <!-- SECTION:NOTES:END -->
