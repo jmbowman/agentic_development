@@ -101,7 +101,10 @@ def test_a_cli_edit_keeps_custom_keys_and_the_body(tmp_path: Path) -> None:
     text = (repo / name).read_text(encoding="utf-8")
     meta, body = tasks.split_frontmatter(text)
     assert meta["status"] == "In Progress"
-    assert yaml.safe_load(CUSTOM).items() <= meta.items(), "a custom key was lost or changed"
+    # Read with the tool's own parser, so an unquoted date compares as the tool reads it.
+    expected = tasks.parse_yaml(CUSTOM)
+    lost = {key: value for key, value in expected.items() if meta.get(key) != value}
+    assert not lost, f"a custom key was lost or changed: {lost}"
     assert body == BODY
     assert "split it out" in "\n".join(_lint(repo / "backlog"))
     changed = subprocess.run(

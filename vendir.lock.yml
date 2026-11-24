@@ -1,0 +1,9 @@
+apiVersion: vendir.k14s.io/v1alpha1
+directories:
+- contents:
+  - git:
+      commitTitle: 'README: not on PyPI; install from a clone'
+      sha: f41c22243db7e4ec7c2e8ec29278111b4f1d7045
+    path: oneyaml-python
+  path: skills/task-tracker/scripts/_vendor
+kind: LockConfig

@@ -42,13 +42,13 @@ Specs marked *(eval)* describe the agent's behavior, and the skill's behavior ev
 
 ## Reading YAML
 
-- [ ] **TASK-YAML-001**: The task tool shall parse every YAML document it reads, from this repo or another, with `oneyaml.loads` from the vendored parser under `oneyaml.Limits.untrusted()`.
-- [ ] **TASK-YAML-002**: The task tool shall read YAML as YAML 1.2 under its core schema, so that an unquoted date such as `2026-11-30` is read as a string, and `yes`, `no`, `on` and `off` are read as strings, not booleans.
-- [ ] **TASK-YAML-003**: If the vendored parser raises its own `oneyaml.YAMLError` for a YAML document, for the document's syntax or for exceeding the limits TASK-YAML-001 names, then the task tool shall treat that document as one that can't be parsed; any other exception raised while parsing shall propagate.
-- [ ] **TASK-YAML-004**: If `tasks.py`, started directly by a Python interpreter, finds that interpreter older than 3.11, or the task tool can't import the vendored parser, then every task tool command except `help` shall print one line to standard error naming the problem and exit with status 2.
-- [ ] **TASK-YAML-005**: The task tool shall set `ONEYAML_BACKEND` to `pure` in its own environment before it imports the vendored parser, so that the value it found there, valid or not, doesn't change which backend runs or stop the import.
-- [ ] **TASK-YAML-006**: The `help` command shall work without importing the vendored parser.
-- [ ] **TASK-YAML-007**: The task tool shall put the vendored parser's `src/` directory first on its import path before importing it, so that the vendored copy runs even when another copy of oneyaml is installed.
+- [x] **TASK-YAML-001**: The task tool shall parse every YAML document it reads, from this repo or another, with `oneyaml.loads` from the vendored parser under `oneyaml.Limits.untrusted()`.
+- [x] **TASK-YAML-002**: The task tool shall read YAML as YAML 1.2 under its core schema, so that an unquoted date such as `2026-11-30` is read as a string, and `yes`, `no`, `on` and `off` are read as strings, not booleans.
+- [x] **TASK-YAML-003**: If the vendored parser raises its own `oneyaml.YAMLError` for a YAML document, for the document's syntax or for exceeding the limits TASK-YAML-001 names, then the task tool shall treat that document as one that can't be parsed; any other exception raised while parsing shall propagate.
+- [x] **TASK-YAML-004**: If `tasks.py`, started directly by a Python interpreter, finds that interpreter older than 3.11, or importing the vendored parser raises any exception (a missing module, or an error in the vendored code such as syntax that interpreter lacks), then every task tool command except `help` shall print one line to standard error naming the problem and exit with status 2.
+- [x] **TASK-YAML-005**: The task tool shall set `ONEYAML_BACKEND` to `pure` in its own environment before it imports the vendored parser, so that the value it found there, valid or not, doesn't change which backend runs or stop the import.
+- [x] **TASK-YAML-006**: The `help` command shall work without importing the vendored parser.
+- [x] **TASK-YAML-007**: The task tool shall put the vendored parser's `src/` directory first on its import path before importing it, so that the vendored copy runs even when another copy of oneyaml is installed.
 
 ## Task files
 
@@ -245,11 +245,11 @@ Specs marked *(eval)* describe the agent's behavior, and the skill's behavior ev
 
 ## Skill
 
-- [ ] **TASK-SKILL-001**: The skill shall hold at least `SKILL.md`, `scripts/tasks.py` (the task tool), `references/task-format.md` and the vendored parser.
+- [x] **TASK-SKILL-001**: The skill shall hold at least `SKILL.md`, `scripts/tasks.py` (the task tool), `references/task-format.md` and the vendored parser.
 - [x] **TASK-SKILL-002**: The skill's `SKILL.md` frontmatter shall use only the Agent Skills fields `name`, `description`, `license`, `compatibility`, `metadata` and `allowed-tools`.
-- [ ] **TASK-SKILL-003**: The skill's `scripts/tasks.py` shall be a PEP 723 script whose inline metadata sets `requires-python = ">=3.11"` and `dependencies = []`, and the skill shall hold no `tasks.py.lock`.
-- [ ] **TASK-SKILL-032**: The task tool shall import nothing outside Python's standard library except the vendored parser.
-- [ ] **TASK-SKILL-033**: The files git tracks under the skill's `scripts/_vendor/oneyaml-python/` shall be oneyaml's `src/oneyaml/` without `src/oneyaml/compat/`, and its `LICENSE-MIT` and `LICENSE-APACHE`, and nothing else.
+- [x] **TASK-SKILL-003**: The skill's `scripts/tasks.py` shall be a PEP 723 script whose inline metadata sets `requires-python = ">=3.11"` and `dependencies = []`, and the skill shall hold no `tasks.py.lock`.
+- [x] **TASK-SKILL-032**: The task tool shall import nothing outside Python's standard library except the vendored parser.
+- [x] **TASK-SKILL-033**: The files git tracks under the skill's `scripts/_vendor/oneyaml-python/` shall be oneyaml's `src/oneyaml/` without `src/oneyaml/compat/`, and its `LICENSE-MIT` and `LICENSE-APACHE`, and nothing else.
 - [x] **TASK-SKILL-004**: The skill's `references/task-format.md` shall describe every key the task tool reads, with its values and meaning, the three blocker forms, the outbox draft form, session records, and labels as recording where a task came from.
 - [x] **TASK-SKILL-005**: The skill shall tell the agent to create a task for work left outstanding beyond the current request, and none for work done in the session that found it.
 - [x] **TASK-SKILL-006**: Before creating a task, the agent shall search the backlog, with `backlog search` or a text search of the task files, using a query for the work, for a task covering the same work, and shall extend or link an existing one instead of creating a duplicate. *(eval)*
@@ -281,17 +281,17 @@ Specs marked *(eval)* describe the agent's behavior, and the skill's behavior ev
 
 ## This repo
 
-- [ ] **TASK-REPO-001**: This repo's `tasks` mise task shall run the skill's `scripts/tasks.py` with `uv run --script` and without `--locked`, passing on every argument given after `mise run tasks --`.
+- [x] **TASK-REPO-001**: This repo's `tasks` mise task shall run the skill's `scripts/tasks.py` with `uv run --script` and without `--locked`, passing on every argument given after `mise run tasks --`.
 - [ ] **TASK-REPO-002**: This repo's `mise run check` shall run the task tool's `check` over this repo's backlog, and fail when it reports a finding.
 - [ ] **TASK-REPO-003**: This repo's `backlog/README.md` shall point readers to the skill's `references/task-format.md` and to the `tasks` commands, and add only what is particular to this repo.
 - [ ] **TASK-REPO-004**: A test run by this repo's `mise run check` shall fail when a task in this repo's `backlog/tasks/`, or a draft in its `backlog/outbox/`, has a `labels` entry exactly `open-question` and a `type` other than `decision`; it shall not read archived tasks or `backlog/private/`.
-- [ ] **TASK-REPO-005**: This repo's `mise.toml` shall pin the `gh` CLI, Backlog.md and vendir, each to an exact version.
+- [x] **TASK-REPO-005**: This repo's `mise.toml` shall pin the `gh` CLI, Backlog.md and vendir, each to an exact version.
 - [x] **TASK-REPO-006**: A test shall run the pinned Backlog.md CLI in a scratch git repo on a task carrying every custom key (a `sessions` list and a draft's `target` included), change its status with `backlog task edit`, and fail if any custom key's parsed value changed or was dropped; the test shall be skipped where `backlog` isn't on `PATH`.
 - [x] **TASK-REPO-007**: In this repo, `git check-ignore` shall report `backlog/.cache/`, `backlog/.locks/` and `backlog/private/` as ignored.
 - [x] **TASK-REPO-008**: This repo shall not track `backlog/BOARD.md`.
-- [ ] **TASK-REPO-009**: This repo's root `vendir.yml` shall sync the skill's `scripts/_vendor/` from `https://github.com/recursive-ai-oss/oneyaml-python` at `ref: origin/main` into `oneyaml-python/`, keeping the paths TASK-SKILL-033 names, and this repo shall track the `vendir.lock.yml` that `vendir sync` writes beside it.
-- [ ] **TASK-REPO-010**: This repo's `.github/renovate.json` shall hold a package rule that turns on lock-file maintenance for the root `vendir.yml`, so that a preset's package rule turning it off for vendir files doesn't stop the vendored parser's updates.
-- [ ] **TASK-REPO-011**: When, and only when, a pull request or push changes the root `vendir.yml`, `vendir.lock.yml` or anything under the skill's `scripts/_vendor/`, this repo's CI shall run `vendir sync --locked` and fail if `git status --porcelain` then lists any path under `scripts/_vendor/` or either vendir file.
-- [ ] **TASK-REPO-012**: This repo's `mise run check` shall not run `vendir sync`.
-- [ ] **TASK-REPO-013**: This repo's ruff configuration shall exclude the skill's `scripts/_vendor/` with `extend-exclude` and set `force-exclude`, so that the exclusion also holds when a hook passes file names.
-- [ ] **TASK-REPO-014**: This repo's ty configuration (`.config/ty.toml`) shall exclude the skill's `scripts/_vendor/` from checking, list `scripts/_vendor/oneyaml-python/src` in its `extra-paths` so the task tool's `oneyaml` imports resolve, and this repo's runs of ty shall pass `--force-exclude` wherever they pass file names.
+- [x] **TASK-REPO-009**: This repo's root `vendir.yml` shall sync the skill's `scripts/_vendor/` from `https://github.com/recursive-ai-oss/oneyaml-python` at `ref: origin/main` into `oneyaml-python/`, keeping the paths TASK-SKILL-033 names, and this repo shall track the `vendir.lock.yml` that `vendir sync` writes beside it.
+- [x] **TASK-REPO-010**: This repo's `.github/renovate.json` shall hold a package rule that turns on lock-file maintenance for the root `vendir.yml`, so that a preset's package rule turning it off for vendir files doesn't stop the vendored parser's updates.
+- [x] **TASK-REPO-011**: When, and only when, a pull request or a push to `main` changes the root `vendir.yml`, `vendir.lock.yml` or anything under the skill's `scripts/_vendor/`, this repo's CI shall run `vendir sync --locked` and fail if `git status --porcelain` then lists any path under `scripts/_vendor/` or either vendir file.
+- [x] **TASK-REPO-012**: This repo's `mise run check` shall not run `vendir sync`.
+- [x] **TASK-REPO-013**: This repo's ruff configuration shall exclude the skill's `scripts/_vendor/` with `extend-exclude` and set `force-exclude`, so that the exclusion also holds when a hook passes file names.
+- [x] **TASK-REPO-014**: This repo's ty configuration (`.config/ty.toml`) shall exclude the skill's `scripts/_vendor/` from checking, list `scripts/_vendor/oneyaml-python/src` in its `extra-paths` so the task tool's `oneyaml` imports resolve, and this repo's runs of ty shall pass `--force-exclude` wherever they pass file names.

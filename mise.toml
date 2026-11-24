@@ -25,6 +25,8 @@ node = "24.22.3"
 "github:MrLesk/Backlog.md" = { version = "1.55.3", bin = "backlog" }
 # The task tool's GitHub lookup reads blockers' state through `gh`.
 gh = "2.105.0"
+# Syncs the vendored YAML parser in skills/task-tracker/scripts/_vendor/ from vendir.yml.
+vendir = "0.47.0"
 
 # In a shell where mise is activated, `tasks board` runs the task tool: see backlog/README.md.
 [shell_alias]
@@ -71,8 +73,9 @@ depends = ["sync"]
 run = "uv run --locked python scripts/collect_scenarios.py"
 
 # The pilot task tool over backlog/: mise run tasks -- board | next | why <ID> | check | brief.
+# It declares no dependencies and has no lock file, so uv needs only a Python 3.11 or later.
 [tasks.tasks]
-run = "uv run --locked --script skills/task-tracker/scripts/tasks.py"
+run = "uv run --script skills/task-tracker/scripts/tasks.py"
 
 [tasks.lid]
 run = "lidc check --only reverse-orphan,coverage,spec-id-format --fail-on warning"

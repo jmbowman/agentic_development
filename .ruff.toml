@@ -1,5 +1,9 @@
 # This repo's strict profile, hand-maintained to match copier-python's until the template applies here.
 line-length = 100
+# Third-party code vendored by vendir, kept as upstream wrote it. force-exclude keeps it skipped
+# even when a hook passes its files by name.
+extend-exclude = ["skills/task-tracker/scripts/_vendor"]
+force-exclude = true
 
 [lint]
 select = ["ALL"]
