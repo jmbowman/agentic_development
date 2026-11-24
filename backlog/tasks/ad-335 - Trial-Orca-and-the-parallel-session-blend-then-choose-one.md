@@ -4,7 +4,7 @@ title: Trial Orca and the parallel-session blend, then choose one
 status: To Do
 assignee: []
 created_date: '2026-11-20T13:51:00Z'
-updated_date: '2026-11-23T12:08:00Z'
+updated_date: '2026-11-24T00:17:00Z'
 labels: []
 milestone: m-6
 dependencies:
@@ -43,6 +43,15 @@ created: 2026-11-23T12:08:00Z
 ---
 
 2026-11-23: Orca's side of the trial can start. Orca 1.4.269 is installed through tools/parallel-sessions/ and starts from its menu entry with usage reporting off; Clash 0.2.0 is installed and its PreToolUse entry is in ~/.claude/settings.json. Still to do first: a smoke test (edit a file in one worktree, then have an agent edit it in another, and expect a prompt naming the first), and run `mise run skills` in each new worktree until AD-349. The blend's custom pieces are now AD-348.
+
+---
+
+author: 27e13044-1d02-40c4-90d7-0134d1214b1d
+created: 2026-11-24T00:17:00Z
+
+---
+
+The Clash prompts rule (tell the developer about a flagged edit; run clash check after a rejected one) is in this repo's AGENTS.md for the trial. Clash runs in every repo on the machine, so if the trial keeps Clash, move the rule to the developer's user-level instructions, which are edited from a session in the repo that holds them.
 
 ---
 <!-- COMMENTS:END -->

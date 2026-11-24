@@ -135,6 +135,8 @@ Orca keeps these in a SQLite profile database that it locks and migrates (on Lin
 
 Register the CLI from **Settings → General → Orca CLI**. On Linux it's `orca-ide`, not `orca`, because GNOME's screen reader already owns `/usr/bin/orca`: with the AppImage, registering installs `~/.local/bin/orca-ide`, and the `.deb` and `.rpm` install `/usr/bin/orca-ide`. On macOS and Windows it's `orca`. Inside Orca's own terminals a bare `orca` works everywhere. The commands on this page use `orca-ide`; elsewhere, read them as `orca`.
 
+On Linux, run the CLI from a regular terminal for now. In one of Orca's own terminals on Ubuntu, where unprivileged user namespaces are restricted, `orca-ide` crashed with a Chromium sandbox error, while the registered `~/.local/bin/orca-ide` worked from a regular terminal (1.4.269; see [tool feedback](../tool-feedback/orca.md)). `worktree rm` takes the worktree as an option, `--worktree <selector>`, not as a plain argument.
+
 ## What Orca changes outside itself
 
 - **`~/.claude/settings.json`:** at every startup, while agent status hooks are on (the default), Orca writes its hook entries for about 20 Claude Code events. It also adds a `statusLine` if you have none. Turning the setting off stops new installs but doesn't remove existing entries, so take them out by hand if you stop using Orca. The hooks exit at once outside an Orca terminal, so other Claude Code sessions are unaffected apart from a short script run per event.

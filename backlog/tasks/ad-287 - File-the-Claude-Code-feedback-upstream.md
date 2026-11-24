@@ -4,6 +4,7 @@ title: File the Claude Code feedback upstream
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-24T00:01:00Z'
 labels:
   - tool-feedback
   - upstream
@@ -38,3 +39,16 @@ After approving the drafts, raise the four SubagentStop and agent-ID items on an
 
 **Why the developer:** outward-facing action in the developer's name
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: 27e13044-1d02-40c4-90d7-0134d1214b1d
+created: 2026-11-24T00:01:00Z
+
+---
+
+Entry 5 (a hook's "ask" prompt doesn't show its reason) joins the items to file, once AD-286 drafts it.
+
+---
+<!-- COMMENTS:END -->

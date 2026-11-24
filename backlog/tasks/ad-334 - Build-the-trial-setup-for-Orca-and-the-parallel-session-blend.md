@@ -1,10 +1,10 @@
 ---
 id: AD-334
-title: Build the trial setup for Orca and the parallel-session blend
-status: In Progress
+title: Build the trial setup for Orca
+status: Done
 assignee: []
 created_date: '2026-11-20T13:51:00Z'
-updated_date: '2026-11-23T12:08:00Z'
+updated_date: '2026-11-24T03:06:00Z'
 labels: []
 milestone: m-6
 dependencies: []
@@ -17,6 +17,11 @@ performer: agent
 agent_tier: strong
 effort: L
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 27e13044-1d02-40c4-90d7-0134d1214b1d
+    role: finished
+    date: '2026-11-23'
 ---
 
 ## Description
@@ -64,3 +69,9 @@ created: 2026-11-23T12:08:00Z
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Built Orca's trial setup in tools/parallel-sessions/ through LID (design, 96 PAR specs, tests, code, each stop reviewed): a launcher that sets DO_NOT_TRACK and ORCA_TELEMETRY_DISABLED at every launch, an installer that checks a downloaded AppImage against its GitHub release before installing it as a versioned file behind a link, a read-only settings check (Orca settings against 1.4.269's defaults, installed files against the install record, Orca's Claude Code hook entries against those it installs for the Claude Code version), and a setup script that shows, then applies, the installed launcher, its menu entry and Clash's PreToolUse entry. Verified by 287 tests and two review waves (docs/review-log/2026-11-22-parallel-sessions.md), merged in #307, then tried on Linux x86_64 with Orca 1.4.269: setup, the installer, the settings check, the menu entry, and a Clash smoke test in a second worktree, whose finding (a hook's "ask" prompt hides its reason) is Claude Code feedback entry 5. The blend's custom pieces moved to AD-348. Follow-ups: AD-351 (installer edges), AD-349 (worktree setup), AD-347 (macOS and Windows), AD-352 (an Orca skill), and the trial itself, AD-335. Risks: the scripts know only Orca 1.4.269's defaults and hooks, so the settings check exits 2 after an upgrade until the table gains the new version; arm64 is untried.
+<!-- SECTION:FINAL_SUMMARY:END -->
