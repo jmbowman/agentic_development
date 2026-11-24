@@ -4,6 +4,7 @@ title: Draft the upstream issues for Renovate pep723 feedback
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-24T06:12:00Z'
 labels:
   - tool-feedback
   - upstream
@@ -29,3 +30,9 @@ Draft Renovate issues from docs/tool-feedback/renovate.md: the `pep723` manager 
 
 **Why an agent:** issue search plus text
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Also draft the vendir manager item added on 2026-11-24: a git source pinned by commit SHA gets no update and no skip reason (docs/tool-feedback/renovate.md). Hold filing until AD-354 has the workaround running end to end.
+<!-- SECTION:NOTES:END -->

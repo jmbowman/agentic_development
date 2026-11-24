@@ -6,7 +6,8 @@ Design: [task-tracker-design.md](task-tracker-design.md). The terms below are us
 - **The settings file:** the Backlog.md configuration TASK-LAYOUT-003 selects.
 - **A task:** a `.md` file directly in the backlog directory's `tasks/` folder. **A draft:** a `.md` file directly in an outbox folder, `outbox/<outbox folder>/<slug>.md` or, with `--private`, `private/outbox/<outbox folder>/<slug>.md`. A spec that says "a task or draft" covers both; one that says only "a task" doesn't cover drafts. **An archived task:** a `.md` file in `completed/` or `archive/tasks/`. **A loaded task:** a task or draft the task tool has read and parsed.
 - **An ID:** a task ID in the form TASK-LAYOUT-013 gives. **A forge path:** `<host>/<owner>/<repo>`, such as `github.com/jmbowman/agentic_development`.
-- **A number:** a YAML integer or decimal, not a boolean, a quoted string, NaN or an infinity.
+- **A number:** a value YAML 1.2's core schema reads as an integer or a float and whose value is finite: not a boolean, a string, NaN, an infinity, or a float literal too large to hold (such as `1e400`).
+- **The vendored parser:** the oneyaml package in the skill's `scripts/_vendor/oneyaml-python/src/oneyaml/`.
 - **Open, ready, blocked:** open as TASK-LAYOUT-016 defines it; ready as TASK-READY-001 defines it; blocked means open and not ready, and "what it waits on" is the list TASK-READY-010 gives.
 - **The developer's** and **agents'** tasks are those whose `performer` is `human` and `agent`.
 - **The per-machine settings file:** `task-tracker/config.yml` under `$XDG_CONFIG_HOME`, or under `~/.config` when that variable is unset or empty.
@@ -38,6 +39,16 @@ Specs marked *(eval)* describe the agent's behavior, and the skill's behavior ev
 - [ ] **TASK-LAYOUT-017**: The task tool shall treat an archived task as not open, whatever its `status`.
 - [ ] **TASK-LAYOUT-018**: If the repo root's `backlog.config.yml` can't be parsed as a YAML mapping, or its `backlog_directory` is absolute or leads outside the repo, then every task tool command except `help` shall print one line to standard error naming the file and the problem, and exit with status 2.
 - [ ] **TASK-LAYOUT-019**: The task tool shall compare forge paths without regard to letter case.
+
+## Reading YAML
+
+- [ ] **TASK-YAML-001**: The task tool shall parse every YAML document it reads, from this repo or another, with `oneyaml.loads` from the vendored parser under `oneyaml.Limits.untrusted()`.
+- [ ] **TASK-YAML-002**: The task tool shall read YAML as YAML 1.2 under its core schema, so that an unquoted date such as `2026-11-30` is read as a string, and `yes`, `no`, `on` and `off` are read as strings, not booleans.
+- [ ] **TASK-YAML-003**: If the vendored parser raises its own `oneyaml.YAMLError` for a YAML document, for the document's syntax or for exceeding the limits TASK-YAML-001 names, then the task tool shall treat that document as one that can't be parsed; any other exception raised while parsing shall propagate.
+- [ ] **TASK-YAML-004**: If `tasks.py`, started directly by a Python interpreter, finds that interpreter older than 3.11, or the task tool can't import the vendored parser, then every task tool command except `help` shall print one line to standard error naming the problem and exit with status 2.
+- [ ] **TASK-YAML-005**: The task tool shall set `ONEYAML_BACKEND` to `pure` in its own environment before it imports the vendored parser, so that the value it found there, valid or not, doesn't change which backend runs or stop the import.
+- [ ] **TASK-YAML-006**: The `help` command shall work without importing the vendored parser.
+- [ ] **TASK-YAML-007**: The task tool shall put the vendored parser's `src/` directory first on its import path before importing it, so that the vendored copy runs even when another copy of oneyaml is installed.
 
 ## Task files
 
@@ -153,7 +164,7 @@ Specs marked *(eval)* describe the agent's behavior, and the skill's behavior ev
 
 ## Lint
 
-- [ ] **TASK-LINT-001**: The `check` command shall lint the loaded tasks and drafts (private drafts only with `--private`), the archived tasks, the settings file, the focus file, the milestone files and the repo's schema file against TASK-LINT-002 to TASK-LINT-051, where the rules about one file's keys and values (TASK-LINT-006, TASK-LINT-007, TASK-LINT-009 to TASK-LINT-019, TASK-LINT-028, TASK-LINT-030 to TASK-LINT-033, TASK-LINT-045) apply to tasks and drafts only, the rules about links (TASK-LINT-020 to TASK-LINT-027) apply to open tasks and drafts only, and archived tasks get only TASK-LINT-005 and TASK-LINT-008.
+- [ ] **TASK-LINT-001**: The `check` command shall lint the loaded tasks and drafts (private drafts only with `--private`), the archived tasks, the settings file, the focus file and the milestone files against TASK-LINT-002 to TASK-LINT-051, where the rules about one file's keys and values (TASK-LINT-006, TASK-LINT-007, TASK-LINT-009 to TASK-LINT-019, TASK-LINT-028, TASK-LINT-030 to TASK-LINT-033) apply to tasks and drafts only, the rules about links (TASK-LINT-020 to TASK-LINT-027) apply to open tasks and drafts only, and archived tasks get only TASK-LINT-005 and TASK-LINT-008.
 - [ ] **TASK-LINT-002**: The `check` command shall print each finding on its own line as `<ID>: <problem>` for a task, `<outbox folder>/<slug>: <problem>` for a draft, and `<path>: <problem>` for any other file or for a task with no readable ID, with the path relative to the repo's root, and shall print the findings sorted by file path.
 - [ ] **TASK-LINT-003**: When `check` finds no problem, it shall print `<n> task(s), no problems`, with `task` for one and `tasks` otherwise, where n is the number of loaded tasks and drafts, and exit with status 0; when it finds any, it shall exit with status 1.
 - [ ] **TASK-LINT-004**: The `check` command shall not contact GitHub or any other network service.
@@ -194,11 +205,10 @@ Specs marked *(eval)* describe the agent's behavior, and the skill's behavior ev
 - [ ] **TASK-LINT-039**: If a bullet of a milestone's `## Related` section names no milestone in `milestones/` or `archive/milestones/`, then `check` shall report it.
 - [ ] **TASK-LINT-040**: If a milestone that an open task names has an unfilled description (TASK-MS-006), then `check` shall report it.
 - [ ] **TASK-LINT-041**: If the settings file's `statuses` lacks `To Do`, `In Progress` or `Done`, or lists `Done` anywhere but last, then `check` shall report it, since Backlog.md treats the last status as finished.
-- [ ] **TASK-LINT-042**: If the settings file sets `default_assignee`, `default_reporter` or `definition_of_done`, sets `filesystem_only` to `true`, or lists `priorities` other than `high`, `medium` and `low`, then `check` shall report each such key.
+- [ ] **TASK-LINT-042**: If the settings file sets `default_assignee`, `default_reporter` or `definition_of_done`, sets `filesystem_only` to any value other than the boolean false, or lists `priorities` other than `high`, `medium` and `low`, then `check` shall report each such key.
 - [ ] **TASK-LINT-043**: If the most recent answer GitHub gave for a `gh:` blocker of an open task or draft (TASK-GH-012), fresh or not, is that it was closed without its work done (TASK-GH-005), then `check` shall report it with the advice `check it and re-point or drop the blocker`.
 - [ ] **TASK-LINT-044**: If the most recent answer GitHub gave for a `gh:` blocker of an open task or draft (TASK-GH-012), fresh or not, is that it was not found (TASK-GH-006), then `check` shall report it as `deleted, transferred or not visible to you: check it and re-point or drop the blocker`.
-- [ ] **TASK-LINT-045**: The `check` command shall check each task's frontmatter against the skill's task schema and each draft's against its draft schema (JSON Schema, draft 2020-12, with format assertions on), together with the repo's own `schema.json` in the backlog directory when it exists, where the skill's schemas carry the rules of TASK-LINT-010 to TASK-LINT-016 and TASK-LINT-030 to TASK-LINT-031; it shall report each problem once, naming the key, however many of these specs and schemas describe it.
-- [ ] **TASK-LINT-046**: If the repo's `schema.json` isn't valid JSON or isn't a valid JSON Schema, then `check` shall report it and check the other files against the skill's schemas alone.
+- [ ] **TASK-LINT-045**: When more than one of TASK-LINT-006 to TASK-LINT-033 describes the same defect in a task's or draft's frontmatter, `check` shall report that defect once, naming the key; distinct defects in one key shall each be reported.
 - [ ] **TASK-LINT-047**: If the backlog directory's `outbox/` or `private/outbox/` folder holds a `.md` file directly, outside any outbox folder, then `check` shall report the file.
 - [ ] **TASK-LINT-048**: If a milestone file's frontmatter can't be parsed as a YAML mapping (TASK-MS-008), then `check` shall report the file.
 - [ ] **TASK-LINT-049**: If, with `--private`, a public draft and a private draft have the same `<outbox folder>/<slug>`, then `check` shall report both files.
@@ -229,15 +239,17 @@ Specs marked *(eval)* describe the agent's behavior, and the skill's behavior ev
 - [ ] **TASK-CMD-020**: The board shall link each task ID and draft name to its file by a path relative to the directory the task tool was started in.
 - [ ] **TASK-CMD-021**: The board and the brief shall count and list a task under the developer when its `performer` is `human`, under agents when it is `agent`, and under neither otherwise.
 - [ ] **TASK-CMD-022**: When run as `brief`, the task tool shall print, each only when it isn't empty and in this order: the open tasks (not drafts) with `status: In Progress`; the other open pinned tasks; the other ready tasks in the second tier (TASK-RANK-002); the first five other rows of the agents' ready queue; the number of rows in the developer's ready queue with the first three not already shown; the number of findings `check` would report; and any per-machine settings problem (TASK-XREPO-004), each task appearing only in the first part it fits.
-- [ ] **TASK-CMD-023**: The `brief` command shall exit with status 0, and while every part TASK-CMD-022 lists is empty, it shall print nothing.
+- [ ] **TASK-CMD-023**: Apart from the errors TASK-LAYOUT-004, TASK-LAYOUT-018, TASK-YAML-004 and TASK-CMD-025 describe, the `brief` command shall exit with status 0, and while every part TASK-CMD-022 lists is empty, it shall print nothing.
 - [ ] **TASK-CMD-024**: The `brief` command shall print no line to standard error for lint findings or per-machine settings problems, since TASK-CMD-022 includes them in its output.
 - [ ] **TASK-CMD-025**: If the task tool is run with no command, an unknown command, or an option or option value it doesn't accept, then it shall print a usage message to standard error and exit with status 2.
 
 ## Skill
 
-- [ ] **TASK-SKILL-001**: The skill shall hold at least `SKILL.md`, `scripts/tasks.py` (the task tool), `references/task-format.md`, `schemas/task.schema.json` and `schemas/draft.schema.json`.
+- [ ] **TASK-SKILL-001**: The skill shall hold at least `SKILL.md`, `scripts/tasks.py` (the task tool), `references/task-format.md` and the vendored parser.
 - [x] **TASK-SKILL-002**: The skill's `SKILL.md` frontmatter shall use only the Agent Skills fields `name`, `description`, `license`, `compatibility`, `metadata` and `allowed-tools`.
-- [x] **TASK-SKILL-003**: The skill's `scripts/tasks.py` shall be a PEP 723 script whose inline metadata pins every dependency with `==` to an exact version, so that `uv run --script` runs it with no project environment.
+- [ ] **TASK-SKILL-003**: The skill's `scripts/tasks.py` shall be a PEP 723 script whose inline metadata sets `requires-python = ">=3.11"` and `dependencies = []`, and the skill shall hold no `tasks.py.lock`.
+- [ ] **TASK-SKILL-032**: The task tool shall import nothing outside Python's standard library except the vendored parser.
+- [ ] **TASK-SKILL-033**: The files git tracks under the skill's `scripts/_vendor/oneyaml-python/` shall be oneyaml's `src/oneyaml/` without `src/oneyaml/compat/`, and its `LICENSE-MIT` and `LICENSE-APACHE`, and nothing else.
 - [x] **TASK-SKILL-004**: The skill's `references/task-format.md` shall describe every key the task tool reads, with its values and meaning, the three blocker forms, the outbox draft form, session records, and labels as recording where a task came from.
 - [x] **TASK-SKILL-005**: The skill shall tell the agent to create a task for work left outstanding beyond the current request, and none for work done in the session that found it.
 - [x] **TASK-SKILL-006**: Before creating a task, the agent shall search the backlog, with `backlog search` or a text search of the task files, using a query for the work, for a task covering the same work, and shall extend or link an existing one instead of creating a duplicate. *(eval)*
@@ -269,11 +281,17 @@ Specs marked *(eval)* describe the agent's behavior, and the skill's behavior ev
 
 ## This repo
 
-- [x] **TASK-REPO-001**: This repo's `tasks` mise task shall run the skill's `scripts/tasks.py` with `uv run --script`, passing on every argument given after `mise run tasks --`.
+- [ ] **TASK-REPO-001**: This repo's `tasks` mise task shall run the skill's `scripts/tasks.py` with `uv run --script` and without `--locked`, passing on every argument given after `mise run tasks --`.
 - [ ] **TASK-REPO-002**: This repo's `mise run check` shall run the task tool's `check` over this repo's backlog, and fail when it reports a finding.
 - [ ] **TASK-REPO-003**: This repo's `backlog/README.md` shall point readers to the skill's `references/task-format.md` and to the `tasks` commands, and add only what is particular to this repo.
-- [ ] **TASK-REPO-004**: This repo's `backlog/schema.json` shall require a task or draft whose `labels` include `open-question` to have `type: decision`.
-- [x] **TASK-REPO-005**: This repo's `mise.toml` shall pin the `gh` CLI and Backlog.md, and schematter where it is the schema engine, each to an exact version.
+- [ ] **TASK-REPO-004**: A test run by this repo's `mise run check` shall fail when a task in this repo's `backlog/tasks/`, or a draft in its `backlog/outbox/`, has a `labels` entry exactly `open-question` and a `type` other than `decision`; it shall not read archived tasks or `backlog/private/`.
+- [ ] **TASK-REPO-005**: This repo's `mise.toml` shall pin the `gh` CLI, Backlog.md and vendir, each to an exact version.
 - [x] **TASK-REPO-006**: A test shall run the pinned Backlog.md CLI in a scratch git repo on a task carrying every custom key (a `sessions` list and a draft's `target` included), change its status with `backlog task edit`, and fail if any custom key's parsed value changed or was dropped; the test shall be skipped where `backlog` isn't on `PATH`.
 - [x] **TASK-REPO-007**: In this repo, `git check-ignore` shall report `backlog/.cache/`, `backlog/.locks/` and `backlog/private/` as ignored.
 - [x] **TASK-REPO-008**: This repo shall not track `backlog/BOARD.md`.
+- [ ] **TASK-REPO-009**: This repo's root `vendir.yml` shall sync the skill's `scripts/_vendor/` from `https://github.com/recursive-ai-oss/oneyaml-python` at `ref: origin/main` into `oneyaml-python/`, keeping the paths TASK-SKILL-033 names, and this repo shall track the `vendir.lock.yml` that `vendir sync` writes beside it.
+- [ ] **TASK-REPO-010**: This repo's `.github/renovate.json` shall hold a package rule that turns on lock-file maintenance for the root `vendir.yml`, so that a preset's package rule turning it off for vendir files doesn't stop the vendored parser's updates.
+- [ ] **TASK-REPO-011**: When, and only when, a pull request or push changes the root `vendir.yml`, `vendir.lock.yml` or anything under the skill's `scripts/_vendor/`, this repo's CI shall run `vendir sync --locked` and fail if `git status --porcelain` then lists any path under `scripts/_vendor/` or either vendir file.
+- [ ] **TASK-REPO-012**: This repo's `mise run check` shall not run `vendir sync`.
+- [ ] **TASK-REPO-013**: This repo's ruff configuration shall exclude the skill's `scripts/_vendor/` with `extend-exclude` and set `force-exclude`, so that the exclusion also holds when a hook passes file names.
+- [ ] **TASK-REPO-014**: This repo's ty configuration (`.config/ty.toml`) shall exclude the skill's `scripts/_vendor/` from checking, list `scripts/_vendor/oneyaml-python/src` in its `extra-paths` so the task tool's `oneyaml` imports resolve, and this repo's runs of ty shall pass `--force-exclude` wherever they pass file names.

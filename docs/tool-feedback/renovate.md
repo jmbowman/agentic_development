@@ -19,3 +19,14 @@ Items found while planning scripts that declare their dependencies in PEP 723 he
 - **Raised upstream:** not checked.
 
 The manager is also off unless configured: its `managerFilePatterns` default is empty (`pep723/index.js:18`).
+
+## The `vendir` manager silently skips a git source pinned by commit
+
+Found while choosing how to keep the task tool's vendored YAML parser current (the task-tracker LLD's *Reading YAML*), in Renovate 44.257.5.
+
+- **Where:** `manager/vendir/extract.js` (`extractGitSource`) puts a git content's `ref` in `currentValue`, with no `currentDigest`, and uses the `git-refs` datasource, which sets no default versioning (`datasource/git-refs/index.js`).
+- **What:** a `git` content pinned to a full commit SHA, the only exact pin for a repo that publishes no tags, gets no update, and the dependency carries no skip reason or warning. A stale pin goes unnoticed. A branch ref (`origin/main`) is at least skipped visibly, as `invalid-value`, with the debug message "no currentDigest or pinDigests".
+- **Evidence:** a local-platform `--dry-run=lookup` on a `vendir.yml` pinning oneyaml-python to a commit two behind `main` returned `updates: []` and `warnings: []` (2026-11-23).
+- **Suggested fix:** when `ref` is a 40-hex SHA, extract it as `currentDigest` with the default branch as `currentValue`, as the regex manager's git-refs pattern allows, so digest updates work; failing that, give the dependency a `skipReason`.
+- **Workaround here:** `ref: origin/main` with the committed lock, refreshed by lock-file maintenance, whose vendir artifact step runs `vendir sync`.
+- **Raised upstream:** not checked.
