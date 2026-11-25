@@ -39,7 +39,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn, cast
-from urllib.parse import quote, quote_plus, urlsplit
+from urllib.parse import quote, quote_plus, urljoin, urlsplit
 from xml.etree import ElementTree as ET
 
 if TYPE_CHECKING:
@@ -89,19 +89,41 @@ KEY_HEADERS = {OPENALEX: "Authorization", S2: "x-api-key"}
 # Results to fetch per query (default, maximum), and the services each action takes.
 FETCH_DEPTH = {
     "search": (50, 100),
+    "get": (1, 1),
     "citations": (100, 500),
     "references": (100, 500),
+    "related": (20, 100),
     "recommend": (100, 500),
     "lookup": (1, 1),
 }
 ACTION_SERVICES = {
     "search": (ARXIV, OPENALEX),
+    "get": (ARXIV, OPENALEX),
     "citations": (OPENALEX,),
     "references": (OPENALEX,),
+    "related": (OPENALEX,),
     "recommend": (S2,),
     "lookup": (S2,),
 }
-NOT_FOUND_ACTIONS = {"citations", "references", "recommend"}  # a 404 means the paper ID is unknown
+# Actions whose first request names a paper by ID, so that a 404 there means the ID is unknown.
+NOT_FOUND_ACTIONS = {"get", "citations", "references", "related", "recommend"}
+# arXiv search sort orders, as the arXiv connector's `sort_by` takes them.
+SORTS = {"relevance": "relevance", "submitted": "submittedDate"}
+
+# OpenAlex single-work requests, which the harvester builds itself for `get` and `related`. The
+# fields are those the connector's work parser reads, plus the open-access ones it reads only in
+# part. OpenAlex doesn't charge a single-work request to the daily budget, so these two actions
+# go on after a search has spent it.
+SINGLE_WORK_ACTIONS = {"get", "related"}
+WORK_SELECT = (
+    "id,title,authorships,abstract_inverted_index,doi,primary_location,best_oa_location,"
+    "open_access,publication_date,concepts,cited_by_count,referenced_works"
+)
+RELATED_SELECT = "id,related_works"
+OPENALEX_TIMEOUT = 30
+OPENALEX_REDIRECTS = 3  # merged-work redirects followed for one single-work request
+# What a single-work response must hold to parse: a work, or a `related` query's seed.
+WORK, SEED = "work", "seed"
 FORK_VARIABLES = [
     "OPENALEX_API_KEY",
     "OPENALEX_EMAIL",
@@ -208,6 +230,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--service", action=_Once, choices=sorted(ROUTES), required=True)
     parser.add_argument("--round", action=_Once, type=int, required=True)
     parser.add_argument("--run-dir", action=_Once, required=True)
+    parser.add_argument(
+        "--sort", action=_Once, choices=sorted(SORTS), help="order of an arXiv search's results"
+    )
     parser.add_argument("--max-results", action=_Once, type=int, help="results to fetch per query")
     parser.add_argument("--show", action=_Once, type=int, default=10, help="results to print")
     parser.add_argument("queries", nargs="+", help="queries, paper IDs, seeds or titles")
@@ -225,6 +250,7 @@ class Args:
     max_results: int
     show: int
     queries: list[str]
+    sort: str = "relevance"
 
 
 # @spec PRIOR-SCR-010, PRIOR-SCR-011
@@ -245,6 +271,9 @@ def parse_args(argv: list[str]) -> Args:
     if ns.service not in services:
         msg = f"{ns.action} needs --service {' or '.join(services)}"
         raise UsageError(msg)
+    if ns.sort is not None and (ns.action, ns.service) != ("search", ARXIV):
+        msg = "--sort is only for search with --service arxiv"
+        raise UsageError(msg)
     default, maximum = FETCH_DEPTH[ns.action]
     depth = default if ns.max_results is None else ns.max_results
     if not 1 <= depth <= maximum:
@@ -257,7 +286,8 @@ def parse_args(argv: list[str]) -> Args:
         msg = "--run-dir must not be empty"
         raise UsageError(msg)
     run_dir = Path(ns.run_dir)
-    return Args(ns.action, ns.service, ns.round, run_dir, depth, ns.show, ns.queries)
+    sort = ns.sort or "relevance"
+    return Args(ns.action, ns.service, ns.round, run_dir, depth, ns.show, ns.queries, sort)
 
 
 # Settings and redaction ---------------------------------------------------------------------
@@ -545,10 +575,19 @@ class RunDir:
             lambda state: state.rejected_keys.update({service: KEY_SETTINGS[service]})
         )
 
-    # @spec PRIOR-SCR-118
-    def spend_budget(self) -> None:
-        """Record that OpenAlex reported its daily budget spent; nothing ever removes the record."""
-        self._update_state(lambda state: setattr(state, "openalex_budget_spent", True))
+    # @spec PRIOR-SCR-118, PRIOR-SCR-131
+    def spend_budget(self, *, single_work: bool) -> None:
+        """Record that OpenAlex reported its daily budget spent; nothing ever removes the record.
+
+        Args:
+            single_work: Whether a single-work request got the report, which ends those too.
+        """
+
+        def spend(state: State) -> None:
+            state.openalex_budget_spent = True
+            state.openalex_single_work_budget_spent |= single_work
+
+        self._update_state(spend)
 
     def _update_state(self, change: Callable[[State], object]) -> None:
         """Rewrite `state.json` under its lock, keeping every record but the one changed."""
@@ -589,10 +628,15 @@ def dumps(record: object) -> str:
 
 @dataclass
 class State:
-    """The run directory's `state.json`: rejected keys, and whether OpenAlex's budget is spent."""
+    """The run directory's `state.json`: rejected keys, and whether OpenAlex's budget is spent.
+
+    The budget is recorded twice: as spent, which stops searches, citations and references, and
+    as spent for single-work requests too, which stops every OpenAlex request.
+    """
 
     rejected_keys: dict[str, str] = field(default_factory=dict)
     openalex_budget_spent: bool = False
+    openalex_single_work_budget_spent: bool = False
 
 
 # @spec PRIOR-SCR-079
@@ -608,11 +652,15 @@ def _state(text: str) -> State:
         data = None
     rejected = data.get("rejected_keys", {}) if isinstance(data, dict) else None
     spent = data.get("openalex_budget_spent", False) if isinstance(data, dict) else None
-    if not isinstance(rejected, dict) or not isinstance(spent, bool):
+    single = (
+        data.get("openalex_single_work_budget_spent", False) if isinstance(data, dict) else None
+    )
+    flags_ok = isinstance(spent, bool) and isinstance(single, bool)
+    if not isinstance(rejected, dict) or not flags_ok:
         msg = "state.json in the run directory isn't one the harvester wrote"
-        raise RuntimeError(msg)  # noqa: TRY004 - a corrupt file, not a caller's type error
+        raise RuntimeError(msg)  # a corrupt file, not a caller's type error
     keys = {str(service): str(setting) for service, setting in rejected.items()}
-    return State(keys, spent)
+    return State(keys, bool(spent), bool(single))
 
 
 class _LogHandler(logging.Handler):
@@ -664,13 +712,38 @@ def _is_rate_limit(response: requests.Response, service: str | None) -> bool:
     return any(phrase in text for phrase in RATE_LIMIT_PHRASES)
 
 
-def _parses(response: requests.Response, service: str | None, listed: str | None = None) -> bool:
+@dataclass(frozen=True)
+class Expect:
+    """What one request's response must hold to be usable, beyond the rules for every request.
+
+    Attributes:
+        title_match: Whether it answers a `lookup`, whose no-match 404 is usable.
+        listed: For a `recommend` or `lookup`, the key under which a 2xx body must hold its
+            list of papers to parse.
+        work: For a single-work request, what a 2xx body must hold to parse: `WORK` for a work
+            ID, `SEED` for that and a list of related works.
+        gone_ok: Whether it answers a `related` query's request for a listed work, whose 404 is
+            usable: the work is left out.
+    """
+
+    title_match: bool = False
+    listed: str | None = None
+    work: str | None = None
+    gone_ok: bool = False
+
+
+def _parses(response: requests.Response, service: str | None, expect: Expect) -> bool:
     try:
         if service == ARXIV:
             return ET.fromstring(response.content).tag == ATOM_FEED  # noqa: S314
         body = json.loads(response.content)
     except (ET.ParseError, ValueError):
         return False
+    if expect.work is not None:
+        if not isinstance(body, dict) or not isinstance(body.get("id"), str) or not body["id"]:
+            return False
+        return expect.work != SEED or isinstance(body.get("related_works"), list)
+    listed = expect.listed
     return listed is None or (isinstance(body, dict) and isinstance(body.get(listed), list))
 
 
@@ -696,9 +769,7 @@ def classify(
     response: requests.Response,
     service: str | None,
     arxiv_406: Arxiv406,
-    *,
-    title_match: bool = False,
-    listed: str | None = None,
+    expect: Expect,
 ) -> str:
     """The kind of a response, for retries and outcomes.
 
@@ -706,9 +777,7 @@ def classify(
         response: The response.
         service: The service it came from.
         arxiv_406: The arXiv connector's own check of a 406 feed.
-        title_match: Whether it answers a `lookup`, whose no-match 404 is usable.
-        listed: For a `recommend` or `lookup`, the key under which a 2xx body must hold its
-            list of papers to parse.
+        expect: What this request's response must hold to be usable.
 
     Returns:
         One of the response kinds.
@@ -717,14 +786,15 @@ def classify(
     if _is_rate_limit(response, service):
         return BUDGET if _is_budget(response, service) else RATE
     if 200 <= status < 400:  # noqa: PLR2004
-        parses = _parses(response, service, listed)
+        parses = _parses(response, service, expect)
         return USABLE if status >= 300 or parses else PARSE  # noqa: PLR2004
     if service == ARXIV and status == 406:  # noqa: PLR2004
         return USABLE if arxiv_406(response) else ARXIV_406
     if status in {401, 403}:
         return AUTH
     if status == 404:  # noqa: PLR2004
-        return USABLE if title_match and _is_no_title_match(response) else NOT_FOUND
+        no_match = expect.title_match and _is_no_title_match(response)
+        return USABLE if expect.gone_ok or no_match else NOT_FOUND
     return CLIENT if status < 500 else SERVER  # noqa: PLR2004
 
 
@@ -841,13 +911,16 @@ class Transport:
             run: The run directory.
             keys: The API key values by service.
             arxiv_406: The arXiv connector's own check of a 406 feed.
-            action: The invocation's action. A `lookup`'s no-match 404 is usable, and a
-                `recommend` or `lookup` body parses only with its list of papers.
+            action: The invocation's action. A `lookup`'s no-match 404 is usable, a
+                `recommend` or `lookup` body parses only with its list of papers, and a `get`
+                or `related` invocation's OpenAlex requests are single-work requests.
         """
         self.fork = fork
         self.run = run
         self.keys = keys
         self.arxiv_406 = arxiv_406
+        self.action = action
+        self.expected: Expect | None = None  # set around each single-work request
         self.title_match = action == "lookup"
         self.listed = S2_LISTS.get(action)
         self.query: QueryState | None = None
@@ -901,7 +974,9 @@ class Transport:
         state = self.run.state()
         if service in state.rejected_keys:
             return "key rejected"
-        if service == OPENALEX and state.openalex_budget_spent:
+        # @spec PRIOR-SCR-118, PRIOR-SCR-131
+        exempt = self.action in SINGLE_WORK_ACTIONS and not state.openalex_single_work_budget_spent
+        if service == OPENALEX and state.openalex_budget_spent and not exempt:
             return DAILY_BUDGET
         key = self.keys.get(service)
         if key is not None:
@@ -1026,9 +1101,7 @@ class Transport:
         content_type = response.headers.get("Content-Type", "")
         self.run.save_raw(f"{query.qid}-{log.number}-{log.sends}", content_type, body)
         service = log.service
-        log.kind = classify(
-            response, service, self.arxiv_406, title_match=self.title_match, listed=self.listed
-        )
+        log.kind = classify(response, service, self.arxiv_406, self._expect())
         if log.kind == USABLE:
             headers = dict(response.headers)
             log.memory = (response.status_code, headers, body, response.url or "")
@@ -1040,8 +1113,19 @@ class Transport:
         if log.kind == AUTH and service in self.keys and carried:
             self.run.reject(service or "")
         if log.kind == BUDGET:
-            self.run.spend_budget()
+            self.run.spend_budget(single_work=self.action in SINGLE_WORK_ACTIONS)
         return response
+
+    # @spec PRIOR-SCR-062
+    def _expect(self) -> Expect:
+        """What the current request's response must hold to be usable.
+
+        A single-work request's sender says so in `expected` before it sends; any other request
+        is judged by the invocation's action.
+        """
+        if self.expected is not None:
+            return self.expected
+        return Expect(title_match=self.title_match, listed=self.listed)
 
     @staticmethod
     def _failed(log: RequestLog) -> None:
@@ -1093,6 +1177,9 @@ class Connectors:
     s2_error: type[Exception]
     searcher: Any = None
     s2_key: str | None = None
+    arxiv_id: re.Pattern[str] | None = None  # the arXiv connector's own paper-ID pattern
+    feedparser: Any = None  # the feed parser the arXiv connector uses
+    transport: Any = None  # the harvester's transport, told what a single-work request expects
 
 
 def _year(value: object) -> int | None:
@@ -1207,10 +1294,195 @@ def _s2_fetch(connectors: Connectors, args: Args, query: str) -> list[dict[str, 
     return records
 
 
+# @spec PRIOR-SCR-123, PRIOR-SCR-124
+def arxiv_get_id(connectors: Connectors, given: str) -> str | None:
+    """An arXiv `get` ID as `id_list` takes it.
+
+    Args:
+        connectors: The connectors.
+        given: The ID as given.
+
+    Returns:
+        The ID without surrounding whitespace or an `arXiv:` prefix, or None when the arXiv
+        connector's own paper-ID pattern doesn't match it.
+    """
+    value = re.sub(r"^arxiv:", "", given.strip(), flags=re.IGNORECASE)
+    pattern = connectors.arxiv_id
+    return value if pattern is not None and pattern.fullmatch(value) else None
+
+
+# @spec PRIOR-SCR-113, PRIOR-SCR-123
+def _arxiv_get(connectors: Connectors, query: str) -> list[dict[str, object]]:
+    """Send one arXiv `get` request, and make a harvest record of the paper it returns.
+
+    The connector has no method for a paper by ID, so the harvester sends the request through
+    the connector's own request routine and parses the entry with the connector's own parser.
+
+    Returns:
+        The paper's record; none when arXiv's feed has no entry, or the response isn't usable.
+
+    Raises:
+        requests.RequestException: The feed's entry isn't a paper the connector can parse.
+    """
+    import requests  # noqa: PLC0415 - imported with the fork, after the environment is set
+
+    searcher = connectors.searcher
+    params = {"id_list": arxiv_get_id(connectors, query) or "", "max_results": 1}
+    response = searcher._request_with_retries(params)  # noqa: SLF001
+    if response is None or response.status_code not in {200, 406}:
+        return []
+    entries = connectors.feedparser.parse(response.content).entries[:1]
+    try:
+        return [_record(ARXIV, searcher._paper_from_entry(entry)) for entry in entries]  # noqa: SLF001
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        msg = "arXiv's feed entry isn't a paper"
+        raise requests.RequestException(msg) from exc
+
+
+def _open_access(work: dict[str, Any]) -> dict[str, object]:
+    """The open-access fields a `get` or `related` record adds, null where OpenAlex gives none."""
+    access = work.get("open_access")
+    access = access if isinstance(access, dict) else {}
+    best = work.get("best_oa_location")
+    best = best if isinstance(best, dict) else {}
+    return {
+        "is_oa": access.get("is_oa"),
+        "oa_status": access.get("oa_status"),
+        "oa_url": access.get("oa_url"),
+        "oa_license": best.get("license"),
+    }
+
+
+# @spec PRIOR-SCR-113, PRIOR-SCR-125
+def _openalex_work(
+    connectors: Connectors, identifier: str, select: str, expect: Expect
+) -> tuple[int, dict[str, Any] | None]:
+    """Send one single-work request through the OpenAlex connector's session.
+
+    The session carries the harvester's adapter and, when the key is set, its `Authorization`
+    header. A retry is another call, which the adapter times like a connector's resend.
+
+    OpenAlex redirects a merged work's ID to the work that replaced it. The harvester follows
+    such a redirect itself, only to another work on the same host, so that the next request
+    keeps its `select` and the adapter judges it by the same expectation.
+
+    Args:
+        connectors: The connectors.
+        identifier: The work's DOI or work ID.
+        select: The fields to ask for.
+        expect: What the adapter requires of the response, redirect hops included.
+
+    Returns:
+        The response's status, and its body when that is a work: a JSON object with an ID, as
+        the adapter requires of a usable response.
+
+    Raises:
+        requests.RequestException: A redirect leads anywhere but another OpenAlex work, or
+            there are too many of them.
+    """
+    import requests  # noqa: PLC0415 - imported with the fork, after the environment is set
+
+    searcher = connectors.searcher
+    normalized = connectors.relations.normalize_identifier(identifier)
+    url = f"{searcher.BASE_URL}/{quote(normalized, safe=':')}"
+    connectors.transport.expected = expect
+    try:
+        for _hop in range(OPENALEX_REDIRECTS + 1):
+            response = searcher.session.get(
+                url, params={"select": select}, timeout=OPENALEX_TIMEOUT, allow_redirects=False
+            )
+            if response.status_code not in {301, 302, 307, 308}:
+                break
+            target = urlsplit(urljoin(url, response.headers.get("Location", "")))
+            on_host = (target.scheme, target.netloc) == ("https", "api.openalex.org")
+            if not on_host or not re.fullmatch(r"/works/W[0-9]+", target.path):
+                msg = "OpenAlex returned a redirect to something other than a work"
+                raise requests.RequestException(msg)
+            url = f"https://{target.netloc}{target.path}"
+        else:
+            msg = "OpenAlex returned too many redirects"
+            raise requests.RequestException(msg)
+    finally:
+        connectors.transport.expected = None
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    is_work = isinstance(body, dict) and isinstance(body.get("id"), str) and bool(body["id"])
+    return response.status_code, body if is_work else None
+
+
+# @spec PRIOR-SCR-132
+def _work_record(connectors: Connectors, work: dict[str, Any]) -> dict[str, object] | None:
+    """A harvest record of one OpenAlex work, with its open-access fields.
+
+    Returns:
+        The record, or None for a work the connector's parser returns no paper for (one
+        without a title).
+
+    Raises:
+        requests.RequestException: The connector's parser can't read the work.
+    """
+    import requests  # noqa: PLC0415 - imported with the fork, after the environment is set
+
+    try:
+        paper = connectors.searcher._parse_work(work)  # noqa: SLF001
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:  # @spec PRIOR-SCR-076
+        msg = "OpenAlex's work isn't a paper the connector can parse"
+        raise requests.RequestException(msg) from exc
+    return None if paper is None else _record(OPENALEX, paper) | _open_access(work)
+
+
+def _listed_work_id(connectors: Connectors, entry: object) -> str | None:
+    """The work ID of one `related_works` entry, or None when it isn't one."""
+    if not isinstance(entry, str):
+        return None
+    try:
+        work_id = str(connectors.relations.normalize_identifier(entry))
+    except ValueError:
+        return None
+    return work_id if re.fullmatch(r"W[0-9]+", work_id) else None
+
+
+# @spec PRIOR-SCR-126, PRIOR-SCR-127, PRIOR-SCR-128, PRIOR-SCR-135
+def _related_fetch(
+    connectors: Connectors, args: Args, query: str
+) -> tuple[list[dict[str, object]], str | None]:
+    """Fetch a paper's related works: its list, then each of the first listed works.
+
+    Returns:
+        The records, each with its position in OpenAlex's list as its rank, and `<M> listed`
+        when the list is longer than the number to fetch. No records when a request didn't get
+        a usable response, which ends the query there.
+    """
+    status, seed = _openalex_work(connectors, query, RELATED_SELECT, Expect(work=SEED))
+    listed = seed.get("related_works") if status == 200 and seed is not None else None  # noqa: PLR2004
+    if not isinstance(listed, list):
+        return [], None
+    truncated = f"{len(listed)} listed" if len(listed) > args.max_results else None
+    records: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for rank, entry in enumerate(listed[: args.max_results], start=1):
+        work_id = _listed_work_id(connectors, entry)
+        if work_id is None or work_id in seen:
+            continue
+        seen.add(work_id)
+        listed_work = Expect(work=WORK, gone_ok=True)
+        status, work = _openalex_work(connectors, work_id, WORK_SELECT, listed_work)
+        if status == 404:  # noqa: PLR2004 - the listed work is gone: leave it out
+            continue
+        if status != 200 or work is None:  # noqa: PLR2004
+            return [], None
+        record = _work_record(connectors, work)
+        if record is not None:
+            records.append(record | {"rank": rank})
+    return records, truncated
+
+
 def fetch(
     connectors: Connectors, args: Args, query: str
 ) -> tuple[list[dict[str, object]], str | None]:
-    """Call the connector for one query, or send a Semantic Scholar request.
+    """Call the connector for one query, or send a request the harvester builds itself.
 
     Args:
         connectors: The connectors.
@@ -1218,14 +1490,26 @@ def fetch(
         query: The query, paper ID, seed or title.
 
     Returns:
-        The harvest records, without their query ID and rank, and the stop reason when
-        snowballing hit the connector's budget.
+        The harvest records, without their query ID and (but for `related`) their rank, and the
+        query's truncation: the stop reason when snowballing hit the connector's budget, or how
+        many related works were listed when more than were fetched.
     """
     searcher = connectors.searcher
     if args.service == S2:
         return _s2_fetch(connectors, args, query), None
+    if args.action == "get" and args.service == ARXIV:
+        return _arxiv_get(connectors, query), None
+    if args.action == "get":
+        status, work = _openalex_work(connectors, query, WORK_SELECT, Expect(work=WORK))
+        found = status == 200 and work is not None  # noqa: PLR2004
+        record = _work_record(connectors, work) if found else None
+        return ([] if record is None else [record]), None
+    if args.action == "related":
+        return _related_fetch(connectors, args, query)
     if args.action == "search":
-        papers = searcher.search(query, max_results=args.max_results)
+        # @spec PRIOR-SCR-129
+        options = {"sort_by": SORTS[args.sort]} if args.service == ARXIV else {}
+        papers = searcher.search(query, max_results=args.max_results, **options)
         return [_record(args.service, p) for p in papers], None
     getter = searcher.get_citations if args.action == "citations" else searcher.get_references
     # @spec PRIOR-SCR-078
@@ -1237,7 +1521,7 @@ def fetch(
     return [_record(args.service, p) for p in result.get("papers") or []], truncated
 
 
-# @spec PRIOR-SCR-057, PRIOR-SCR-058, PRIOR-SCR-115
+# @spec PRIOR-SCR-057, PRIOR-SCR-058, PRIOR-SCR-115, PRIOR-SCR-124
 def invalid(connectors: Connectors, args: Args, query: str) -> bool:
     """Whether a query is invalid input, which is never sent.
 
@@ -1249,7 +1533,9 @@ def invalid(connectors: Connectors, args: Args, query: str) -> bool:
     Returns:
         True when the query is invalid.
     """
-    if args.action in {"citations", "references"}:
+    if args.action == "get" and args.service == ARXIV:
+        return arxiv_get_id(connectors, query) is None
+    if args.action in {"get", "citations", "references", "related"}:
         try:
             connectors.relations.normalize_identifier(query)
         except ValueError:
@@ -1486,6 +1772,9 @@ class Harvester:
             semantic.SemanticScholarRequestError,
             searcher,
             self.keys.get(S2),
+            arxiv.ArxivSearcher._PAPER_ID_RE,  # noqa: SLF001 - the connector's own pattern
+            arxiv.feedparser,
+            transport,
         )
 
     def close(self) -> None:
@@ -1552,15 +1841,31 @@ class Harvester:
         except self.connectors.request_errors:
             raised = True
         self._reraise_internal()
-        paper_id = self.args.action in NOT_FOUND_ACTIONS
+        arxiv_get = (self.args.action, self.args.service) == ("get", ARXIV)
+        # arXiv reports an unknown ID with an empty feed (below), never with a 404.
+        paper_id = self.args.action in NOT_FOUND_ACTIONS and not arxiv_get
         kind, reason = outcome(state, paper_id=paper_id, records=len(records))
         if raised and kind in RAN:
             kind = "network"  # @spec PRIOR-SCR-076
+        failed = first_failure(state)
+        gone = failed is not None and failed.sends > 0 and failed.kind == NOT_FOUND
+        if gone and self.args.action in SINGLE_WORK_ACTIONS and self.args.service == OPENALEX:
+            # @spec PRIOR-SCR-065 - the paper's own 404, also when it follows a redirect; a
+            # listed related work's 404 is usable, so it never gets here.
+            kind = "not found"
+        if kind == "empty" and arxiv_get:
+            kind = "not found"  # @spec PRIOR-SCR-130 - arXiv's feed has no entry for the ID
         if kind not in RAN:
             return QueryResult(state.qid, query, kind, reason)
         return QueryResult(state.qid, query, kind, reason, records, truncated)
 
-    # @spec PRIOR-SCR-082, PRIOR-SCR-083
+    @property
+    def _sort(self) -> str | None:
+        """The sort order to name for the invocation's queries: only an arXiv newest-first one."""
+        named = (self.args.action, self.args.service) == ("search", ARXIV)
+        return self.args.sort if named and self.args.sort != "relevance" else None
+
+    # @spec PRIOR-SCR-082, PRIOR-SCR-083, PRIOR-SCR-129
     def write(self, result: QueryResult) -> None:
         """Append a query's log line and records.
 
@@ -1575,9 +1880,11 @@ class Harvester:
                 "id": result.qid,
                 "round": self.args.round,
                 "service": self.args.service,
-                "route": ROUTES[self.args.service],
+                # @spec PRIOR-SCR-086 - a `get` fetches a known paper, which queries no route
+                "route": None if self.args.action == "get" else ROUTES[self.args.service],
                 "action": self.args.action,
                 "query": result.query,
+                "sort": self._sort,
                 "outcome": result.outcome,
                 "results": len(result.records),
                 "reason": result.reason,
@@ -1594,10 +1901,11 @@ class Harvester:
             results: Every query result.
 
         Returns:
-            The record, or None when every query was invalid input or a client error.
+            The record, or None when every query was invalid input, a client error or not
+            found, or the action is `get`, which queries no route.
         """
         counted = [r for r in results if r.outcome not in QUERY_FAULTS]
-        if not counted:
+        if not counted or self.args.action == "get":
             return None
         searched = any(r.outcome in RAN for r in results)
         queries = [
@@ -1628,13 +1936,19 @@ class Harvester:
         for r in results:
             head = f"{r.qid}  {self.args.service}  {r.query!r}  {r.outcome}  {len(r.records)}"
             head += " results"
+            if self._sort is not None:
+                head += f"  sort: {self._sort}"  # @spec PRIOR-SCR-129
             if r.reason is not None:
                 head += f"  ({r.reason})"
             if r.truncated is not None:
                 head += f"  truncated: {r.truncated}"
             lines.append(head)
-            for rank, record in enumerate(r.records[: self.args.show], start=1):
-                lines.append(_result_line(rank, record, shown))
+            open_access = (self.args.action, self.args.service) == ("get", OPENALEX)
+            for position, record in enumerate(r.records[: self.args.show], start=1):
+                rank = record.get("rank", position)
+                lines.append(_result_line(cast("int", rank), record, shown))
+                if open_access:
+                    lines.append(_open_access_line(record))  # @spec PRIOR-SCR-133
             more = len(r.records) - min(len(r.records), self.args.show)
             if more:
                 lines.append(f"    … {more} more in {self.run.root / 'records.jsonl'}")
@@ -1705,6 +2019,14 @@ def _result_line(rank: int, record: dict[str, object], shown: set[str]) -> str:
     year_text = "-" if year is None else str(year)
     citations_text = "-" if citations is None else str(citations)
     return f"  {rank:>3}  {year_text}  {citations_text}  {service_id}  {title}"
+
+
+def _open_access_line(record: dict[str, object]) -> str:
+    """The line under an OpenAlex `get` result: its open-access status and link, or neither."""
+    if record.get("is_oa") is not True:
+        return "       not open access"
+    status, url = (record.get(name) or "-" for name in ("oa_status", "oa_url"))
+    return f"       open access: {status}  {url}"
 
 
 def main(argv: list[str] | None = None) -> int:

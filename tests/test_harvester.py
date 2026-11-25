@@ -22,6 +22,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, override
+from urllib.parse import urlsplit
 
 import pytest
 import requests
@@ -66,7 +67,7 @@ CANARY = "canary-key-7f3a9c"
 # Maps ASCII digits to Arabic-Indic ones, which a regex `\d` also matches.
 ARABIC_INDIC_DIGITS = str.maketrans("0123456789", "".join(chr(0x0660 + i) for i in range(10)))
 S2_KEY = f'[semanticscholar]\napi_key = "{CANARY}"\n'
-OPTIONS = {"--service", "--round", "--run-dir", "--max-results", "--show", "--help"}
+OPTIONS = {"--service", "--round", "--run-dir", "--sort", "--max-results", "--show", "--help"}
 
 
 @dataclass
@@ -723,7 +724,7 @@ def test_no_key_set_sends_no_key_header(h: Harness) -> None:
 def test_no_option_takes_a_setting_value(h: Harness) -> None:
     """Every action's options are the documented ones, none of which takes a setting value."""
     seen: set[str] = set()
-    actions = ("search", "citations", "references", "recommend", "lookup")
+    actions = ("search", "get", "citations", "references", "related", "recommend", "lookup")
     for argv in (["--help"], *([a, "--help"] for a in actions)):
         with contextlib.suppress(SystemExit):
             h.module.main(argv)
@@ -2579,3 +2580,725 @@ def test_limiter_blocking_only_the_retry_keeps_the_rate_limit(
     assert h.run("search", "openalex", "a", "b").code == 3
     assert len(h.server.sent) == 1
     assert h.outcomes() == ["rate limit", "skipped: service throttled"]
+
+
+# Lookups by ID ------------------------------------------------------------------------------
+
+RELATED_SELECT = "id,related_works"
+BUDGET_429 = Reply(429, {"error": "Insufficient budget"})
+
+
+def _oa_work(i: int, **more: object) -> dict[str, object]:
+    """An OpenAlex work that is open access unless `more` says otherwise."""
+    return {
+        **openalex_work(i),
+        "open_access": {
+            "is_oa": True,
+            "oa_status": "gold",
+            "oa_url": f"https://example.org/oa{i}.pdf",
+        },
+        "best_oa_location": {"license": "cc-by", "pdf_url": f"https://repo.example.org/{i}.pdf"},
+        **more,
+    }
+
+
+def _related(h: Harness, listed: list[object], *, seed: int = 9) -> None:
+    """Script the seed request of a `related` query on work `W<seed>`."""
+    body = {"id": f"https://openalex.org/W{seed}", "related_works": listed}
+    h.server.route(OA, f"/works/W{seed}", Reply(200, body), params={"select": RELATED_SELECT})
+
+
+def _work_urls(*numbers: int) -> list[object]:
+    return [f"https://openalex.org/W{n}" for n in numbers]
+
+
+def _records(h: Harness) -> list[dict[str, Any]]:
+    path = h.run_dir / "records.jsonl"
+    return jsonl(path) if path.exists() else []
+
+
+# @spec PRIOR-SCR-123
+@pytest.mark.parametrize(
+    ("given", "sent_as"),
+    [
+        ("2401.00001", "2401.00001"),
+        ("  2401.00001  ", "2401.00001"),
+        ("arXiv:2401.00001", "2401.00001"),
+        ("ARXIV:2401.00001v2", "2401.00001v2"),
+        ("  arXiv:2401.00001 ", "2401.00001"),
+        ("hep-th/9901001", "hep-th/9901001"),
+        ("math.GT/0309136v1", "math.GT/0309136v1"),
+    ],
+)
+def test_arxiv_get_sends_one_id_list_request(h: Harness, given: str, sent_as: str) -> None:
+    """An arXiv `get` asks the API for the ID alone and records the paper it returns."""
+    h.server.route(AX, "/api/query", Reply(200, arxiv_feed(1)))
+    assert h.run("get", "arxiv", given).code == 0
+    (sent,) = h.server.sent
+    assert sent.query["id_list"] == [sent_as]
+    assert sent.query["max_results"] == ["1"]
+    assert "search_query" not in sent.query
+    (record,) = _records(h)
+    assert (record["title"], record["arxiv_id"]) == ("arXiv paper 1", "2401.00001v1")
+    assert h.outcomes() == ["ok"]
+
+
+# @spec PRIOR-SCR-123, PRIOR-SCR-010, PRIOR-SCR-042
+def test_arxiv_get_sends_each_id_in_its_own_request(h: Harness) -> None:
+    """Each ID is its own query and request, the same ID twice included."""
+    h.server.route(AX, "/api/query", Reply(200, arxiv_feed(1)))
+    assert h.run("get", "arxiv", "2401.00001", "2401.00002", "2401.00001").code == 0
+    assert [s.query["id_list"] for s in h.server.sent] == [
+        ["2401.00001"],
+        ["2401.00002"],
+        ["2401.00001"],
+    ]
+    assert _gaps(h.server.sent) == [3.0, 3.0]
+    assert len(h.queries()) == 3
+
+
+# @spec PRIOR-SCR-124
+@pytest.mark.parametrize(
+    "given",
+    [
+        "arXiv: 2401.00001",
+        "arXiv:arXiv:2401.00001",
+        "arXiv:",
+        "https://arxiv.org/abs/2401.00001",
+        "2401.00001V2",
+        "2401.001",
+        "not-an-id",
+        "2401.00001,2401.00002",
+        "2401.00001".translate(ARABIC_INDIC_DIGITS),
+    ],
+)
+def test_arxiv_get_refuses_other_id_forms(h: Harness, given: str) -> None:
+    """An ID the arXiv connector's pattern doesn't match is invalid input, and isn't sent."""
+    assert h.run("get", "arxiv", given).code == 3
+    assert h.outcomes() == ["invalid input"]
+    assert h.server.sent == []
+
+
+# @spec PRIOR-SCR-130, PRIOR-SCR-087, PRIOR-SCR-092
+def test_arxiv_get_of_an_unknown_id_is_not_found(h: Harness) -> None:
+    """A feed with no entry means arXiv doesn't hold the ID: not found, sent once, exit 3."""
+    h.server.route(AX, "/api/query", Reply(200, arxiv_feed(0)))
+    assert h.run("get", "arxiv", "2912.99999").code == 3
+    assert h.outcomes() == ["not found"]
+    assert len(h.server.sent) == 1
+    assert _records(h) == []
+
+
+# @spec PRIOR-SCR-062, PRIOR-SCR-123
+def test_arxiv_get_accepts_a_usable_406_feed(h: Harness) -> None:
+    """A 406 that the connector accepts as a feed gives the paper, as for a search."""
+    h.server.route(AX, "/api/query", Reply(406, arxiv_feed(1)))
+    assert h.run("get", "arxiv", "2401.00001").code == 0
+    assert [r["arxiv_id"] for r in _records(h)] == ["2401.00001v1"]
+
+
+# @spec PRIOR-SCR-074
+def test_arxiv_get_404_is_a_client_error(h: Harness) -> None:
+    """A 404 from arXiv faults the request: it reports an unknown ID with an empty feed."""
+    h.server.route(AX, "/api/query", Reply(404, "not here"))
+    assert h.run("get", "arxiv", "2401.00001").code == 3
+    assert h.outcomes() == ["client error"]
+
+
+# @spec PRIOR-SCR-086, PRIOR-SCR-133
+def test_arxiv_get_queries_no_route_and_prints_no_open_access_line(h: Harness) -> None:
+    """An arXiv `get` has no route or ledger record either, and no open-access line."""
+    h.server.route(AX, "/api/query", Reply(200, arxiv_feed(1)))
+    result = h.run("get", "arxiv", "2401.00001")
+    assert result.code == 0
+    assert "arXiv paper 1" in result.out
+    assert "open access" not in result.out
+    assert [q["route"] for q in h.queries()] == [None]
+    assert not (h.run_dir / "ledger.jsonl").exists()
+
+
+# @spec PRIOR-SCR-113, PRIOR-SCR-050, PRIOR-SCR-068
+def test_arxiv_get_is_retried_once(h: Harness) -> None:
+    """A failed arXiv `get` gets the one retry of any arXiv request."""
+    h.server.route(AX, "/api/query", Reply(500), Reply(200, arxiv_feed(1)))
+    assert h.run("get", "arxiv", "2401.00001").code == 0
+    assert len(h.server.sent) == 2
+    h.reload()
+    h.server.routes.clear()
+    h.server.route(AX, "/api/query", Reply(500))
+    assert h.run("get", "arxiv", "2401.00001").code == 3
+    assert len(h.server.sent) == 4
+    assert h.outcomes()[-1] == "network"
+
+
+# @spec PRIOR-SCR-125, PRIOR-SCR-058
+@pytest.mark.parametrize(
+    ("given", "path"),
+    [
+        ("10.1145/3368089.3409741", "/works/doi:10.1145%2F3368089.3409741"),
+        ("doi:10.1145/3368089.3409741", "/works/doi:10.1145%2F3368089.3409741"),
+        ("https://doi.org/10.1145/3368089.3409741", "/works/doi:10.1145%2F3368089.3409741"),
+        ("W2741809807", "/works/W2741809807"),
+        ("https://openalex.org/W2741809807", "/works/W2741809807"),
+        ("Attention is all you need", None),
+        ("2401.00001", None),
+    ],
+)
+def test_openalex_get_id_forms(h: Harness, given: str, path: str | None) -> None:
+    """An OpenAlex `get` takes the IDs the citations lookup takes, and sends nothing for others."""
+    h.server.route(OA, "/works/", Reply(200, _oa_work(1)))
+    result = h.run("get", "openalex", given)
+    if path is None:
+        assert (result.code, h.outcomes()) == (3, ["invalid input"])
+        assert h.server.sent == []
+    else:
+        assert (result.code, h.outcomes()) == (0, ["ok"])
+        (sent,) = h.server.sent
+        assert sent.url.split("?")[0] == f"https://{OA}{path}"
+
+
+# @spec PRIOR-SCR-125
+def test_openalex_get_asks_for_the_parser_fields_and_open_access(h: Harness) -> None:
+    """The request selects each field the connector's work parser reads, plus open access."""
+    probe = _KeyRecorder({**_oa_work(1), "concepts": [], "referenced_works": []})
+    searcher = object.__new__(openalex.OpenAlexSearcher)
+    assert searcher._parse_work(probe) is not None
+    assert {"id", "title", "authorships", "cited_by_count"} <= probe.read
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    assert h.run("get", "openalex", "W1").code == 0
+    (select,) = h.server.sent[0].query["select"]
+    assert probe.read | {"open_access", "best_oa_location"} <= set(select.split(","))
+
+
+# @spec PRIOR-SCR-125, PRIOR-SCR-048
+def test_openalex_get_carries_the_session_key(h: Harness) -> None:
+    """A keyed `get` carries the key the connector's session holds, and no key when none is set."""
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    assert h.run("get", "openalex", "W1").code == 0
+    assert "Authorization" not in h.server.sent[0].headers
+    h.reload()
+    h.settings(f'[openalex]\napi_key = "{CANARY}"\n')
+    assert h.run("get", "openalex", "W1").code == 0
+    assert h.server.sent[1].headers["Authorization"] == f"Bearer {CANARY}"
+
+
+# @spec PRIOR-SCR-132, PRIOR-SCR-083
+def test_openalex_get_record_has_open_access_fields(h: Harness) -> None:
+    """A `get` record adds the work's open-access status, link and license."""
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    closed = _oa_work(2, open_access={"is_oa": False, "oa_status": "closed", "oa_url": None})
+    closed["best_oa_location"] = None
+    h.server.route(OA, "/works/W2", Reply(200, closed))
+    bare = openalex_work(3)
+    h.server.route(OA, "/works/W3", Reply(200, bare))
+    assert h.run("get", "openalex", "W1", "W2", "W3").code == 0
+    one, two, three = _records(h)
+    assert (one["service_id"], one["title"], one["rank"]) == ("W1", "OpenAlex paper 1", 1)
+    assert (one["is_oa"], one["oa_status"], one["oa_url"], one["oa_license"]) == (
+        True,
+        "gold",
+        "https://example.org/oa1.pdf",
+        "cc-by",
+    )
+    assert (two["is_oa"], two["oa_status"], two["oa_url"], two["oa_license"]) == (
+        False,
+        "closed",
+        None,
+        None,
+    )
+    for name in ("is_oa", "oa_status", "oa_url", "oa_license"):
+        assert name in three
+        assert three[name] is None
+
+
+# @spec PRIOR-SCR-132
+def test_other_actions_records_have_no_open_access_fields(h: Harness) -> None:
+    """Only `get` and `related` records carry the open-access fields."""
+    h.server.route(OA, "/works", Reply(200, openalex_page(1)))
+    assert h.run("search", "openalex", "q").code == 0
+    (record,) = _records(h)
+    assert "is_oa" not in record
+    assert "oa_url" not in record
+
+
+# @spec PRIOR-SCR-133
+def test_openalex_get_prints_an_open_access_line(h: Harness) -> None:
+    """Under each `get` result, a line gives its open-access status and link, or says closed."""
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    closed = _oa_work(2, open_access={"is_oa": False, "oa_status": "closed", "oa_url": None})
+    h.server.route(OA, "/works/W2", Reply(200, closed))
+    no_link = _oa_work(3, open_access={"is_oa": True, "oa_status": "bronze", "oa_url": None})
+    h.server.route(OA, "/works/W3", Reply(200, no_link))
+    no_status = _oa_work(4, open_access={"is_oa": True, "oa_url": "https://example.org/4"})
+    h.server.route(OA, "/works/W4", Reply(200, no_status))
+    h.server.route(OA, "/works/W5", Reply(200, _oa_work(5, open_access={"oa_status": "gold"})))
+    h.server.route(OA, "/works/W6", Reply(200, openalex_work(6)))
+    result = h.run("get", "openalex", "W1", "W2", "W3", "W4", "W5", "W6", "W1")
+    one, two, three, four, five, six, again = (
+        _result_lines(result.out, str(q["id"])) for q in h.queries()
+    )
+    assert "OpenAlex paper 1" in one[0]
+    assert "open access: gold  https://example.org/oa1.pdf" in one[1]
+    assert "not open access" in two[1]
+    assert "open access: bronze  -" in three[1]
+    assert "open access: -  https://example.org/4" in four[1]
+    assert "not open access" in five[1]  # `is_oa` missing isn't open access
+    assert "not open access" in six[1]
+    assert "OpenAlex paper 1" not in again[0]
+    assert "open access: gold  https://example.org/oa1.pdf" in again[1]
+
+
+# @spec PRIOR-SCR-133
+def test_open_access_line_only_under_a_printed_get_result(h: Harness) -> None:
+    """No open-access line with --show 0, nor under the results of another action."""
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    _related(h, _work_urls(1))
+    assert "open access" not in h.run("get", "openalex", "W1", extra=("--show", "0")).out
+    h.reload()
+    assert "open access" not in h.run("related", "openalex", "W9").out
+
+
+# @spec PRIOR-SCR-062, PRIOR-SCR-068
+@pytest.mark.parametrize("body", [{}, {"id": ""}, {"id": 7}, ["https://openalex.org/W1"]])
+def test_openalex_get_body_without_a_work_id_is_unparsable(
+    h: Harness, body: dict[str, Any] | list[Any]
+) -> None:
+    """A 200 that isn't a work with an ID is retried once, then ends network."""
+    h.server.route(OA, "/works/W1", Reply(200, body))
+    assert h.run("get", "openalex", "W1").code == 3
+    assert h.outcomes() == ["network"]
+    assert len(h.server.sent) == 2
+
+
+# @spec PRIOR-SCR-065
+def test_openalex_get_of_an_unknown_work_is_not_found(h: Harness) -> None:
+    """A 404 means OpenAlex doesn't hold the work."""
+    h.server.route(OA, "/works/W1", Reply(404, {"error": "Not found"}))
+    assert h.run("get", "openalex", "W1").code == 3
+    assert h.outcomes() == ["not found"]
+    assert len(h.server.sent) == 1
+
+
+# @spec PRIOR-SCR-062, PRIOR-SCR-125
+def test_openalex_get_follows_a_merged_work_redirect(h: Harness) -> None:
+    """A work OpenAlex merged into another is returned under the other's ID."""
+    target = f"https://{OA}/works/W6"
+    h.server.route(OA, "/works/W5", Reply(301, b"", {"Location": target}))
+    h.server.route(OA, "/works/W6", Reply(200, _oa_work(6)))
+    assert h.run("get", "openalex", "W5").code == 0
+    assert [s.path for s in h.server.sent] == ["/works/W5", "/works/W6"]
+    (record,) = _records(h)
+    assert record["service_id"] == "W6"
+
+
+# @spec PRIOR-SCR-065
+@pytest.mark.parametrize("action", ["get", "related"])
+def test_merged_work_whose_replacement_is_gone_is_not_found(h: Harness, action: str) -> None:
+    """A 404 after a merged-work redirect still means the paper isn't found."""
+    h.server.route(OA, "/works/W5", Reply(301, b"", {"Location": f"https://{OA}/works/W6"}))
+    h.server.route(OA, "/works/W6", Reply(404, {"error": "Not found"}))
+    assert h.run(action, "openalex", "W5").code == 3
+    assert h.outcomes() == ["not found"]
+
+
+# @spec PRIOR-SCR-125, PRIOR-SCR-126, PRIOR-SCR-062
+def test_related_seed_redirect_keeps_its_select_and_its_checks(h: Harness) -> None:
+    """A redirected seed request asks the replacing work for the same fields, judged the same."""
+    h.server.route(OA, "/works/W5", Reply(301, b"", {"Location": "/works/W6"}))
+    h.server.route(OA, "/works/W6", Reply(200, {"id": "https://openalex.org/W6"}))
+    assert h.run("related", "openalex", "W5").code == 3
+    assert h.outcomes() == ["network"]
+    hops = [s for s in h.server.sent if s.path == "/works/W6"]
+    assert len(hops) == 2
+    assert all(s.query["select"] == [RELATED_SELECT] for s in hops)
+
+
+# @spec PRIOR-SCR-125, PRIOR-SCR-044
+@pytest.mark.parametrize(
+    "location",
+    [
+        "https://evil.example.org/works/W6",
+        f"https://{OA}/authors/A6",
+        f"http://{OA}/works/W6",
+        f"https://{OA}/works/W5/../../other",
+    ],
+)
+def test_openalex_get_follows_no_redirect_but_to_a_work(h: Harness, location: str) -> None:
+    """A redirect to anything but another OpenAlex work isn't followed, and ends network."""
+    h.server.route(OA, "/works/W5", Reply(301, b"", {"Location": location}))
+    assert h.run("get", "openalex", "W5").code == 3
+    assert h.outcomes() == ["network"]
+    assert [s.path for s in h.server.sent] == ["/works/W5"]
+
+
+# @spec PRIOR-SCR-125
+def test_openalex_get_gives_up_on_a_redirect_loop(h: Harness) -> None:
+    """Redirects that never reach a work end the query as network."""
+    h.server.route(OA, "/works/W5", Reply(301, b"", {"Location": "/works/W6"}))
+    h.server.route(OA, "/works/W6", Reply(301, b"", {"Location": "/works/W5"}))
+    assert h.run("get", "openalex", "W5").code == 3
+    assert h.outcomes() == ["network"]
+    assert len(h.server.sent) <= 4
+
+
+# @spec PRIOR-SCR-126, PRIOR-SCR-064
+def test_openalex_work_without_a_title_is_not_a_result(h: Harness) -> None:
+    """A work the connector's parser returns no paper for ran and found nothing."""
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1, title=None)))
+    assert h.run("get", "openalex", "W1").code == 0
+    assert h.outcomes() == ["empty"]
+
+
+# @spec PRIOR-SCR-076
+@pytest.mark.parametrize("action", ["get", "related"])
+def test_work_the_parser_cannot_read_is_network(h: Harness, action: str) -> None:
+    """A usable response whose work the connector's parser raises on ends network, not internal."""
+    _related(h, _work_urls(1))
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1, primary_location="elsewhere")))
+    target = "W1" if action == "get" else "W9"
+    assert h.run(action, "openalex", target, "W1").code == 3
+    assert h.outcomes()[0] == "network"
+    assert "internal error" not in h.outcomes()
+
+
+# @spec PRIOR-SCR-074
+@pytest.mark.parametrize("action", ["get", "related"])
+def test_single_work_client_error_is_not_resent(h: Harness, action: str) -> None:
+    """A 400 to a `get` or `related` request is a client error, sent once."""
+    h.server.route(OA, "/works/W1", Reply(400, {"error": "bad select"}))
+    assert h.run(action, "openalex", "W1").code == 3
+    assert h.outcomes() == ["client error"]
+    assert len(h.server.sent) == 1
+
+
+# @spec PRIOR-SCR-086, PRIOR-SCR-082
+def test_get_queries_no_route(h: Harness) -> None:
+    """A `get` invocation appends no ledger record, and its log lines have no route."""
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)), Reply(500))
+    result = h.run("get", "openalex", "W1", "W1")
+    assert result.code == 3
+    assert h.outcomes() == ["ok", "network"]
+    assert not (h.run_dir / "ledger.jsonl").exists()
+    assert [q["route"] for q in h.queries()] == [None, None]
+    assert not [line for line in result.out.splitlines() if line.startswith("{")]
+    assert str(h.run_dir / "ledger.jsonl") in result.out
+
+
+# @spec PRIOR-SCR-010
+@pytest.mark.parametrize(
+    ("action", "service", "query"),
+    [("get", "arxiv", "2401.00001"), ("get", "openalex", "W1")],
+)
+def test_get_takes_a_depth_of_1(h: Harness, action: str, service: str, query: str) -> None:
+    """A `get` returns its one paper, so a depth of 1 is accepted."""
+    h.server.route(AX, "/api/query", Reply(200, arxiv_feed(1)))
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    assert h.run(action, service, query, extra=("--max-results", "1")).code == 0
+
+
+def _run_argv(action: str, service: str, *rest: str) -> list[str]:
+    return [action, "--service", service, "--round", "1", "--run-dir", "R", *rest]
+
+
+# @spec PRIOR-SCR-010, PRIOR-SCR-011
+@pytest.mark.parametrize(
+    "argv",
+    [
+        _run_argv("get", "semanticscholar", "W1"),
+        _run_argv("get", "openalex", "--max-results", "2", "W1"),
+        _run_argv("get", "arxiv", "--max-results", "0", "2401.00001"),
+        _run_argv("get", "arxiv", "   "),
+        _run_argv("related", "arxiv", "W1"),
+        _run_argv("related", "semanticscholar", "W1"),
+        _run_argv("related", "openalex", "--max-results", "101", "W1"),
+        _run_argv("related", "openalex", "--max-results", "0", "W1"),
+        _run_argv("search", "openalex", "--sort", "submitted", "q"),
+        _run_argv("search", "openalex", "--sort", "relevance", "q"),
+        _run_argv("get", "arxiv", "--sort", "submitted", "2401.00001"),
+        _run_argv("search", "arxiv", "--sort", "newest", "q"),
+        _run_argv("search", "arxiv", "--sort", "submitted", "--sort", "relevance", "q"),
+        _run_argv("search", "arxiv", "--sort", "q"),
+    ],
+)
+def test_invalid_lookup_and_sort_command_lines_exit_4(h: Harness, argv: list[str]) -> None:
+    """A mismatched service, an out-of-range depth or a misplaced sort is a usage error."""
+    assert h.main(argv) == 4
+    assert h.server.sent == []
+
+
+# @spec PRIOR-SCR-126, PRIOR-SCR-132, PRIOR-SCR-086
+def test_related_fetches_each_listed_work(h: Harness) -> None:
+    """A `related` query asks for the seed's list, then for each listed work in order."""
+    _related(h, _work_urls(1, 2, 3))
+    for i in (1, 2, 3):
+        h.server.route(OA, f"/works/W{i}", Reply(200, _oa_work(i)))
+    result = h.run("related", "openalex", "W9")
+    assert result.code == 0
+    assert [s.path for s in h.server.sent] == ["/works/W9", "/works/W1", "/works/W2", "/works/W3"]
+    assert h.server.sent[0].query["select"] == [RELATED_SELECT]
+    selects = {s.query["select"][0] for s in h.server.sent[1:]}
+    h.reload()
+    h.run("get", "openalex", "W1")
+    assert selects == {h.server.sent[-1].query["select"][0]}
+    records = _records(h)[:3]
+    assert [(r["rank"], r["service_id"]) for r in records] == [(1, "W1"), (2, "W2"), (3, "W3")]
+    first = records[0]
+    assert (first["is_oa"], first["oa_status"], first["oa_url"], first["oa_license"]) == (
+        True,
+        "gold",
+        "https://example.org/oa1.pdf",
+        "cc-by",
+    )
+    logged = h.queries()[0]
+    assert (logged["outcome"], logged["results"], logged["truncated"]) == ("ok", 3, None)
+    assert logged["route"] == "OpenAlex"
+    ledger = h.ledger()[0]
+    assert (ledger["route"], ledger["state"]) == ("OpenAlex", "searched")
+
+
+# @spec PRIOR-SCR-010, PRIOR-SCR-126, PRIOR-SCR-128, PRIOR-SCR-064
+@pytest.mark.parametrize(
+    ("extra", "listed", "fetched"),
+    [
+        ((), 25, 20),
+        (("--max-results", "2"), 5, 2),
+        (("--max-results", "3"), 3, 3),
+        (("--max-results", "100"), 3, 3),
+    ],
+)
+def test_related_fetch_depth_and_truncation(
+    h: Harness, extra: tuple[str, ...], listed: int, fetched: int
+) -> None:
+    """The first N listed works are fetched (20 by default), and a longer list is noted."""
+    _related(h, _work_urls(*range(1, listed + 1)))
+    h.server.route(OA, "/works/", Reply(200, _oa_work(1)))
+    result = h.run("related", "openalex", "W9", extra=extra)
+    assert result.code == 0
+    assert len(h.server.sent) == 1 + fetched
+    (logged,) = h.queries()
+    head = next(line for line in result.out.splitlines() if str(logged["id"]) in line)
+    if listed > fetched:
+        assert logged["truncated"] == f"{listed} listed"
+        assert f"truncated: {listed} listed" in head
+    else:
+        assert logged["truncated"] is None
+        assert "truncated" not in head
+    assert logged["outcome"] == "ok"
+
+
+# @spec PRIOR-SCR-127, PRIOR-SCR-062
+def test_related_leaves_out_a_listed_work_that_is_gone(h: Harness) -> None:
+    """A listed work answering 404 is skipped, without fetching one beyond the first N instead."""
+    _related(h, _work_urls(1, 2, 3, 4))
+    h.server.route(OA, "/works/W2", Reply(404, {"error": "Not found"}))
+    h.server.route(OA, "/works/", Reply(200, _oa_work(1)))
+    assert h.run("related", "openalex", "W9", extra=("--max-results", "3")).code == 0
+    assert [s.path for s in h.server.sent] == ["/works/W9", "/works/W1", "/works/W2", "/works/W3"]
+    assert [r["rank"] for r in _records(h)] == [1, 3]
+    assert h.outcomes() == ["ok"]
+
+
+# @spec PRIOR-SCR-126
+def test_related_skips_repeated_and_malformed_entries(h: Harness) -> None:
+    """A repeated entry, or one that isn't a work ID, keeps its position and isn't requested."""
+    listed = [
+        *_work_urls(1, 1),
+        "W1",
+        "https://example.org/W7",
+        None,
+        "https://doi.org/10.1234/oa8",
+        "W3",
+        *_work_urls(4),
+    ]
+    _related(h, listed)
+    for i in (1, 3, 4):
+        h.server.route(OA, f"/works/W{i}", Reply(200, _oa_work(i)))
+    assert h.run("related", "openalex", "W9").code == 0
+    assert [s.path for s in h.server.sent] == ["/works/W9", "/works/W1", "/works/W3", "/works/W4"]
+    assert [(r["rank"], r["service_id"]) for r in _records(h)] == [(1, "W1"), (7, "W3"), (8, "W4")]
+
+
+# @spec PRIOR-SCR-126, PRIOR-SCR-128
+def test_related_counts_skipped_entries_toward_the_number_to_fetch(h: Harness) -> None:
+    """The first N entries are considered, a repeated or malformed one among them included."""
+    _related(h, [*_work_urls(1, 1), "junk", *_work_urls(2, 3)])
+    h.server.route(OA, "/works/", Reply(200, _oa_work(1)))
+    assert h.run("related", "openalex", "W9", extra=("--max-results", "3")).code == 0
+    assert [s.path for s in h.server.sent] == ["/works/W9", "/works/W1"]
+    (logged,) = h.queries()
+    assert (logged["results"], logged["truncated"]) == (1, "5 listed")
+
+
+# @spec PRIOR-SCR-062, PRIOR-SCR-135
+def test_related_listed_work_body_without_an_id_is_unparsable(h: Harness) -> None:
+    """A listed work's 200 that isn't a work is retried once, then ends the query as network."""
+    _related(h, _work_urls(1, 2))
+    h.server.route(OA, "/works/W1", Reply(200, {}))
+    h.server.route(OA, "/works/W2", Reply(200, _oa_work(2)))
+    assert h.run("related", "openalex", "W9").code == 3
+    assert [s.path for s in h.server.sent] == ["/works/W9", "/works/W1", "/works/W1"]
+    assert h.outcomes() == ["network"]
+    assert _records(h) == []
+
+
+# @spec PRIOR-SCR-064, PRIOR-SCR-127
+@pytest.mark.parametrize("listed", [[], _work_urls(1, 2)], ids=["none-listed", "all-gone"])
+def test_related_with_nothing_to_show_is_empty(h: Harness, listed: list[object]) -> None:
+    """A seed that lists no related works, or only works that are gone, ran and found nothing."""
+    _related(h, listed)
+    h.server.route(OA, "/works/", Reply(404, {"error": "Not found"}))
+    assert h.run("related", "openalex", "W9").code == 0
+    assert h.outcomes() == ["empty"]
+    assert _records(h) == []
+
+
+# @spec PRIOR-SCR-065, PRIOR-SCR-058
+def test_related_of_an_unknown_or_invalid_paper(h: Harness) -> None:
+    """A seed OpenAlex doesn't hold is not found; an ID in no accepted form isn't sent."""
+    h.server.route(OA, "/works/W9", Reply(404, {"error": "Not found"}))
+    assert h.run("related", "openalex", "W9", "not an id").code == 3
+    assert h.outcomes() == ["not found", "invalid input"]
+    assert len(h.server.sent) == 1
+
+
+# @spec PRIOR-SCR-062, PRIOR-SCR-068
+@pytest.mark.parametrize(
+    "body",
+    [{"id": "https://openalex.org/W9"}, {"related_works": []}, {"id": "W9", "related_works": "x"}],
+)
+def test_related_seed_body_without_its_list_is_unparsable(h: Harness, body: dict[str, Any]) -> None:
+    """A seed 200 without both its ID and its list of related works is retried, then network."""
+    h.server.route(OA, "/works/W9", Reply(200, body))
+    assert h.run("related", "openalex", "W9").code == 3
+    assert h.outcomes() == ["network"]
+    assert len(h.server.sent) == 2
+
+
+# @spec PRIOR-SCR-135, PRIOR-SCR-113, PRIOR-SCR-051, PRIOR-SCR-063
+def test_related_ends_at_a_listed_work_that_fails(h: Harness) -> None:
+    """A listed work failing both attempts ends the query: no records, nothing further sent."""
+    _related(h, _work_urls(1, 2, 3))
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    h.server.route(OA, "/works/W2", Reply(500))
+    h.server.route(OA, "/works/W3", Reply(200, _oa_work(3)))
+    result = h.run("related", "openalex", "W9")
+    assert result.code == 3
+    assert [s.path for s in h.server.sent] == ["/works/W9", "/works/W1", "/works/W2", "/works/W2"]
+    (logged,) = h.queries()
+    assert (logged["outcome"], logged["results"]) == ("network", 0)
+    assert _records(h) == []
+    assert "OpenAlex paper 1" not in result.out
+    replayed = [a["url"] for a in logged["attempts"] if a["from_memory"]]
+    assert [urlsplit(u).path for u in replayed] == ["/works/W9", "/works/W1"]
+
+
+# @spec PRIOR-SCR-113, PRIOR-SCR-055
+def test_related_retries_a_listed_work_once(h: Harness) -> None:
+    """A listed work that fails once is resent, and the query then runs in full."""
+    _related(h, _work_urls(1, 2))
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    h.server.route(OA, "/works/W2", Reply(503, {}, {"Retry-After": "2"}), Reply(200, _oa_work(2)))
+    assert h.run("related", "openalex", "W9").code == 0
+    assert [s.path for s in h.server.sent] == ["/works/W9", "/works/W1", "/works/W2", "/works/W2"]
+    assert [r["service_id"] for r in _records(h)] == ["W1", "W2"]
+
+
+# @spec PRIOR-SCR-129, PRIOR-SCR-082, PRIOR-SCR-089
+def test_arxiv_search_newest_first(h: Harness) -> None:
+    """--sort submitted asks arXiv for the newest first, and the log and summary say so."""
+    h.server.route(AX, "/api/query", Reply(200, arxiv_feed(2)))
+    result = h.run("search", "arxiv", "cat:cs.SE", extra=("--sort", "submitted"))
+    assert result.code == 0
+    (sent,) = h.server.sent
+    assert (sent.query["sortBy"], sent.query["sortOrder"]) == (["submittedDate"], ["descending"])
+    assert sent.query["search_query"] == ["cat:cs.SE"]
+    (logged,) = h.queries()
+    assert logged["sort"] == "submitted"
+    head = next(line for line in result.out.splitlines() if str(logged["id"]) in line)
+    assert re.search(r"2 results\s+sort: submitted", head)
+    (ledger,) = h.ledger()
+    assert ledger["route"] == "arXiv"
+
+
+# @spec PRIOR-SCR-129, PRIOR-SCR-010
+@pytest.mark.parametrize("extra", [(), ("--sort", "relevance")])
+def test_arxiv_search_by_relevance_names_no_sort(h: Harness, extra: tuple[str, ...]) -> None:
+    """A relevance search, the default, sorts by relevance and names no sort."""
+    h.server.route(AX, "/api/query", Reply(200, arxiv_feed(1)))
+    result = h.run("search", "arxiv", "q", extra=extra)
+    assert h.server.sent[0].query["sortBy"] == ["relevance"]
+    (logged,) = h.queries()
+    assert logged["sort"] is None
+    assert "sort:" not in result.out
+
+
+# @spec PRIOR-SCR-129
+def test_only_an_arxiv_search_log_line_can_name_a_sort(h: Harness) -> None:
+    """Every query log line has a `sort`, null for any query but a newest-first search."""
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    h.server.route(OA, "/works", Reply(200, openalex_page(1)))
+    h.run("search", "openalex", "q")
+    h.reload()
+    result = h.run("get", "openalex", "W1")
+    assert [q["sort"] for q in h.queries()] == [None, None]
+    assert "sort:" not in result.out
+
+
+# @spec PRIOR-SCR-118
+def test_spent_budget_still_allows_single_work_requests(h: Harness) -> None:
+    """Once a search spent the budget, `get` and `related` go on, and other actions don't."""
+    h.server.route(OA, "/works", BUDGET_429)
+    assert h.run("search", "openalex", "q").code == 3
+    _related(h, _work_urls(1))
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    h.reload()
+    assert h.run("get", "openalex", "W1").code == 0
+    h.reload()
+    assert h.run("related", "openalex", "W9").code == 0
+    for action in ("citations", "references"):
+        h.reload()
+        sent = len(h.server.sent)
+        assert h.run(action, "openalex", "W1").code == 3
+        assert len(h.server.sent) == sent
+        last = h.queries()[-1]
+        assert (last["outcome"], last["reason"]) == ("refused", "daily budget")
+
+
+# @spec PRIOR-SCR-131, PRIOR-SCR-071, PRIOR-SCR-070
+@pytest.mark.parametrize("action", ["get", "related"])
+def test_budget_response_to_a_single_work_request_stops_openalex(h: Harness, action: str) -> None:
+    """A budget response to a `get` or `related` request ends every OpenAlex request for the run."""
+    h.server.route(OA, "/works/W1", BUDGET_429)
+    assert h.run(action, "openalex", "W1", "W2").code == 3
+    assert len(h.server.sent) == 1
+    first, second = h.queries()
+    assert (first["outcome"], first["reason"]) == ("rate limit", "daily budget")
+    assert second["outcome"] == "skipped: service throttled"
+    state = json.loads((h.run_dir / "state.json").read_text())
+    assert state["openalex_budget_spent"] is True
+    assert state["openalex_single_work_budget_spent"] is True
+    for later in ("get", "related", "search"):
+        h.reload()
+        assert h.run(later, "openalex", "W3").code == 3
+        last = h.queries()[-1]
+        assert (last["outcome"], last["reason"]) == ("refused", "daily budget")
+    assert len(h.server.sent) == 1
+
+
+# @spec PRIOR-SCR-131, PRIOR-SCR-088
+def test_related_budget_response_diagnosis(h: Harness) -> None:
+    """A `related` invocation stopped by the budget reports its route as out of daily budget."""
+    h.server.route(OA, "/works/W1", BUDGET_429)
+    h.run("related", "openalex", "W1")
+    (record,) = h.ledger()
+    assert (record["state"], record["reason"]) == ("unavailable", "rate limit (daily budget)")
+
+
+# @spec PRIOR-SCR-079, PRIOR-SCR-131
+def test_state_file_without_the_single_work_record_is_read(h: Harness) -> None:
+    """A state file that records only the budget is still the harvester's own."""
+    h.run_dir.mkdir()
+    state = {"rejected_keys": {}, "openalex_budget_spent": True}
+    (h.run_dir / "state.json").write_text(json.dumps(state))
+    h.server.route(OA, "/works/W1", Reply(200, _oa_work(1)))
+    assert h.run("get", "openalex", "W1").code == 0

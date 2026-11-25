@@ -1,12 +1,14 @@
 # @spec PRIOR-SCR-100, PRIOR-SCR-101, PRIOR-SCR-102, PRIOR-SCR-103, PRIOR-SCR-104
 # @spec PRIOR-SCR-105, PRIOR-SCR-106, PRIOR-SCR-107, PRIOR-SCR-108, PRIOR-SCR-109
-# @spec PRIOR-SCR-110, PRIOR-SCR-120, PRIOR-SCR-121
+# @spec PRIOR-SCR-110, PRIOR-SCR-120, PRIOR-SCR-121, PRIOR-SCR-134
 schema_version: "1.1"
 name: harvester-literature
 description: >-
-  A full-method search on an approach need sends its arXiv and OpenAlex keyword searches, its
-  OpenAlex citation lookups and any Semantic Scholar recommendations or title lookups through the
-  skill's harvester, sends Semantic Scholar no keyword search, checks a title lookup's match, with one run directory
+  A full-method search on an approach need sends every request to the arXiv, OpenAlex and Semantic
+  Scholar APIs through the skill's harvester (keyword searches, arXiv's newest preprints, lookups
+  by arXiv ID or DOI, OpenAlex citation and related-works lookups, Semantic Scholar recommendations
+  and title lookups), requests only full text from arxiv.org, sends Semantic Scholar no keyword
+  search, checks a title lookup's match, with one run directory
   shared by every subagent, works from the harvester's printed summary rather than its files, keeps a
   route searched once any invocation searched it, and doesn't send those requests itself or re-invoke
   a throttled service within the same round.
