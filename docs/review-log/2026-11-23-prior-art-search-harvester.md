@@ -1,0 +1,3 @@
+| Date | Component | Phase | Wave | Lenses | Found | Applied | Forks | Wrong | Tokens | Time |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-23 | prior-art-search harvester (AD-92) | LLD | 1 | One reader probed the Harvester section for gaps in the new `get`, `related` and sort behaviour and their fit with the section's existing rules. 13 applied as clarifications the existing rules settle (budget exemption by action, `not found` as not run, ID grammars, `related` list handling, usage errors, state flags). 2 put to the developer: whether a `get` counts toward a route, and whether a part-failed `related` query keeps its results | 15 | 13 | 2 | 0 | 75k | 1.8 min |

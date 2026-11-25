@@ -4,6 +4,7 @@ title: Build literature full-text helpers (open-access lookup, arXiv references)
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-24T04:00:00Z'
 labels:
   - issue
 milestone: m-3
@@ -30,3 +31,16 @@ Issue #157 item 4 and comments: helpers for open-access lookup (ask OpenAlex for
 
 **Why an agent:** scripted tooling with written requirements
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: claude-code:7491ae04
+created: 2026-11-24T04:00:00Z
+
+---
+
+From AD-92 (2026-11-23): the fork at 155f360 has ArxivSearcher.download_pdf and read_paper (PDF from arxiv.org, plain text through pypdf, no HTML, math lost). harvest.py cannot carry them as it stands: its transport reads each body whole, saves it under raw/ and judges an arXiv 200 as an Atom feed, and arxiv.org is not an allowed host. arxiv.org robots.txt (read 2026-11-23) sets Crawl-delay: 15 for /abs, /pdf and /html, so the host needs its own 15-second limit, apart from the 3-second API limit. Until this task lands, agents still read arXiv full text themselves, so arXiv is not a harvester-only service.
+
+---
+<!-- COMMENTS:END -->

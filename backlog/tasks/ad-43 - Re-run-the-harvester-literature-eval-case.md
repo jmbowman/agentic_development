@@ -4,6 +4,7 @@ title: Re-run the harvester-literature eval case
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-24T06:12:00Z'
 labels:
   - spec
   - partly-done
@@ -37,3 +38,16 @@ Re-run `harvester-literature` with `mise run eval` (with `TMPDIR` outside `/tmp`
 
 **Status when filed (partly-done):** latest-results: 1 run, 1 failed (2026-11-15); SKILL.md now tells the agent to pass the run directory to every subagent
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: claude-code:7491ae04
+created: 2026-11-24T06:12:00Z
+
+---
+
+From AD-92 (2026-11-24): the case and its graders now also cover PRIOR-SCR-134 and the wider PRIOR-SCR-100 (every arXiv, OpenAlex and Semantic Scholar API request through the harvester; only full text from arxiv.org) and the PRIOR-SCR-106 exception for OpenAlex get and related. The next run is the first evidence for those.
+
+---
+<!-- COMMENTS:END -->
