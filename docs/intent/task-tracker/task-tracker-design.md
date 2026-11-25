@@ -367,7 +367,7 @@ Each template that pins the skills package renders:
 - a repo-owned `backlog/README.md`, rendered once, that points readers to the skill's format reference and the `tasks` commands;
 - ignore rules for `backlog/.cache/` and `backlog/.locks/` (Backlog.md's per-task edit locks). Consumers keep private work in the coordination repo from the start, so they get no `backlog/private/`.
 
-The rendered `config.yml` holds every key Backlog.md checks for before each command (`project_name`, `statuses`, `default_port`, `auto_open_browser`, `remote_operations`, `auto_commit`) and no comments: when one is missing, Backlog.md rewrites the whole file with its own fixed set of keys, dropping comments and keys it doesn't know.
+The rendered `config.yml` holds `default_port`, `auto_open_browser`, `remote_operations`, `auto_commit` and `task_prefix`, no `milestones` line that lists a value, and no comments: before each command, Backlog.md rewrites the whole file with its own fixed set of keys, dropping comments and keys it doesn't know, when one of those keys is missing or a `milestones` line lists a value. A missing `task_prefix` also fixes new task IDs to Backlog.md's default prefix, not the one the template renders.
 
 A release that adds a lint finding or a required key can turn a consumer's `check` red when the template update arrives. From this repo's 1.0 release on, such a release is a major version under the HLD's versioning rule; before 1.0, it may ship in a minor release.
 
