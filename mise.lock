@@ -140,51 +140,51 @@ url = "https://github.com/EtaCassiopeia/lid-tooling/releases/download/v0.3.0/lid
 url_api = "https://api.github.com/repos/EtaCassiopeia/lid-tooling/releases/assets/441761424"
 
 [[tools."github:MrLesk/Backlog.md"]]
-version = "1.57.2"
+version = "1.57.3"
 backend = "github:MrLesk/Backlog.md"
-specifiers = ["v1.57.2"]
+specifiers = ["v1.57.3"]
 
 [tools."github:MrLesk/Backlog.md"."platforms.linux-arm64"]
-checksum = "sha256:987c0c4f10d6ce44e8da5e35420204603866596d1dccc56599a3badcd7f578fa"
+checksum = "sha256:cab1a2c103b5b3beb65092abb9afa9179a342b25dfe9d6182d4132b2e615c80a"
 checksum_source = "mise-versions"
-url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.2/backlog-bun-linux-arm64"
-url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/777207564"
+url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.3/backlog-bun-linux-arm64"
+url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/779042722"
 
 [tools."github:MrLesk/Backlog.md"."platforms.linux-arm64-musl"]
-checksum = "sha256:987c0c4f10d6ce44e8da5e35420204603866596d1dccc56599a3badcd7f578fa"
+checksum = "sha256:cab1a2c103b5b3beb65092abb9afa9179a342b25dfe9d6182d4132b2e615c80a"
 checksum_source = "mise-versions"
-url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.2/backlog-bun-linux-arm64"
-url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/777207564"
+url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.3/backlog-bun-linux-arm64"
+url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/779042722"
 
 [tools."github:MrLesk/Backlog.md"."platforms.linux-x64"]
-checksum = "sha256:d6e0048b03da7e120900b236fcd8f2f6f7ef60bb10476649639fb896fce1888d"
+checksum = "sha256:2dee0513c4ba3ecbd1c75d392ed3be2e6e4bf25518d10d63cb22d1f9da19fb81"
 checksum_source = "mise-versions"
-url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.2/backlog-bun-linux-x64"
-url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/777207533"
+url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.3/backlog-bun-linux-x64"
+url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/779042714"
 
 [tools."github:MrLesk/Backlog.md"."platforms.linux-x64-musl"]
-checksum = "sha256:d6e0048b03da7e120900b236fcd8f2f6f7ef60bb10476649639fb896fce1888d"
+checksum = "sha256:2dee0513c4ba3ecbd1c75d392ed3be2e6e4bf25518d10d63cb22d1f9da19fb81"
 checksum_source = "mise-versions"
-url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.2/backlog-bun-linux-x64"
-url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/777207533"
+url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.3/backlog-bun-linux-x64"
+url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/779042714"
 
 [tools."github:MrLesk/Backlog.md"."platforms.macos-arm64"]
-checksum = "sha256:dd41e33f080d05ad2c6b9d67c46455878e0ca8826ed6c7c36a2519dc903ce6a0"
+checksum = "sha256:b28a9bea3f55e8a6462c945313f2395d4df0424ccbd6f57580ae21a274da10f4"
 checksum_source = "mise-versions"
-url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.2/backlog-bun-darwin-arm64"
-url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/777207532"
+url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.3/backlog-bun-darwin-arm64"
+url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/779042727"
 
 [tools."github:MrLesk/Backlog.md"."platforms.macos-x64"]
-checksum = "sha256:90b19d84d19f8e2b54073f1c0ffbba514d532cbdf2d0a8e203d797c0550991f9"
+checksum = "sha256:da9201a0faae67c825cc30314e05954f66ad422ed09671336f07ea4da565afdc"
 checksum_source = "mise-versions"
-url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.2/backlog-bun-darwin-x64"
-url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/777207538"
+url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.3/backlog-bun-darwin-x64"
+url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/779042711"
 
 [tools."github:MrLesk/Backlog.md"."platforms.windows-x64"]
-checksum = "sha256:176ce59327c61863653af0f997c737468b56a0ea7bf9325ec88acab2bca62b8d"
+checksum = "sha256:5bad2415a905f0c8df9393e17ffcaae5b46747ccfdc5b700f9f5c93b15fc4ca4"
 checksum_source = "mise-versions"
-url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.2/backlog-bun-windows-x64.exe"
-url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/777207531"
+url = "https://github.com/MrLesk/Backlog.md/releases/download/v1.57.3/backlog-bun-windows-x64.exe"
+url_api = "https://api.github.com/repos/MrLesk/Backlog.md/releases/assets/779042725"
 
 [[tools."github:kjanat/actionlint"]]
 version = "1.17.1"
