@@ -22,7 +22,7 @@ node = "24.22.3"
 # Pinned as the release binary, the whole CLI in one file, so a sandbox that lets a command read
 # only the folders on PATH (as `claude plugin eval`'s does) can still run it; the npm package's
 # bin folder holds only a launcher for code elsewhere.
-"github:MrLesk/Backlog.md" = { version = "1.55.3", bin = "backlog" }
+"github:MrLesk/Backlog.md" = { version = "v1.57.2", bin = "backlog" }
 # The task tool's GitHub lookup reads blockers' state through `gh`.
 gh = "2.105.0"
 # Syncs the vendored YAML parser in skills/task-tracker/scripts/_vendor/ from vendir.yml.
