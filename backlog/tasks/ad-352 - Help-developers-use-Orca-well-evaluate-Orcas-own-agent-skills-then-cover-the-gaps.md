@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-23T12:08:00Z'
+updated_date: '2026-11-25T04:21:00Z'
 labels:
   - loose-end
 milestone: m-6
@@ -40,3 +41,16 @@ The developer wants a skill that guides developers in using Orca effectively. Or
 - [ ] #1 Each of Orca's shipped skills is classified, with its reason, in docs/wiki/orca.md or a prior-art note
 - [ ] #2 The gaps left are covered by a skill or a page an agent loads when working in Orca, chosen through LID
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: 3db836d3-b908-46e0-9723-e32403b8aa4e
+created: 2026-11-25T04:21:00Z
+
+---
+
+How to continue in the same Orca worktree after its PR is squash-merged is unsettled: whether switching it to a new branch confuses Orca, or whether to move the existing branch to `main` (`git reset --keep origin/main`). Clash then also flags conflicts against other worktrees whose branches were already squash-merged (see docs/tool-feedback/clash.md).
+
+---
+<!-- COMMENTS:END -->

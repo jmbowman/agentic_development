@@ -22,3 +22,10 @@ Feedback for [Clash](https://github.com/clash-sh/clash), part of the recommended
 - **What:** in a linked worktree, a write to `commit-message.md`, which is gitignored and untracked there, was flagged as conflicting with the main worktree. A file git doesn't track can't produce a merge conflict, so the prompt interrupts every session that drafts one.
 - **Evidence:** seen in use on 2026-11-23. The edit's result read "Conflicts on commit-message.md with 1 worktree(s): main [main]: active changes". `clash check commit-message.md` then reported the main worktree with `has_active_changes: true` and `has_merge_conflict: false`. Whether the main worktree held its own copy of the file wasn't checked.
 - **Suggested fix:** skip a file that the current worktree's ignore rules exclude, or report only files with a merge conflict.
+
+## Conflicts reported against a worktree whose branch was squash-merged
+
+- **Where:** the Claude Code hook and `clash check <file>`, Clash 0.2.0. Not read in source.
+- **What:** an edit to a task file in one linked worktree was flagged as a merge conflict with another worktree whose branch had already been squash-merged into `main`. The squash leaves that branch's tip outside `main`'s history, so the simulated merge conflicts, although its changes are already in `main`. The warning carries nothing to act on, but reads like one that does.
+- **Evidence:** seen in use on 2026-11-24. The edit's result read "Conflicts on backlog/tasks/ad-354 - … .md with 1 worktree(s): … [ad-336-dependency-free]: merge conflict"; that branch's tip was not an ancestor of `main`, whose squash commit for it had been merged earlier.
+- **Suggested fix:** skip, or label as already merged, a worktree whose branch's changes are all in the default branch, compared by patch ID as `git cherry` does.
