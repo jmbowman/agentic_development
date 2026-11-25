@@ -55,12 +55,19 @@ Feedback for [Backlog.md](https://github.com/MrLesk/Backlog.md), the leading tas
 - **Evidence:** read in source at v1.55.3; not yet confirmed by running.
 - **Suggested fix:** refuse `Draft` as a status in `task edit` and point to `task demote`, or ask before removing other tasks' links.
 
-## A missing config key rewrites `config.yml`
+## Config migration rewrites `config.yml` before each command
 
-- **Where:** `src/cli.ts:1033-1060` (the migration run before each command), `src/core/config-migration.ts`, `src/file-system/operations.ts:2341` (`saveConfig`).
-- **What:** before each command, if `config.yml` lacks a key the migration checks (such as `default_port` or `auto_open_browser`), Backlog.md writes the whole file again with its own set of keys, dropping comments and keys it doesn't know.
-- **Evidence:** read in source at v1.55.3; not yet confirmed by running.
-- **Suggested fix:** add only the missing keys, keeping the rest of the file as written.
+- **Where:** `src/cli.ts:1033-1060` (the migration run before each command), `src/core/backlog.ts:1803-1927` (legacy milestones and `ensureConfigMigrated`), `src/core/config-migration.ts` (`needsMigration`), `src/core/prefix-migration.ts:20-124` (the draft-prefix migration), `src/file-system/operations.ts:2341` (`saveConfig`).
+- **What:** before each command, even a read-only one, Backlog.md writes the whole of `config.yml` again with its own set of keys, dropping comments and keys it doesn't know, when any of three things holds:
+  - the file lacks `default_port`, `auto_open_browser`, `remote_operations` or `auto_commit`. `needsMigration` also lists `project_name` and `statuses`, but the parser fills those in when they're absent (`src/file-system/operations.ts:2468,2471`), so leaving them out never triggers a rewrite;
+  - it lacks `task_prefix`. That starts the one-time draft-prefix migration, which writes `task_prefix: "task"` (the prefix new IDs already default to) and renames any `drafts/task-*.md` to `draft-*.md`;
+  - a `milestones:` line at any indent lists at least one value. That also creates a milestone file for each value.
+- **Evidence:** confirmed by running v1.55.3 in scratch git repos on 2026-11-24. Each config held a comment and an unknown key, and the command run was `backlog task list --plain`.
+  - Only `default_port` missing: the comment and unknown key were dropped, seven default keys were added, and `task_prefix` was kept.
+  - The four keys present but no `task_prefix`: the comment and unknown key were dropped, and `labels`, `date_format` and `task_prefix: "task"` were added.
+  - `milestones: ["v1"]`, at the top level or nested under another key: rewritten, and `backlog/milestones/m-0 - v1.md` created. An empty or bare `milestones:` left the file unchanged.
+  - The four keys and `task_prefix` present, with `project_name` or `statuses` left out: the file stayed byte-identical after `task list` and `search`.
+- **Suggested fix:** write only what changed (the added defaults, the `task_prefix` line, the removed `milestones` key), keeping the rest of the file as written.
 
 ## `search` writes folders and skips archived tasks
 
