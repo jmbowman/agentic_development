@@ -1,10 +1,10 @@
 ---
 id: AD-43
 title: Re-run the harvester-literature eval case
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-16'
-updated_date: '2026-11-24T06:12:00Z'
+updated_date: '2026-11-25T14:37:22Z'
 labels:
   - spec
   - partly-done
@@ -50,4 +50,19 @@ created: 2026-11-24T06:12:00Z
 From AD-92 (2026-11-24): the case and its graders now also cover PRIOR-SCR-134 and the wider PRIOR-SCR-100 (every arXiv, OpenAlex and Semantic Scholar API request through the harvester; only full text from arxiv.org) and the PRIOR-SCR-106 exception for OpenAlex get and related. The next run is the first evidence for those.
 
 ---
+
+author: claude-code:6becb69f
+created: 2026-11-25T14:00:49Z
+
+---
+
+From AD-41 (2026-11-25): no skill text changed. The wave-3 failure was the grader, which then asked for the run directory in every subagent prompt; it now asks only for literature subagents. In the wave-3 trace the literature subagents sent 7 requests of their own to OpenAlex and Semantic Scholar (lookups allowed then); since AD-92 those go through the harvester, so check for them when triaging this run.
+
+---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Re-run on 2026-11-25 (Claude Code 2.1.332, Sonnet 5.5 agent and judge, one run, no baseline arm, `TMPDIR` outside `/tmp`): score 0.60, $5.12 plus $0.96 for the judges, 26 min. Results are in `evals/prior-art-search/results/2026-11-25T14-05-29-122Z` (local) and the kept run is `claude-eval-4wKiMj`. The judges saw only the first 100,024 characters of a 1.9 MB trace, which end before any subagent starts, so the two FAILs need checking against the full trace: that triage is AD-82.
+<!-- SECTION:FINAL_SUMMARY:END -->
