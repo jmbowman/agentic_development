@@ -4,6 +4,7 @@ title: Decide when an eval-only spec is marked implemented
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-26T13:02:35Z'
 labels:
   - surfaced
 milestone: m-6
@@ -29,3 +30,16 @@ Specs files mark eval-only specs inconsistently: 66 prior-art-search *(eval)* sp
 
 **Why the developer:** a choice between two readings of the marker convention
 <!-- SECTION:DESCRIPTION:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: a20b213e-9cc5-4bd1-8407-62658bae5e42
+created: 2026-11-26T13:02:35Z
+
+---
+
+A fact for this decision, from AD-336 (2026-11-25): `tests/test_task_tracker_skill.py` requires an eval case for every spec marked *(eval)*, whatever its `[ ]` or `[x]` marker, and checks the list of eval specs against a fixed four. So a design-only slice can't add an *(eval)* spec without also adding its case. AD-336 worded two agent-behaviour specs (TASK-SKILL-035 and TASK-SKILL-044) as skill-text rules until AD-364 adds the case.
+
+---
+<!-- COMMENTS:END -->
