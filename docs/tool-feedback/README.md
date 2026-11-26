@@ -17,7 +17,7 @@ Proposed enhancements and bugs for the tools this repo uses or plans to adopt, k
 - [oneyaml](oneyaml.md): no releases or tags; an invalid `ONEYAML_BACKEND` stops the import; empty published conformance results.
 - [delta](delta.md): no mode showing each changed line once; `--word-diff` output loses its styling for code; hunk headers show one level of scope.
 - [difftastic](difftastic.md): no function or class in hunk headers; no inline display mode; fixed colours; no Markdown parser.
-- [Backlog.md](backlog-md.md): a task file can run a shell command; claims not atomic; ID generation fetches and prunes; `init --defaults` writes an always-run instruction into `AGENTS.md`; cycle checks in MCP edits unverified; the terminal viewer moves backticked paths out of their sentences; the assignee filter treats `alex` and `@alex` as different people.
+- [Backlog.md](backlog-md.md): a task file can run a shell command; claims not atomic; ID generation fetches and prunes; `init --defaults` writes an always-run instruction into `AGENTS.md`; the terminal viewer moves backticked paths out of their sentences; the assignee filter treats `alex` and `@alex` as different people.
 - [Orca](orca.md): the GUI's Delete forces removal; turning off status hooks leaves them installed; docs and code disagree on the orchestration concurrency cap.
 - [Clash](clash.md): conflict checks write loose objects; watch mode misses changes in linked worktrees.
 - [Worktrunk](worktrunk.md): removal neither checks nor backs up gitignored files.
