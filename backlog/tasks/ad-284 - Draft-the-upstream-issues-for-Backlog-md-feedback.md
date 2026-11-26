@@ -4,6 +4,7 @@ title: Draft the upstream issues for Backlog.md feedback
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-25T18:54:15Z'
 labels:
   - tool-feedback
   - upstream
@@ -31,3 +32,9 @@ Draft issue text for MrLesk/Backlog.md covering the five entries of docs/tool-fe
 
 **Why an agent:** text from recorded evidence; filing is separate
 <!-- SECTION:DESCRIPTION:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-25: one more entry to draft, added by AD-336: the assignee filter treats alex and @alex as different people.
+<!-- SECTION:NOTES:END -->

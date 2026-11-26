@@ -75,3 +75,10 @@ Feedback for [Backlog.md](https://github.com/MrLesk/Backlog.md), the leading tas
 - **What:** a search creates the empty `decisions/`, `docs/`, `drafts/` and `milestones/` folders in the backlog directory where they're missing, so a read-only use writes to the tree. It also searches only `tasks/`: a task in `archive/tasks/` or `completed/` is never found.
 - **Evidence:** confirmed by running in a scratch backlog, 2026-11-21: the folders appeared after one search, and a word present in `tasks/`, `archive/tasks/` and `completed/` matched only the `tasks/` file.
 - **Suggested fix:** create folders only in commands that write; offer an `--archived` (or `--all`) option to search the archive folders.
+
+## The assignee filter treats `alex` and `@alex` as different people
+
+- **Where:** `backlog task list -a <name>`, and the names `-a` stores on `task create` and `task edit` (1.57.2).
+- **What:** `-a` stores each name as typed, so one task can hold `alex` and another `'@alex'`. The task view shows both as `@alex`, but `task list -a @alex` finds only the task that stored the `@`, and `-a alex` only the other. Two tasks that look the same in the views filter differently. The filter does ignore letter case.
+- **Evidence:** confirmed by running 1.57.2 in scratch git repos on 2026-11-25: `-a "@alex,sam"` stored `'@alex'` and `sam`; `task <id> --plain` printed `Assignee: @alex, @sam`; `task list -a alex` and `-a @alex` each listed only the tasks holding that exact form; `-a @ALEX` matched `'@alex'`.
+- **Suggested fix:** ignore one leading `@` when the filter compares names, or add it when a name is stored.

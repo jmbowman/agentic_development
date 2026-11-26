@@ -4,6 +4,7 @@ title: Stop subagents resending their whole report when asked for process notes
 status: To Do
 assignee: []
 created_date: '2026-11-25T03:57:00Z'
+updated_date: '2026-11-26T13:02:35Z'
 labels:
   - loose-end
 milestone: m-4
@@ -39,3 +40,16 @@ Asked the hooks' fixed question ("Reply with only your process notes…"), some 
 - [ ] #1 A notes file holds only the subagent's reply to the question, not a resent report.
 - [ ] #2 A reply that restates the report is detected and handled as the design decides (asked again, trimmed or flagged), and a test covers that case.
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: a20b213e-9cc5-4bd1-8407-62658bae5e42
+created: 2026-11-26T13:02:35Z
+
+---
+
+Happened again on 2026-11-25: of five subagents sent the notes question in one session, two replied with their whole findings report as well as the notes, one of them putting the notes first and the report after.
+
+---
+<!-- COMMENTS:END -->
