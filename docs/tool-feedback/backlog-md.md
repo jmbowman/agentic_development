@@ -36,10 +36,12 @@ Feedback for [Backlog.md](https://github.com/MrLesk/Backlog.md), the leading tas
 - **Evidence:** seen by the developer in the terminal board on 2026-11-17 (task AD-1), then read in source at v1.55.3.
 - **Suggested fix:** style a path where it stands, as the isolated-path branch already does, and never move it.
 
-## Dependency cycles: check MCP edits
+## Dependency cycles: MCP edits refuse them too (nothing to file)
 
-- **What:** the CLI refuses an edit that would create a cycle ("These dependencies would create a cycle: TASK-2 -> TASK-1 -> TASK-2"), confirmed by running. An earlier source reading found only `backlog doctor` reporting cycles (`src/utils/readiness.ts:1-121`, `src/cli.ts:5920-5921`), so the MCP `task_edit` path may not refuse them; this hasn't been checked.
-- **Suggested fix, if MCP doesn't refuse them:** the same check there, reusing `findCycleThroughRoot` (`src/utils/dependency-graph.ts:219`).
+- **What:** the CLI refuses an edit that would create a cycle ("These dependencies would create a cycle: TASK-2 -> TASK-1 -> TASK-2"), confirmed by running. MCP `task_edit` refuses one with the same check, because both go through the same core edit path.
+- **Evidence:** *verified in source* at 3f6349b (v1.57.4): `task_edit` calls `editTask` (`src/mcp/tools/tasks/handlers.ts:493-517`), which maps `dependencies` into the update input (`src/utils/task-edit-builder.ts:104-106`) and calls `core.editTaskOrDraft` (`src/core/backlog.ts:3177-3202`). That reaches `applyTaskUpdateInput`, whose `resolveDependencies` (`src/core/backlog.ts:2635-2678`) calls `validateDependencies` both for a replaced list (`dependencies`, the only dependency input `task_edit` takes) and for added ones (`addDependencies`, used by the CLI). `validateDependencies` throws "These dependencies would create a cycle" (`src/utils/task-builders.ts:67-134`, the throw at `:122`), which the MCP handler returns as a `VALIDATION_ERROR`. Drafts edited through `task_edit` go through `applyTaskUpdateInput` too (`src/core/backlog.ts:3160`), and so do drafts it promotes (`:3225`, validated again under the new ID at `:3238`). Upstream's own test covers the MCP path ("rejects self-referential and cyclic dependencies through task_edit", `src/test/mcp-tasks.test.ts:1303-1329`). The same check and test were already in v1.55.3 (`src/utils/task-builders.ts:119-121`, `src/test/mcp-tasks.test.ts:1273`). Not run.
+- **Why the earlier reading missed it:** `src/utils/task-builders.ts` contains a literal NUL byte (in a `join` separator, `:197`), so `grep` treats the file as binary and prints no matching lines from it: ugrep skips it without a word, and GNU grep prints only "binary file matches". `grep -a` finds the check.
+- **Upstream:** not part of the Backlog.md issues; there is nothing to report.
 
 ## Milestone edits drop custom frontmatter keys
 

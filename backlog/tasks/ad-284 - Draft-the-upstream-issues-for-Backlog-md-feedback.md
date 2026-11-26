@@ -26,7 +26,7 @@ priority_set_by: agent
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Draft issue text for MrLesk/Backlog.md covering the five entries of docs/tool-feedback/backlog-md.md: 'A task file can run a shell command' (onStatusChange runs as sh -c; the most serious, consider a private security report first), 'Claiming a task isn't atomic', 'ID generation fetches and prunes by default', '`init --defaults` writes an always-run instruction into AGENTS.md', and 'Dependency cycles: check MCP edits' (include only if the verification item confirms it). Use the source lines and the 1.55.3 sandbox evidence already in the entries. Done when drafts are shown inline for approval.
+Draft issue text for MrLesk/Backlog.md covering four entries of docs/tool-feedback/backlog-md.md: 'A task file can run a shell command' (onStatusChange runs as sh -c; the most serious, consider a private security report first), 'Claiming a task isn't atomic', 'ID generation fetches and prunes by default', and '`init --defaults` writes an always-run instruction into AGENTS.md'. The dependency-cycle entry is left out: AD-283 found MCP edits refuse cycles too. Use the source lines and the 1.55.3 sandbox evidence already in the entries. Done when drafts are shown inline for approval.
 
 **Why it matters:** Backlog.md is the leading task store candidate; the callback issue affects any repo that accepts task files by pull request.
 

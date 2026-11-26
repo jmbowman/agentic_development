@@ -89,7 +89,7 @@ The search ran five coordinated snowball rounds. Rounds 4 and 5 added nothing th
      - creates whose issue number isn't written back ([pm-github](https://github.com/unbraind/pm-github), [pm-jira](https://github.com/unbraind/pm-jira)).
    - Jira only when a project needs it, push-only on the same design.
 
-**Upstream changes to propose to Backlog.md** (small each): reject dependency cycles in MCP edits too, if they don't already (the CLI does); the atomic claim; per-task `onStatusChange` callbacks off unless the project config allows them. Its receptiveness to outside PRs is low (table below), so each piece must also work without them.
+**Upstream changes to propose to Backlog.md** (small each): the atomic claim; per-task `onStatusChange` callbacks off unless the project config allows them. Its receptiveness to outside PRs is low (table below), so each piece must also work without them.
 
 ### The alternative: build on pm-cli
 
@@ -219,7 +219,7 @@ About 245 further candidate records were judged variants or not serious; one of 
 | H4 local | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | H5 no auto-merge | ✓ `autoCommit` off by default | ✓ | ✓ runs no git | ◐ `land` merges into the current branch, and its skills may run it (snippet) | ✓ commits on `tbd sync`, plus setup's first commit and push of its branch | ✗ its skill merges to main | ◐ web UI merges on a click | ◐ board plugin pushes on a click |
 | R1 performer, model | ◐ free-text assignees | ◐ role per item type; no per-task performer or model | ◐ free-text assignee | ✗ no assignee field | ◐ assignee/delegate; no tier field | ⊕ custom properties | ✗ | ◐ free-text owner |
-| R2 ready, cycles | ✓ ready; the CLI refuses cycles (by running) | ✓ ready (snippet); cycles only reported | ✓ cycles refused | ✓ cycles diagnosed (snippet) | ✓ cycle detection in the clone; no record | ✓ cycles refused | ✓ (snippet) | ✓ cycle check |
+| R2 ready, cycles | ✓ ready; the CLI refuses cycles (by running), MCP `task_edit` too (source) | ✓ ready (snippet); cycles only reported | ✓ cycles refused | ✓ cycles diagnosed (snippet) | ✓ cycle detection in the clone; no record | ✓ cycles refused | ✓ (snippet) | ✓ cycle check |
 | R5 views | ✓ web board, dependency graph | ◐ Mermaid via pm-graph | ✗ no renderer in the clone; no record | ✓ graph render, local map server (snippet) | ? `tbd web` not read | ◐ TUI | ◐ web board, TUI (snippet) | ✓ static HTML board |
 | R6 granularity | ◐ parent and subtasks | ◐ only leaves actionable | ✓ definition-of-ready, epic close gate | ? | ◐ | ◐ parent links (snippet) | ◐ type hierarchy (snippet) | ◐ goal scopes |
 | R7 sync | ✗ | ◐ separate packages, faulty | ✗ | ✗ | ◐ Linear only (snippet) | ✗ | ✗ | ✗ |
@@ -287,7 +287,6 @@ R9 (cross-repo) is unsupported in all eight beyond reading another directory; th
 |---|---|---|---|---|
 | Performer and tier fields | additive | Unknown frontmatter keys survive rewrites (`src/markdown/frontmatter.ts:61-91`) | small | Piece A, no fork |
 | Human authority over decisions | additive | The same keys; enforcement in a separate check | medium | Piece B, outside the tool |
-| Cycle rejection on write | the CLI refuses cycles (by running); MCP edits unchecked | `findCycleThroughRoot` (`src/utils/dependency-graph.ts:219`) | small, if MCP edits don't refuse them | Check MCP first; upstream PR only if needed |
 | Atomic claim | additive | The per-task lock lasts only for one edit | small to medium | Upstream PR, or piece D |
 | Granularity lint | additive | Readiness and parent data exist | medium | Piece C, outside the tool |
 | GitHub/Jira sync | additive | No integration layer | large | Piece F, outside the tool |
@@ -304,7 +303,7 @@ Readings are from shallow clones at the commits named; nothing was installed, bu
 - With the default `remoteOperations: true`, ID generation runs `git fetch origin --prune`. *Verified in source* (`src/git/operations.ts:605-634`, `src/utils/id-generators.ts:45-60`).
 - `onStatusChange` in a task's frontmatter runs as `sh -c` on a status change. *Verified in source* (`src/core/backlog.ts:3347-3372`, `src/utils/status-callback.ts:26-60`).
 - `init` in MCP mode runs `claude mcp add -s user` and the equivalents for Gemini, Codex and Kiro; in CLI mode it appends a block to the instruction files selected. *Verified in source* (`src/utils/mcp-client-setup.ts:18-44`, `src/core/init.ts:252-300`).
-- `backlog doctor` reports cycles (`src/utils/readiness.ts:1-121`, `src/cli.ts:5920-5921`). The source reading took this to mean cycles aren't rejected on write, but running the CLI showed it refuses a cycle on edit (Verified by running, below); whether MCP edits refuse them wasn't checked.
+- `backlog doctor` reports cycles (`src/utils/readiness.ts:1-121`; its output at `src/cli.ts:553-557` at v1.55.3), and edits through the CLI and MCP `task_edit` refuse a dependency that would create one: both reach `validateDependencies`, which throws on a cycle. *Verified in source* at v1.55.3 (`src/utils/task-builders.ts:119-121`, `src/test/mcp-tasks.test.ts:1273`) and, for the CLI, by running (below). The first source reading missed the check because `task-builders.ts` contains a NUL byte, so `grep` treats it as binary ([tool feedback](../tool-feedback/backlog-md.md#dependency-cycles-mcp-edits-refuse-them-too-nothing-to-file)).
 - Claiming is status plus assignee by convention. The create lock lives in the git common directory, which worktrees share. *Verified in source* (`src/file-system/operations.ts:700-760`).
 - No GitHub, Jira or other sync. *Verified by listing*: a grep for GitHub API, Octokit, Jira, Atlassian, Linear and GitLab over non-test `src/` gave 22 hits, all ID-prefix examples or comments.
 
@@ -403,7 +402,7 @@ Verified by running (2026-11-14), with the developer's approval: Backlog.md 1.55
 - Creating a task ran `git fetch --prune` against a local remote and deleted a stale remote-tracking branch. With `remote_operations: false`, the next create left another stale branch in place.
 - Task files are named with spaces (`task-1 - First-task.md`).
 - A task file's `onStatusChange: "touch CALLBACK_RAN"` ran when the CLI changed the task's status.
-- The CLI refused a dependency cycle ("These dependencies would create a cycle: TASK-2 -> TASK-1 -> TASK-2"), contrary to the source reading under Limitations; cycles written through MCP or by hand weren't tested.
+- The CLI refused a dependency cycle ("These dependencies would create a cycle: TASK-2 -> TASK-1 -> TASK-2"), contrary to the first source reading (see Limitations); cycles written through MCP or by hand weren't tested.
 - Custom frontmatter keys (`performer`, `agent_tier`) survived a CLI edit of the same task.
 - With `auto_commit: true`, creating a task committed only that task's file, on the current branch (`main`), and left a separately staged file staged.
 
