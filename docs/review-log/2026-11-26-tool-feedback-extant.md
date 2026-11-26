@@ -1,0 +1,3 @@
+| Date | Component | Phase | Wave | Lenses | Found | Applied | Forks | Wrong | Tokens | Time |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-11-26 | tool-feedback extant (AD-294, `extra_docs` globs) | Review | 1 | one reviewer checking the entry against extant's source at 7999ce2: each file:line citation, any glob expansion the read missed, the `--wide-docs` and `--sweep` descriptions, the suggested fix against existing behaviour, cold reading; applied: `--sweep` described as gating listed documents and not unlisted ones, and the suggested fix extended to every place that reads `extra_docs` as names | 2 | 2 | 0 | 0 | 59k | 0.5 min |
