@@ -9,6 +9,7 @@ labels:
 milestone: m-3
 dependencies:
   - AD-43
+  - AD-363
 references:
   - docs/intent/prior-art-search/prior-art-search-design.md:526
 priority: medium

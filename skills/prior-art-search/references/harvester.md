@@ -20,7 +20,7 @@ uv run --script <skill>/scripts/harvest.py <action> --service <service> --round 
 
 - `<action>`: `search` or `get` (with `--service arxiv` or `openalex`), `citations`, `references` or `related` (with `--service openalex`), or `recommend` or `lookup` (with `--service semanticscholar`).
 - `--service`: `arxiv`, `openalex` or `semanticscholar`, matching the action.
-- `--round`: the snowball round, from 1.
+- `--round`: the snowball round you are in, from 1, as [Rounds and reruns](#rounds-and-reruns) counts it.
 - `--run-dir`: the run directory. Use one for the whole skill run, in your session's scratch directory or a directory the host repo's git ignores, and give the same path to every invocation and to every subagent that searches the literature. Invocations can share it at once.
 - `--sort`: for an arXiv `search` only: `relevance` (the default) or `submitted`, which returns the newest preprints first. For a category's newest preprints, search for the category, such as `--sort submitted "cat:cs.SE"`, or add it to a query (`cat:cs.SE AND all:"test selection"`). It returns only the newest results up to `--max-results`, and a record carries the year, not the date: a new-style arXiv ID begins with the year and month of submission (`2611.…` is November 2026), which tells you whether a preprint is within the last 12 months.
 - `--max-results`: results to fetch per query. For `search`, 1 to 100 (50 when omitted); for `citations`, `references` and `recommend`, 1 to 500 (100 when omitted); for `related`, 1 to 100 (20 when omitted); a `get` returns its one paper, and a `lookup` its one best match. A page of up to 100 is one request, so deep pages cost nothing extra in requests. A `get` is one request per ID (3 seconds apart on arXiv), and a `related` query is one request for the paper and one for each related work.
@@ -53,6 +53,21 @@ Outcomes: `ok`, `empty` (for a `lookup`, no title matched; for `related`, the pa
 
 OpenAlex charges its daily budget for searches, citations and references, not for the single-work requests of `get` and `related`. So after an OpenAlex `search`, `citations` or `references` query ends `rate limit` (a spent budget or a paused search), you may still run `get` and `related` on OpenAlex in the same round. If a `get` or `related` query itself ends `rate limit`, don't run either again until the next round.
 
+## Rounds and reruns
+
+A failed query, and a service stopped by `rate limit` (or Semantic Scholar by `network`), wait for your next round. Each agent that runs the harvester counts its own rounds, and a round is later only when both of these hold:
+
+- you have finished your current round: every one of its queries, on all of your routes, has been sent or has an outcome from the harvester, a failure or a skip included;
+- in the new round, before the harvester command for the stopped service or the failed query, or among that command's own queries, you run at least one seeded query, on any route, through the harvester or not. A seeded query is built from a new serious candidate in any way step 6 or the literature snowball uses one: its name, its ID, its references, citing or related works, its vocabulary, its topics, pages that list alternatives to it. You found that candidate in your previous round, on any route. A subagent may also use the seeds in its prompt, but only for its first round.
+
+A failed query run again is never the seeded query, reworded or not. A higher `--round` number alone is not a later round: pass the number of the round you are in, and give a corrected query you rerun at once the same number as the command that failed it. The search has one numbering. The main agent counts from 1 and, when it dispatches a subagent for a later round, puts that round's number and its seeds in the prompt; a subagent starts from the number in its prompt (1 if there is none) and counts on from it for further rounds of its own.
+
+The main agent's next round begins when every subagent of its current round has returned, its own queries of the round have run, and the round found a new serious candidate. Candidates its subagents returned count as its own. The seeded query may be one a subagent runs on being dispatched for the new round, so the main agent may then give that subagent a service that was stopped: it names the service as stopped in the prompt, and the subagent's first harvester command for it follows a seeded query or includes one. For a subagent dispatched with a round number after 1, that round is its first and is already later than the rounds before it. With no new serious candidate to seed from, there is no later round: leave the queries failed, and the route keeps the state the ledger gives it.
+
+A stop outranks the immediate rerun of a corrected query: when one command ends with a `client error` query and a `rate limit` query for the same service, the corrected query waits for the next round too.
+
+The services count requests by your machine's address, so a stop outlasts the subagent that met it. A subagent that returns with a service still stopped names it in what it returns, and the main agent doesn't run the harvester for that service, or give the service to another subagent, until its own next round (OpenAlex `get` and `related` excepted, as above).
+
 ## Files in the run directory
 
 - `queries.jsonl`: one line per query, with its outcome and every attempt.
@@ -67,7 +82,7 @@ OpenAlex charges its daily budget for searches, citations and references, not fo
 | Status | Meaning | What to do |
 |---|---|---|
 | `0` | Every query ran. | Read the summary. |
-| `3` | At least one query didn't run. | Read the outcomes. Don't resend those queries yourself. Correct and rerun an `invalid input` or `client error` query at once if you can; rerun any other failed query only in a later round. After a `rate limit`, or a Semantic Scholar query ending `network`, don't run the harvester for that service again until the next round (but see OpenAlex's `get` and `related` above); the route's substitute covers it meanwhile. |
+| `3` | At least one query didn't run. | Read the outcomes. Don't resend those queries yourself. Correct and rerun an `invalid input` or `client error` query at once if you can, unless the service is stopped; rerun any other failed query only in a later round, as [Rounds and reruns](#rounds-and-reruns) counts it. After a `rate limit`, or a Semantic Scholar query ending `network`, don't run the harvester for that service again until the next round (but see OpenAlex's `get` and `related` above); the route's substitute covers it meanwhile. |
 | `4` | Nothing was sent. The message starts `harvest.py: usage error:`, `harvest.py: setup error:` or `harvest.py: internal error`. | After a usage error, fix the command and rerun. After any other, report the problem it names, and send these requests yourself under the rules in [SKILL.md](../SKILL.md). |
 
 Any other status means `uv` failed before the harvester started; send the requests yourself then too. Whenever you send them yourself, say in each affected route's ledger `reason` that they were sent without the harvester.

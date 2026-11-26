@@ -45,6 +45,7 @@ Runner details worth knowing:
 - The default judge is Haiku; `--judge-model` changes it. `--model` sets the model under test.
 - A `tool_used` grader's "called Nx" counts only calls that match its `input_match`, so 0x doesn't show that the tool went unused or that the sandbox failed.
 - `results/<run>/aggregate-result.json` holds each `llm` grader's evidence but not the judges' reasons. The evidence is cut at about 100,000 characters, so on a long run (an online full-method search with subagents) the judges see only the main agent's first steps: keep the run's temp directory and check the conditions in `out/trace.jsonl` before trusting a PASS or a FAIL. Diagnose a flaky grader by comparing a passing and a failing run.
+- `results/<run>/aggregate-result.json` also keeps each grader's text as it stood at the run (`.cases[].graders[].graderMarkdown`). Before fixing a failure that an old review-log row reports, compare that text with the current grader: the grader may have changed since.
 
 Each case's `case.yaml` lists the specs it exercises in `@spec` comments. Each skill's structure tests (`tests/test_prior_art_skill.py`, `tests/test_session_wrap_up_skill.py`) check that every spec its specs file marks *(eval)* has a case in its own suite. `tests/test_evals.py` checks that every case loads in the runner and sits under its skill's directory with its tag.
 
