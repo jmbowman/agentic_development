@@ -1,10 +1,10 @@
 ---
 id: AD-199
 title: Apply the review-wave loop to this repo as an interim rule
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-16'
-updated_date: '2026-11-28T02:33:33Z'
+updated_date: '2026-11-28T03:18:28Z'
 labels:
   - prior-art
 milestone: m-6
@@ -21,6 +21,15 @@ performer: agent
 agent_tier: moderate
 effort: S
 priority_set_by: agent
+sessions:
+  - agent: claude-code
+    id: 7266f96f-11b4-409a-94b6-febeac87bf64
+    role: worked
+    date: '2026-11-27'
+  - agent: claude-code
+    id: 7266f96f-11b4-409a-94b6-febeac87bf64
+    role: finished
+    date: '2026-11-27'
 ---
 
 ## Description
@@ -45,3 +54,9 @@ Brief and triage notes from the AD-140 review loop (ten waves, 2026-11-26), for 
 
 ---
 <!-- COMMENTS:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+AGENTS.md gains a Review waves rule that applies docs/decisions/review-wave-stopping.md to this repo as an interim rule, pointing to the decision doc as the source of truth for the stop, escalation and definitions; the portable form waits on AD-372. Its five steps: a per-wave snapshot in tmp/review-waves/ that also keeps findings and triage rulings; fresh full-scope reviewers whose briefs name intended uses, say nothing is a good outcome and carry rejected and deferred findings; a separate triage agent holding the worth-a-wave bar and ruling on exposed untouched text by harm; fork rulings first, then the stop, escalation and apply checks in that order (deferral tasks need no wave, per the developer); a final stop that leads with the artifact (AD-369). The Commits, LID stop cadence, Spec-review findings, Review log, README and Subagents rules now follow the loop (untracked files, renamed task paths, --stat first). docs/review-log/README.md now records Accepted, Deferred, Rejected and Fix-caused per wave, defines restarts and escalation notes, and settles how task-edit fixes and split fix-and-fork findings are counted. Verified by mise run check and tasks check passing, and by four review waves under the rule itself (docs/review-log/2026-11-27-review-waves.md): 6, 1 and 1 accepted, then none. Risk: the escalation thresholds are still guesses (AD-370).
+<!-- SECTION:FINAL_SUMMARY:END -->
