@@ -16,6 +16,7 @@ references:
     waves and triage
   - docs/high-level-design.md:62
   - README.md#Status
+  - docs/decisions/review-wave-stopping.md
 priority: medium
 type: feature
 performer: agent
@@ -27,7 +28,7 @@ priority_set_by: agent
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Compute the review plan in code from artifact kind and change size: which lenses each document or hunk owes, coverage credited by hunk digest, re-rounds reviewing only changed or referencing hunks. Design from craftsman (code diffs) extended to documents. Done when a plan function has fixtures and the wave procedure uses it.
+Compute the review plan in code from artifact kind and change size: which lenses each document or hunk owes, coverage credited by hunk digest within a wave, never across waves, since each wave covers the whole change as it stands (docs/decisions/review-wave-stopping.md). Design from craftsman (code diffs) extended to documents. Done when a plan function has fixtures and the wave procedure uses it.
 
 **Why it matters:** Rule-driven dispatch beat agent discretion in the evidence read.
 

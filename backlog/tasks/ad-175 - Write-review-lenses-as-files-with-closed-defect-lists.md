@@ -4,11 +4,13 @@ title: Write review lenses as files with closed defect lists
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-27T21:44:06Z'
 labels:
   - prior-art
 milestone: m-6
 dependencies:
   - AD-140
+  - AD-372
 references:
   - >-
     docs/prior-art/2026-11-10-agentic-development-process-synthesis.md#9. Review

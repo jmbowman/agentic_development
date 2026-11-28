@@ -22,7 +22,7 @@ priority_set_by: agent
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Synthesis Decision 4: build the ledger, stop rule and document mode here (nothing covers them), and before building a code mode run craftsman and a plain lens wave on the same seeded and escape cases, adopting craftsman for code diffs if it wins. Done when the developer rules, and records it.
+Synthesis Decision 4: build the ledger, stop rule and document mode here (nothing covers them), and before building a code mode run craftsman and a plain lens wave on the same seeded and escape cases, adopting craftsman for code diffs if it wins. Craftsman's planner re-reviews only the fix diff, which docs/decisions/review-wave-stopping.md rules out for review waves, so a trial checks whether full-scope later waves can be configured. Done when the developer rules, and records it.
 
 **Why it matters:** Avoids rebuilding dispatch that an MIT tool already provides, or adopting one that does not fit.
 

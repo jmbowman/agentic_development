@@ -26,7 +26,7 @@ priority_set_by: agent
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Once the developer rules on the synthesis decisions, cascade them through the arrow: reword 'review waves until convergence' (HLD line 42), replace or keep the planned 'small state machine', update the planned-components list (review-wave orchestration, path-scoped rules, commit lint) and name long-run maintainability and transfer to other models as open limits. Each change goes through LID's stops. Done when the HLD and affected LLDs match the rulings and `mise run check` passes.
+Once the developer rules on the synthesis decisions, cascade them through the arrow: define 'review waves until convergence' (HLD line 42) as the loop in docs/decisions/review-wave-stopping.md (already linked from Key Design Decisions), replace or keep the planned 'small state machine', update the planned-components list (review-wave orchestration, path-scoped rules, commit lint) and name long-run maintainability and transfer to other models as open limits. Each change goes through LID's stops. Done when the HLD and affected LLDs match the rulings and `mise run check` passes.
 
 **Why it matters:** Keeps the arrow of intent consistent with the chosen process.
 

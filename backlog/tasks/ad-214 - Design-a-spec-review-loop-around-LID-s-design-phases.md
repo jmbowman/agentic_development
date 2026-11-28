@@ -4,16 +4,20 @@ title: Design a spec-review loop around LID's design phases
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-27T21:44:07Z'
 labels:
   - open-question
 milestone: m-6
 dependencies:
   - AD-140
+  - AD-369
+  - AD-372
 references:
   - docs/high-level-design.md:63
   - >-
     docs/prior-art/2026-11-10-agentic-development-process-synthesis.md#4. Spec
     and plan review
+  - docs/decisions/review-wave-stopping.md
 priority: medium
 type: feature
 performer: agent
@@ -25,7 +29,7 @@ priority_set_by: agent
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The HLD lists a spec-review loop around LID's design phases as a planned component not yet designed. Write its LLD and specs through LID, starting from the synthesis note's 'Spec and plan review' stage. Done when an LLD exists and the HLD links it.
+The HLD lists a spec-review loop around LID's design phases as a planned component not yet designed. Write its LLD and specs through LID, starting from the synthesis note's 'Spec and plan review' stage. Its review waves follow docs/decisions/review-wave-stopping.md; the design doesn't define its own stop rule. Done when an LLD exists and the HLD links it.
 
 Input from AD-5's edge audit (2026-11-20), as the probe subagents reported it: a word cap and a target number of findings pulled against each other in four briefs, so findings were merged and lost detail; blind readers kept drawing on outside knowledge (the language's libraries, the adopted tool's conventions) and asked for the likely sources to be named in the brief; and the spec file's definitions produced cross-spec forks that per-line readers missed, which a cross-spec reader caught.
 

@@ -4,11 +4,14 @@ title: Design the process hooks component
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-27T21:44:07Z'
 labels:
   - open-question
 milestone: m-6
 dependencies:
   - AD-140
+  - AD-142
+  - AD-372
 references:
   - docs/high-level-design.md:167
   - README.md#What's in this repo
