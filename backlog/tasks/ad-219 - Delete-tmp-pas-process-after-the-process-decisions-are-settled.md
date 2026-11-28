@@ -4,11 +4,19 @@ title: Delete tmp/pas-process after the process decisions are settled
 status: To Do
 assignee: []
 created_date: '2026-11-16'
+updated_date: '2026-11-26T14:44:54Z'
 labels:
   - loose-end
 milestone: m-6
 dependencies:
   - AD-140
+  - AD-141
+  - AD-142
+  - AD-143
+  - AD-155
+  - AD-156
+  - AD-157
+  - AD-158
 priority: low
 type: chore
 performer: agent
