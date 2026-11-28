@@ -267,10 +267,10 @@ checksum = "sha256:e612af99f626ab415ea225af6bce5c971feb448cb5cae250bb1c3fa50c5f7
 url = "https://nodejs.org/dist/v24.22.3/node-v24.22.3-win-x64.zip"
 
 [[tools."npm:renovate"]]
-version = "44.261.2"
-aube = { path = ".mise/locks/npm-renovate/44.261.2~aa673d8d", digest = "sha256:7ed257378b6e635f475cebd38339a334d3fc335c8808d9cfd9af496d6470721c" }
+version = "44.261.3"
+aube = { path = ".mise/locks/npm-renovate/44.261.3~aa673d8d", digest = "sha256:4ad434e312872438a71575fd5b49090c33f06321da335739bbaab0c3c2747b68" }
 backend = "npm:renovate"
-specifiers = ["44.261.2"]
+specifiers = ["44.261.3"]
 
 [tools."npm:renovate".options]
 trust_policy_excludes = '["@yarnpkg/libzip@3.2.2"]'
