@@ -97,7 +97,8 @@ Never name a private repo, or reference a private draft, in a public repo's task
 - Several `task edit` options replace a whole list rather than add to it: `--acceptance-criteria`, `--dep`, `--ref`, `-l`, `--notes` and `-a`. Add with `--add-ref`, `--add-label` and `--append-notes`. To add a dependency, pass the full list to `--dep`. Tick criteria with repeated `--check-ac <n>`.
 - In shell commands, put text containing backticks in single quotes. Build multi-line text by repeating an `--append-*` option, not with heredocs or `$'…'`.
 - Never set a task's status to `Draft` or run `backlog task demote`: Backlog.md then moves the task to its drafts, gives it a new ID, and removes the old ID from every other task's `dependencies` and `references`.
-- Task file names contain spaces (`ad-12 - Title.md`): quote them, and match one by ID with an escaped glob, `backlog/tasks/ad-12\ -\ *.md`.
+- Retitle a task by editing `title:` in its file, never with `task edit -t`, which renames the file to match. Don't rename a task's file by hand either: the duplicate-ID steps below are the only rename. Until it is staged, a rename shows in git as a deleted file and an untracked one, which hides what changed from a developer reviewing unstaged work. And Backlog.md links a renamed file to its copies on other branches only through a `created_date` that holds a time, so for a task whose date has none, the ID becomes ambiguous while any branch keeps the old name.
+- Task file names contain spaces (`ad-12 - Title.md`): quote them, and match one by ID with an escaped glob, `backlog/tasks/ad-12\ -\ *.md`. A file name can show an older title than the task's: the `title` in its frontmatter is the task's title.
 
 ## Duplicate IDs
 

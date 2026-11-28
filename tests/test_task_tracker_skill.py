@@ -126,6 +126,7 @@ RULE_TOKENS: dict[str, tuple[str, ...]] = {
         "--append-notes",
     ),
     "TASK-SKILL-026": ("git log --diff-filter=A", "check"),
+    "TASK-SKILL-045": ("title:", "task edit -t"),
     "TASK-SKILL-028": (
         "next",
         "task list",
@@ -294,6 +295,7 @@ def test_format_reference_welcomes_other_writers() -> None:
 # @spec TASK-SKILL-007, TASK-SKILL-010, TASK-SKILL-011, TASK-SKILL-012, TASK-SKILL-013
 # @spec TASK-SKILL-015, TASK-SKILL-016, TASK-SKILL-017, TASK-SKILL-018, TASK-SKILL-019
 # @spec TASK-SKILL-022, TASK-SKILL-023, TASK-SKILL-024, TASK-SKILL-026, TASK-SKILL-028
+# @spec TASK-SKILL-045
 @pytest.mark.parametrize(("spec", "tokens"), sorted(RULE_TOKENS.items()))
 def test_rule_names_what_it_depends_on(spec: str, tokens: tuple[str, ...]) -> None:
     """Each rule names the commands, options, keys and values it depends on, in SKILL.md."""

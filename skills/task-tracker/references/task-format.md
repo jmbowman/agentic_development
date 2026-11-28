@@ -9,7 +9,7 @@ The backlog directory is `backlog/` at the repo root, unless a `backlog.config.y
 | Path | Holds | Written by |
 |---|---|---|
 | `config.yml` | Backlog.md's settings; the tool reads `project_name`, `task_prefix`, `statuses` and `types` | The developer |
-| `tasks/` | Open and recently finished tasks, `<id> - <Title>.md` with the ID lower-cased | Agents and the developer, through `backlog task create` and edits |
+| `tasks/` | Open and recently finished tasks, `<id> - <Title>.md` with the ID lower-cased and the title the task was created with; a file isn't renamed when its title changes | Agents and the developer, through `backlog task create` and edits |
 | `archive/tasks/`, `completed/` | Tasks Backlog.md has archived, taken off its board whether finished or dropped | Backlog.md |
 | `milestones/` | The workstreams tasks are grouped under, one file each | The developer, or an agent drafting for review |
 | `focus.yml` | The developer's pins and ranking weights | The developer only |
